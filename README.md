@@ -18,7 +18,7 @@ Instructions
 
 **1. Add sources to Gemfile**
 
-If and when the branches are merged into mainline Rails/Sprockets, the only step required here is to add `gem 'jquery-rails'` to the Gemfile.
+If and when the branches are merged into mainline Rails/Sprockets, the only step required here is to add `gem 'tinymce-rails'` to the Gemfile.
 
     source 'http://rubygems.org'
     
