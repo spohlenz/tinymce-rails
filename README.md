@@ -25,7 +25,7 @@ If and when the branches are merged into mainline Rails/Sprockets, the only step
     gem 'rails', :git => 'git://github.com/spohlenz/rails.git', :branch => "fingerprinting"
     gem 'sprockets', :git => 'git://github.com/spohlenz/sprockets.git', :branch => "fingerprinting"
     
-    gem 'tinymce-rails', :path => "git://github.com/spohlenz/tinymce-rails"
+    gem 'tinymce-rails', :git => "git://github.com/spohlenz/tinymce-rails"
     
     # Gems used only for assets and not required
     # in production environments by default.
