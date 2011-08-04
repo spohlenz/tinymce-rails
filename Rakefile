@@ -3,6 +3,12 @@ unless defined? TinyMCE::VERSION
   require "tinymce/version"
 end
 
+def step(name)
+  print "#{name} ..."
+  yield
+  puts " DONE"
+end
+
 namespace :tinymce do
   desc "Update TinyMCE to version specified in lib/tinymce/version.rb"
   task :update => [ :fetch, :extract, :process ]
@@ -15,32 +21,32 @@ namespace :tinymce do
   end
   
   task :extract do
-    print "Extracting files ..."
-    `unzip -u tmp/tinymce.zip -d tmp`
-    puts " DONE"
+    step "Extracting files" do
+      `unzip -u tmp/tinymce.zip -d tmp`
+    end
     
-    print "Moving files into assets/vendor ..."
-    `rm -rf assets/vendor/tinymce`
-    `mkdir -p assets/vendor/tinymce`
-    `mv tmp/tinymce/jscripts/tiny_mce/* assets/vendor/tinymce/`
-    puts " DONE"
+    step "Moving files into assets/vendor" do
+      `rm -rf assets/vendor/tinymce`
+      `mkdir -p assets/vendor/tinymce`
+      `mv tmp/tinymce/jscripts/tiny_mce/* assets/vendor/tinymce/`
+    end
   end
   
   task :process do
-    print "Removing minified versions ..."
-    Dir["assets/vendor/tinymce/**/*_src.js"].each do |file|
-      `rm #{file.sub("_src", "")}`
-      `mv #{file} #{file.sub("_src", "")}`
+    step "Removing minified versions" do
+      Dir["assets/vendor/tinymce/**/*_src.js"].each do |file|
+        `rm #{file.sub("_src", "")}`
+        `mv #{file} #{file.sub("_src", "")}`
+      end
     end
-    puts " DONE"
     
-    print "Fixing file encoding ..."
-    require 'iconv'
-    converter = Iconv.new('UTF-8', 'ISO-8859-1')
-    Dir["assets/vendor/tinymce/**/*.js"].each do |file|
-      contents = converter.iconv(File.read(file)).force_encoding('UTF-8')
-      File.open(file, 'w') { |f| f.write(contents) }
+    step "Fixing file encoding" do
+      require 'iconv'
+      converter = Iconv.new('UTF-8', 'ISO-8859-1')
+      Dir["assets/vendor/tinymce/**/*.js"].each do |file|
+        contents = converter.iconv(File.read(file)).force_encoding('UTF-8')
+        File.open(file, 'w') { |f| f.write(contents) }
+      end
     end
-    puts " DONE"
   end
 end
