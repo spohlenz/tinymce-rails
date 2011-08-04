@@ -1,1 +1,114 @@
-(function(){var c=tinymce.DOM,a=tinymce.dom.Event,d=tinymce.each,b=tinymce.explode;tinymce.create("tinymce.plugins.TabFocusPlugin",{init:function(f,g){function e(i,j){if(j.keyCode===9){return a.cancel(j)}}function h(l,p){var j,m,o,n,k;function q(r){n=c.select(":input:enabled,*[tabindex]");function i(s){return s.type!="hidden"&&s.tabIndex!="-1"&&!(n[m].style.display=="none")&&!(n[m].style.visibility=="hidden")}d(n,function(t,s){if(t.id==l.id){j=s;return false}});if(r>0){for(m=j+1;m<n.length;m++){if(i(n[m])){return n[m]}}}else{for(m=j-1;m>=0;m--){if(i(n[m])){return n[m]}}}return null}if(p.keyCode===9){k=b(l.getParam("tab_focus",l.getParam("tabfocus_elements",":prev,:next")));if(k.length==1){k[1]=k[0];k[0]=":prev"}if(p.shiftKey){if(k[0]==":prev"){n=q(-1)}else{n=c.get(k[0])}}else{if(k[1]==":next"){n=q(1)}else{n=c.get(k[1])}}if(n){if(n.id&&(l=tinymce.get(n.id||n.name))){l.focus()}else{window.setTimeout(function(){if(!tinymce.isWebKit){window.focus()}n.focus()},10)}return a.cancel(p)}}}f.onKeyUp.add(e);if(tinymce.isGecko){f.onKeyPress.add(h);f.onKeyDown.add(e)}else{f.onKeyDown.add(h)}},getInfo:function(){return{longname:"Tabfocus",author:"Moxiecode Systems AB",authorurl:"http://tinymce.moxiecode.com",infourl:"http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/tabfocus",version:tinymce.majorVersion+"."+tinymce.minorVersion}}});tinymce.PluginManager.add("tabfocus",tinymce.plugins.TabFocusPlugin)})();
+/**
+ * editor_plugin_src.js
+ *
+ * Copyright 2009, Moxiecode Systems AB
+ * Released under LGPL License.
+ *
+ * License: http://tinymce.moxiecode.com/license
+ * Contributing: http://tinymce.moxiecode.com/contributing
+ */
+
+(function() {
+	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each, explode = tinymce.explode;
+
+	tinymce.create('tinymce.plugins.TabFocusPlugin', {
+		init : function(ed, url) {
+			function tabCancel(ed, e) {
+				if (e.keyCode === 9)
+					return Event.cancel(e);
+			};
+
+			function tabHandler(ed, e) {
+				var x, i, f, el, v;
+
+				function find(d) {
+					el = DOM.select(':input:enabled,*[tabindex]');
+					function canSelect(e) {
+						return e.type != 'hidden' && 
+						e.tabIndex != '-1' && 
+							!(el[i].style.display == "none") && 
+							!(el[i].style.visibility == "hidden");
+				    }
+
+					each(el, function(e, i) {
+						if (e.id == ed.id) {
+							x = i;
+							return false;
+						}
+					});
+
+					if (d > 0) {
+						for (i = x + 1; i < el.length; i++) {
+							if (canSelect(el[i]))
+								return el[i];
+						}
+					} else {
+						for (i = x - 1; i >= 0; i--) {
+							if (canSelect(el[i]))
+								return el[i];
+						}
+					}
+
+					return null;
+				};
+
+				if (e.keyCode === 9) {
+					v = explode(ed.getParam('tab_focus', ed.getParam('tabfocus_elements', ':prev,:next')));
+
+					if (v.length == 1) {
+						v[1] = v[0];
+						v[0] = ':prev';
+					}
+
+					// Find element to focus
+					if (e.shiftKey) {
+						if (v[0] == ':prev')
+							el = find(-1);
+						else
+							el = DOM.get(v[0]);
+					} else {
+						if (v[1] == ':next')
+							el = find(1);
+						else
+							el = DOM.get(v[1]);
+					}
+
+					if (el) {
+						if (el.id && (ed = tinymce.get(el.id || el.name)))
+							ed.focus();
+						else
+							window.setTimeout(function() {
+								if (!tinymce.isWebKit)
+									window.focus();
+								el.focus();
+							}, 10);
+
+						return Event.cancel(e);
+					}
+				}
+			};
+
+			ed.onKeyUp.add(tabCancel);
+
+			if (tinymce.isGecko) {
+				ed.onKeyPress.add(tabHandler);
+				ed.onKeyDown.add(tabCancel);
+			} else
+				ed.onKeyDown.add(tabHandler);
+
+		},
+
+		getInfo : function() {
+			return {
+				longname : 'Tabfocus',
+				author : 'Moxiecode Systems AB',
+				authorurl : 'http://tinymce.moxiecode.com',
+				infourl : 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/tabfocus',
+				version : tinymce.majorVersion + "." + tinymce.minorVersion
+			};
+		}
+	});
+
+	// Register plugin
+	tinymce.PluginManager.add('tabfocus', tinymce.plugins.TabFocusPlugin);
+})();

@@ -1,1 +1,172 @@
-(function(){tinymce.create("tinymce.plugins.AutolinkPlugin",{init:function(a,b){var c=this;if(tinyMCE.isIE){return}a.onKeyDown.add(function(d,f){if(f.keyCode==13){return c.handleEnter(d)}});a.onKeyPress.add(function(d,f){if(f.which==41){return c.handleEclipse(d)}});a.onKeyUp.add(function(d,f){if(f.keyCode==32){return c.handleSpacebar(d)}})},handleEclipse:function(a){this.parseCurrentLine(a,-1,"(",true)},handleSpacebar:function(a){this.parseCurrentLine(a,0,"",true)},handleEnter:function(a){this.parseCurrentLine(a,-1,"",false)},parseCurrentLine:function(i,d,b,g){var a,f,c,n,k,m,h,e,j;a=i.selection.getRng().cloneRange();if(a.startOffset<5){e=a.endContainer.previousSibling;if(e==null){if(a.endContainer.firstChild==null||a.endContainer.firstChild.nextSibling==null){return}e=a.endContainer.firstChild.nextSibling}j=e.length;a.setStart(e,j);a.setEnd(e,j);if(a.endOffset<5){return}f=a.endOffset;n=e}else{n=a.endContainer;if(n.nodeType!=3&&n.firstChild){while(n.nodeType!=3&&n.firstChild){n=n.firstChild}a.setStart(n,0);a.setEnd(n,n.nodeValue.length)}if(a.endOffset==1){f=2}else{f=a.endOffset-1-d}}c=f;do{a.setStart(n,f-2);a.setEnd(n,f-1);f-=1}while(a.toString()!=" "&&a.toString()!=""&&a.toString().charCodeAt(0)!=160&&(f-2)>=0&&a.toString()!=b);if(a.toString()==b||a.toString().charCodeAt(0)==160){a.setStart(n,f);a.setEnd(n,c);f+=1}else{if(a.startOffset==0){a.setStart(n,0);a.setEnd(n,c)}else{a.setStart(n,f);a.setEnd(n,c)}}m=a.toString();h=m.match(/^(https?:\/\/|ssh:\/\/|ftp:\/\/|file:\/|www\.)(.+)$/i);if(h){if(h[1]=="www."){h[1]="http://www."}k=i.selection.getBookmark();i.selection.setRng(a);tinyMCE.execCommand("mceInsertLink",false,h[1]+h[2]);i.selection.moveToBookmark(k);if(tinyMCE.isWebKit){i.selection.collapse(false);var l=Math.min(n.length,c+1);a.setStart(n,l);a.setEnd(n,l);i.selection.setRng(a)}}},getInfo:function(){return{longname:"Autolink",author:"Moxiecode Systems AB",authorurl:"http://tinymce.moxiecode.com",infourl:"http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/autolink",version:tinymce.majorVersion+"."+tinymce.minorVersion}}});tinymce.PluginManager.add("autolink",tinymce.plugins.AutolinkPlugin)})();
+/**
+ * editor_plugin_src.js
+ *
+ * Copyright 2011, Moxiecode Systems AB
+ * Released under LGPL License.
+ *
+ * License: http://tinymce.moxiecode.com/license
+ * Contributing: http://tinymce.moxiecode.com/contributing
+ */
+
+(function() {
+	tinymce.create('tinymce.plugins.AutolinkPlugin', {
+	/**
+	* Initializes the plugin, this will be executed after the plugin has been created.
+	* This call is done before the editor instance has finished it's initialization so use the onInit event
+	* of the editor instance to intercept that event.
+	*
+	* @param {tinymce.Editor} ed Editor instance that the plugin is initialized in.
+	* @param {string} url Absolute URL to where the plugin is located.
+	*/
+
+	init : function(ed, url) {
+		var t = this;
+
+		// Internet Explorer has built-in automatic linking
+		if (tinyMCE.isIE)
+			return;
+
+		// Add a key down handler
+		ed.onKeyDown.add(function(ed, e) {
+			if (e.keyCode == 13)
+				return t.handleEnter(ed);
+			});
+
+		ed.onKeyPress.add(function(ed, e) {
+			if (e.which == 41)
+				return t.handleEclipse(ed);
+		});
+
+		// Add a key up handler
+		ed.onKeyUp.add(function(ed, e) {
+			if (e.keyCode == 32)
+				return t.handleSpacebar(ed);
+			});
+	       },
+
+		handleEclipse : function(ed) {
+			this.parseCurrentLine(ed, -1, '(', true);
+		},
+
+		handleSpacebar : function(ed) {
+			 this.parseCurrentLine(ed, 0, '', true);
+		 },
+
+		handleEnter : function(ed) {
+			this.parseCurrentLine(ed, -1, '', false);
+		},
+
+		parseCurrentLine : function(ed, end_offset, delimiter, goback) {
+			var r, end, start, endContainer, bookmark, text, matches, prev, len;
+
+			// We need at least five characters to form a URL,
+			// hence, at minimum, five characters from the beginning of the line.
+			r = ed.selection.getRng().cloneRange();
+			if (r.startOffset < 5) {
+				// During testing, the caret is placed inbetween two text nodes. 
+				// The previous text node contains the URL.
+				prev = r.endContainer.previousSibling;
+				if (prev == null) {
+					if (r.endContainer.firstChild == null || r.endContainer.firstChild.nextSibling == null)
+						return;
+
+					prev = r.endContainer.firstChild.nextSibling;
+				}
+				len = prev.length;
+				r.setStart(prev, len);
+				r.setEnd(prev, len);
+
+				if (r.endOffset < 5)
+					return;
+
+				end = r.endOffset;
+				endContainer = prev;
+			} else {
+				endContainer = r.endContainer;
+
+				// Get a text node
+				if (endContainer.nodeType != 3 && endContainer.firstChild) {
+					while (endContainer.nodeType != 3 && endContainer.firstChild)
+						endContainer = endContainer.firstChild;
+
+					r.setStart(endContainer, 0);
+					r.setEnd(endContainer, endContainer.nodeValue.length);
+				}
+
+				if (r.endOffset == 1)
+					end = 2;
+				else
+					end = r.endOffset - 1 - end_offset;
+			}
+
+			start = end;
+
+			do
+			{
+				// Move the selection one character backwards.
+				r.setStart(endContainer, end - 2);
+				r.setEnd(endContainer, end - 1);
+				end -= 1;
+
+				// Loop until one of the following is found: a blank space, &nbsp;, delimeter, (end-2) >= 0
+			} while (r.toString() != ' ' && r.toString() != '' && r.toString().charCodeAt(0) != 160 && (end -2) >= 0 && r.toString() != delimiter);
+
+			if (r.toString() == delimiter || r.toString().charCodeAt(0) == 160) {
+				r.setStart(endContainer, end);
+				r.setEnd(endContainer, start);
+				end += 1;
+			} else if (r.startOffset == 0) {
+				r.setStart(endContainer, 0);
+				r.setEnd(endContainer, start);
+			}
+			else {
+				r.setStart(endContainer, end);
+				r.setEnd(endContainer, start);
+			}
+
+			text = r.toString();
+			matches = text.match(/^(https?:\/\/|ssh:\/\/|ftp:\/\/|file:\/|www\.)(.+)$/i);
+
+			if (matches) {
+				if (matches[1] == 'www.') {
+					matches[1] = 'http://www.';
+				}
+
+				bookmark = ed.selection.getBookmark();
+
+				ed.selection.setRng(r);
+				tinyMCE.execCommand('mceInsertLink',false, matches[1] + matches[2]);
+				ed.selection.moveToBookmark(bookmark);
+
+				// TODO: Determine if this is still needed.
+				if (tinyMCE.isWebKit) {
+					// move the caret to its original position
+					ed.selection.collapse(false);
+					var max = Math.min(endContainer.length, start + 1);
+					r.setStart(endContainer, max);
+					r.setEnd(endContainer, max);
+					ed.selection.setRng(r);
+				}
+			}
+		},
+
+		/**
+		* Returns information about the plugin as a name/value array.
+		* The current keys are longname, author, authorurl, infourl and version.
+		*
+		* @return {Object} Name/value array containing information about the plugin.
+		*/
+		getInfo : function() {
+			return {
+				longname : 'Autolink',
+				author : 'Moxiecode Systems AB',
+				authorurl : 'http://tinymce.moxiecode.com',
+				infourl : 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/autolink',
+				version : tinymce.majorVersion + "." + tinymce.minorVersion
+			};
+		}
+	});
+
+	// Register plugin
+	tinymce.PluginManager.add('autolink', tinymce.plugins.AutolinkPlugin);
+})();
