@@ -33,5 +33,14 @@ namespace :tinymce do
       `mv #{file} #{file.sub("_src", "")}`
     end
     puts " DONE"
+    
+    print "Fixing file encoding ..."
+    require 'iconv'
+    converter = Iconv.new('UTF-8', 'ISO-8859-1')
+    Dir["assets/vendor/tinymce/**/*.js"].each do |file|
+      contents = converter.iconv(File.read(file)).force_encoding('UTF-8')
+      File.open(file, 'w') { |f| f.write(contents) }
+    end
+    puts " DONE"
   end
 end
