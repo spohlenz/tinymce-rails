@@ -20,6 +20,8 @@ namespace :tinymce do
     puts " DONE"
     
     print "Moving files into assets/vendor ..."
+    `rm -rf assets/vendor/tinymce`
+    `mkdir -p assets/vendor/tinymce`
     `mv tmp/tinymce/jscripts/tiny_mce/* assets/vendor/tinymce/`
     puts " DONE"
   end
