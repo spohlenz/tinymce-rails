@@ -11,7 +11,7 @@ module TinyMCE
       app.config.assets.paths.unshift File.join(asset_root, 'vendor')
       
       app.config.assets.fingerprinting.exclude << "tinymce/*"
-      app.config.assets.precompile << "tinymce/*"
+      app.config.assets.precompile += ["tinymce/*", "tinymce.*"]
     end
   end
 end
