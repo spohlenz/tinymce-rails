@@ -1,3 +1,3 @@
 module TinyMCE
-  VERSION = "3.4.3.2"
+  VERSION = "3.4.4"
 end
