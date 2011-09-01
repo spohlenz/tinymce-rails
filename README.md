@@ -18,7 +18,7 @@ Then run `bundle install`.
 
 Add to your application.js:
 
-    //= require tinymce.jquery
+    //= require tinymce-jquery
 
 and use TinyMCE in your view:
 
