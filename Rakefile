@@ -9,31 +9,42 @@ def step(name)
   puts " DONE"
 end
 
+def download(url, filename)
+  puts "Downloading #{url} ..."
+  `mkdir -p tmp`
+  `curl -L -# #{url} -o tmp/#{filename}`
+end
+
 desc "Update TinyMCE to version specified in lib/tinymce/version.rb"
 task :update => [ :fetch, :extract, :process ]
 
 task :fetch do
-  url = "https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::TINYMCE_VERSION}_jquery.zip"
-  puts "Downloading #{url} ..."
-  `mkdir -p tmp`
-  `curl -L -# #{url} -o tmp/tinymce.zip`
+  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::TINYMCE_VERSION}.zip", "tinymce.zip")
+  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::TINYMCE_VERSION}_jquery.zip", "tinymce.jquery.zip")
 end
 
 task :extract do
-  step "Extracting files" do
+  step "Extracting core files" do
+    `rm -rf tmp/tinymce`
     `unzip -u tmp/tinymce.zip -d tmp`
+    `rm -rf assets/precompiled/tinymce`
+    `mkdir -p assets/precompiled/tinymce`
+    `mv tmp/tinymce/jscripts/tiny_mce/* assets/precompiled/tinymce/`
   end
   
-  step "Moving files into tinymce/" do
-    `rm -rf tinymce`
-    `mkdir -p tinymce`
-    `mv tmp/tinymce/jscripts/tiny_mce/* tinymce/`
+  step "Extracting jQuery files" do
+    `rm -rf tmp/tinymce`
+    `unzip -u tmp/tinymce.jquery.zip -d tmp`
+    `mv tmp/tinymce/jscripts/tiny_mce/jquery.tinymce.js assets/precompiled/tinymce/jquery.tinymce.js`
+    `mv tmp/tinymce/jscripts/tiny_mce/tiny_mce.js assets/precompiled/tinymce/tiny_mce_jquery.js`
+    `mv tmp/tinymce/jscripts/tiny_mce/tiny_mce_src.js assets/precompiled/tinymce/tiny_mce_jquery_src.js`
   end
 end
 
 task :process do
-  step "Copying assets for asset pipeline" do
-    `cp tinymce/tiny_mce_src.js assets/vendor/tinymce/tiny_mce.js`
-    `cp tinymce/jquery.tinymce.js assets/vendor/tinymce/jquery-tinymce.js`
+  step "Copying includeable assets" do
+    `cp assets/precompiled/tinymce/tiny_mce_src.js assets/vendor/tinymce/tiny_mce.js`
+    `cp assets/precompiled/tinymce/tiny_mce_jquery_src.js assets/vendor/tinymce/tiny_mce_jquery.js`
+    `cp assets/precompiled/tinymce/jquery.tinymce.js assets/vendor/tinymce/jquery-tinymce.js`
   end
 end
