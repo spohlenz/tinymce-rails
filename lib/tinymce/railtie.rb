@@ -1,4 +1,4 @@
-require 'fingerprintless-assets'
+require "digestion"
 
 module TinyMCE
   class Railtie < Rails::Railtie
@@ -13,10 +13,8 @@ module TinyMCE
     initializer "configure assets" do |app|
       app.config.assets.paths.unshift File.join(asset_root, 'integration')
       app.config.assets.paths.unshift File.join(asset_root, 'vendor')
-      
-      if app.config.assets.enabled
-        app.config.assets.fingerprinting.exclude << "tinymce/*"
-      end
+      app.config.assets.digest_exclusions << "tinymce/*"
+      app.config.assets.precompile << "tinymce/*"
     end
     
     initializer "static assets" do |app|

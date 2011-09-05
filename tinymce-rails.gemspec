@@ -12,6 +12,6 @@ Gem::Specification.new do |s|
   s.authors = ["Sam Pohlenz"]
   s.email = "sam@sampohlenz.com"
   
-  s.add_dependency "fingerprintless-assets", "~> 1.0"
-  s.add_dependency "railties", "~> 3.1.0"
+  s.add_dependency "railties",  "~> 3.1.0"
+  s.add_dependency "digestion", "~> 1.0"
 end
