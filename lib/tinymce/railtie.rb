@@ -14,7 +14,9 @@ module TinyMCE
       app.config.assets.paths.unshift File.join(asset_root, 'integration')
       app.config.assets.paths.unshift File.join(asset_root, 'vendor')
       
-      app.config.assets.fingerprinting.exclude << "tinymce/*"
+      if app.config.assets.enabled
+        app.config.assets.fingerprinting.exclude << "tinymce/*"
+      end
     end
     
     initializer "static assets" do |app|

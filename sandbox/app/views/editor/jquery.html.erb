@@ -1,0 +1,17 @@
+<% content_for :javascript do %>
+  <%= javascript_include_tag "tinymce-with-jquery" %>
+<% end %>
+
+<h1>TinyMCE with jQuery</h1>
+
+<p><%= link_to 'Back to index', root_path %></p>
+
+<%= text_area_tag :editor, "", :rows => 20, :cols => 60 %>
+
+<script type="text/javascript" charset="utf-8">
+  $(function() {
+    $('#editor').tinymce({
+      theme: 'advanced'
+    });
+  });
+</script>

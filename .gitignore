@@ -1,2 +1,5 @@
 tmp
 *.gem
+sandbox/log
+sandbox/tmp
+sandbox/public/assets
