@@ -42,6 +42,15 @@ task :extract do
 end
 
 task :process do
+  step "Fixing file encoding" do
+    require 'iconv'
+    converter = Iconv.new('UTF-8', 'ISO-8859-1')
+    Dir["assets/precompiled/tinymce/**/*.js"].each do |file|
+      contents = converter.iconv(File.read(file)).force_encoding('UTF-8')
+      File.open(file, 'w') { |f| f.write(contents) }
+    end
+  end
+  
   step "Copying includeable assets" do
     `cp assets/precompiled/tinymce/tiny_mce_src.js assets/vendor/tinymce/tiny_mce.js`
     `cp assets/precompiled/tinymce/tiny_mce_jquery_src.js assets/vendor/tinymce/tiny_mce_jquery.js`
