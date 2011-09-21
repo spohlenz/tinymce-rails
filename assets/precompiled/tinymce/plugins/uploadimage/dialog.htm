@@ -1,0 +1,23 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>{#example_dlg.title}</title>
+	<script type="text/javascript" src="../../tiny_mce_popup.js"></script>
+	<script type="text/javascript" src="js/dialog.js"></script>
+</head>
+<body>
+
+<form method="post" enctype='multipart/form-data' target="hidden_upload" action='/tinymce_assets' name="uploadimageForm">
+<IFRAME id="hidden_upload" name="hidden_upload" src='' onLoad='uploadDone("hidden_upload")' style='width:0;height:0;border:0px solid #fff'></IFRAME>
+
+	<p>Upload image</p>
+	<p>Image file: <input type="file" name='file' class="file_upload"></p>
+
+	<div class="mceActionPanel">
+		<input type="button" id="insert" name="insert" value="{#insert}" onclick="UploadimageDialog.insert();"/>
+		<input type="button" id="cancel" name="cancel" value="{#cancel}" onclick="tinyMCEPopup.close();" />
+	</div>
+</form>
+
+</body>
+</html>
