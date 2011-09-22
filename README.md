@@ -51,6 +51,16 @@ Use TinyMCE in your view:
     </script>
 
 
+Custom Plugins & Skins
+----------------------
+
+To use custom plugins or skins, simply add the files to your asset load path so that they are locatable at a path beneath `tinymce/plugins/` or `tinymce/themes/advanced/skins/`.
+
+For example, a plugin called `mycustomplugin` could have its main JS file at `app/assets/javascripts/tinymce/plugins/mycustomplugin/editor_plugin.js`.
+
+Any files with a path beginning with `tinymce/` will be automatically precompiled, and the [digestion](https://github.com/spohlenz/digestion) gem is used to ensure that these files never have an asset digest appended to their filenames, even in production mode.
+
+
 Updating
 --------
 
