@@ -13,5 +13,5 @@ Gem::Specification.new do |s|
   s.email = "sam@sampohlenz.com"
   
   s.add_dependency "railties",  "~> 3.1.0"
-  s.add_dependency "digestion", "~> 1.0"
+  s.add_dependency "digestion", "~> 1.2.1"
 end
