@@ -1,5 +1,3 @@
-require "digestion"
-
 module TinyMCE
   class Railtie < Rails::Railtie
     def asset_root
@@ -13,7 +11,6 @@ module TinyMCE
     initializer "configure assets" do |app|
       app.config.assets.paths.unshift File.join(asset_root, 'integration')
       app.config.assets.paths.unshift File.join(asset_root, 'vendor')
-      app.config.assets.digest_exclusions << "tinymce/*"
       app.config.assets.precompile << "tinymce/*"
     end
     
