@@ -5,9 +5,9 @@
 	var tinymce = {
 		majorVersion : '3',
 
-		minorVersion : '4.5',
+		minorVersion : '4.6',
 
-		releaseDate : '2011-09-06',
+		releaseDate : '2011-09-29',
 
 		_init : function() {
 			var t = this, d = document, na = navigator, ua = na.userAgent, i, nl, n, base, p, v;
@@ -1345,6 +1345,10 @@ tinymce.create('static tinymce.util.XHR', {
 				if (blockElm) {
 					node = blockElm.firstChild;
 
+					// Ignore empty text nodes
+					while (node.nodeType == 3 && node.nodeValue.length == 0)
+						node = node.nextSibling;
+
 					if (node && node.nodeName === 'SPAN') {
 						clonedSpan = node.cloneNode(false);
 					}
@@ -1356,11 +1360,7 @@ tinymce.create('static tinymce.util.XHR', {
 				// Find all odd apple-style-spans
 				blockElm = dom.getParent(rng.startContainer, dom.isBlock);
 				tinymce.each(dom.select('span.Apple-style-span,font.Apple-style-span', blockElm), function(span) {
-					var rng = dom.createRng();
-
-					// Set range selection before the span we are about to remove
-					rng.setStartBefore(span);
-					rng.setEndBefore(span);
+					var bm = selection.getBookmark();
 
 					if (clonedSpan) {
 						dom.replace(clonedSpan.cloneNode(false), span, true);
@@ -1369,7 +1369,7 @@ tinymce.create('static tinymce.util.XHR', {
 					}
 
 					// Restore the selection
-					selection.setRng(rng);
+					selection.moveToBookmark(bm);
 				});
 			}
 		});
@@ -1388,18 +1388,68 @@ tinymce.create('static tinymce.util.XHR', {
 			}
 		});
 	};
-	
+
+	function inputMethodFocus(ed) {
+		ed.dom.bind(ed.getDoc(), 'focusin', function() {
+			ed.selection.setRng(ed.selection.getRng());
+		});
+	};
+
+	function focusBody(ed) {
+		// Fix for a focus bug in FF 3.x where the body element
+		// wouldn't get proper focus if the user clicked on the HTML element
+		if (!Range.prototype.getClientRects) { // Detect getClientRects got introduced in FF 4
+			ed.onMouseDown.add(function(ed, e) {
+				if (e.target.nodeName === "HTML") {
+					var body = ed.getBody();
+
+					// Blur the body it's focused but not correctly focused
+					body.blur();
+
+					// Refocus the body after a little while
+					setTimeout(function() {
+						body.focus();
+					}, 0);
+				}
+			});
+		}
+	};
+
+	function selectControlElements(ed) {
+		ed.onClick.add(function(ed, e) {
+			e = e.target;
+
+			// Workaround for bug, http://bugs.webkit.org/show_bug.cgi?id=12250
+			// WebKit can't even do simple things like selecting an image
+			// Needs tobe the setBaseAndExtend or it will fail to select floated images
+			if (/^(IMG|HR)$/.test(e.nodeName))
+				ed.selection.getSel().setBaseAndExtent(e, 0, e, 1);
+
+			if (e.nodeName == 'A' && ed.dom.hasClass(e, 'mceItemAnchor'))
+				ed.selection.select(e);
+
+			ed.nodeChanged();
+		});
+	};
+
 	tinymce.create('tinymce.util.Quirks', {
 		Quirks: function(ed) {
-			// Load WebKit specific fixed
+			// WebKit
 			if (tinymce.isWebKit) {
 				cleanupStylesWhenDeleting(ed);
 				emptyEditorWhenDeleting(ed);
+				inputMethodFocus(ed);
+				selectControlElements(ed);
 			}
 
-			// Load IE specific fixes
+			// IE
 			if (tinymce.isIE) {
 				emptyEditorWhenDeleting(ed);
+			}
+
+			// Gecko
+			if (tinymce.isGecko) {
+				focusBody(ed);
 			}
 		}
 	});
@@ -8197,6 +8247,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	// Shorten class names
 	var DOM = tinymce.DOM, is = tinymce.is;
@@ -8903,20 +8954,23 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		},
 
 		selectByIndex : function(idx) {
-			var t = this, e, o;
+			var t = this, e, o, label;
 
 			if (idx != t.selectedIndex) {
 				e = DOM.get(t.id + '_text');
+				label = DOM.get(t.id + '_voiceDesc');
 				o = t.items[idx];
 
 				if (o) {
 					t.selectedValue = o.value;
 					t.selectedIndex = idx;
 					DOM.setHTML(e, DOM.encode(o.title));
+					DOM.setHTML(label, t.settings.title + " - " + o.title);
 					DOM.removeClass(e, 'mceTitle');
 					DOM.setAttrib(t.id, 'aria-valuenow', o.title);
 				} else {
 					DOM.setHTML(e, DOM.encode(t.settings.title));
+					DOM.setHTML(label, DOM.encode(t.settings.title));
 					DOM.addClass(e, 'mceTitle');
 					t.selectedValue = t.selectedIndex = null;
 					DOM.setAttrib(t.id, 'aria-valuenow', t.settings.title);
@@ -8945,7 +8999,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		renderHTML : function() {
 			var h = '', t = this, s = t.settings, cp = t.classPrefix;
 
-			h = '<span role="button" aria-haspopup="true" aria-labelledby="' + t.id +'_text" aria-describedby="' + t.id + '_voiceDesc"><table role="presentation" tabindex="0" id="' + t.id + '" cellpadding="0" cellspacing="0" class="' + cp + ' ' + cp + 'Enabled' + (s['class'] ? (' ' + s['class']) : '') + '"><tbody><tr>';
+			h = '<span role="listbox" aria-haspopup="true" aria-labelledby="' + t.id +'_voiceDesc" aria-describedby="' + t.id + '_voiceDesc"><table role="presentation" tabindex="0" id="' + t.id + '" cellpadding="0" cellspacing="0" class="' + cp + ' ' + cp + 'Enabled' + (s['class'] ? (' ' + s['class']) : '') + '"><tbody><tr>';
 			h += '<td>' + DOM.createHTML('span', {id: t.id + '_voiceDesc', 'class': 'voiceLabel', style:'display:none;'}, t.settings.title); 
 			h += DOM.createHTML('a', {id : t.id + '_text', tabindex : -1, href : 'javascript:;', 'class' : 'mceText', onclick : "return false;", onmousedown : 'return false;'}, DOM.encode(t.settings.title)) + '</td>';
 			h += '<td>' + DOM.createHTML('a', {id : t.id + '_open', tabindex : -1, href : 'javascript:;', 'class' : 'mceOpen', onclick : "return false;", onmousedown : 'return false;'}, '<span><span style="display:none;" class="mceIconOnly" aria-hidden="true">\u25BC</span></span>') + '</td>';
@@ -9041,6 +9095,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 				if (o.value === undefined) {
 					m.add({
 						title : o.title,
+						role : "option",
 						'class' : 'mceMenuItemTitle',
 						onclick : function() {
 							if (t.settings.onselect('') !== false)
@@ -9049,6 +9104,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 					});
 				} else {
 					o.id = DOM.uniqueId();
+					o.role= "option";
 					o.onclick = function() {
 						if (t.settings.onselect(o.value) !== false)
 							t.select(o.value); // Must be runned after
@@ -9124,6 +9180,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each, Dispatcher = tinymce.util.Dispatcher;
 
@@ -9382,8 +9439,8 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 			h += '<td >' + DOM.createHTML('a', {role: 'button', id : t.id + '_open', tabindex: '-1', href : 'javascript:;', 'class' : 'mceOpen ' + s['class'], onclick : "return false;", onmousedown : 'return false;', title : s.title}, h1) + '</td>';
 
 			h += '</tr></tbody>';
-			h = DOM.createHTML('table', {id : t.id, role: 'presentation', tabindex: '0',  'class' : 'mceSplitButton mceSplitButtonEnabled ' + s['class'], cellpadding : '0', cellspacing : '0', title : s.title}, h);
-			return DOM.createHTML('span', {role: 'button', 'aria-labelledby': t.id + '_voice', 'aria-haspopup': 'true'}, h);
+			h = DOM.createHTML('table', { role: 'presentation',   'class' : 'mceSplitButton mceSplitButtonEnabled ' + s['class'], cellpadding : '0', cellspacing : '0', title : s.title}, h);
+			return DOM.createHTML('div', {id : t.id, role: 'button', tabindex: '0', 'aria-labelledby': t.id + '_voice', 'aria-haspopup': 'true'}, h);
 		},
 
 		postRender : function() {
@@ -9657,7 +9714,8 @@ tinymce.create('tinymce.ui.ToolbarGroup:tinymce.ui.Container', {
 	},
 	
 	focus : function() {
-		this.keyNav.focus();
+		var t = this;
+		dom.get(t.id).focus();
 	},
 	
 	postRender : function() {
@@ -9675,6 +9733,10 @@ tinymce.create('tinymce.ui.ToolbarGroup:tinymce.ui.Container', {
 			root: t.id,
 			items: items,
 			onCancel: function() {
+				//Move focus if webkit so that navigation back will read the item.
+				if (tinymce.isWebKit) {
+					dom.get(t.editor.id+"_ifr").focus();
+				}
 				t.editor.focus();
 			},
 			excludeFromTabOrder: !t.settings.tab_focus_toolbar
@@ -10607,6 +10669,11 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 
 			t.iframeHTML += '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />';
 
+			// Load the CSS by injecting them into the HTML this will reduce "flicker"
+			for (i = 0; i < t.contentCSS.length; i++) {
+				t.iframeHTML += '<link type="text/css" rel="stylesheet" href="' + t.contentCSS[i] + '" />';
+			}
+
 			bi = s.body_id || 'tinymce';
 			if (bi.indexOf('=') != -1) {
 				bi = t.getParam('body_id', '', 'hash');
@@ -10624,7 +10691,7 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 			// Domain relaxing enabled, then set document domain
 			if (tinymce.relaxedDomain && (isIE || (tinymce.isOpera && parseFloat(opera.version()) < 11))) {
 				// We need to write the contents here in IE since multiple writes messes up refresh button and back button
-				u = 'javascript:(function(){document.open();document.domain="' + document.domain + '";var ed = window.parent.tinyMCE.get("' + t.id + '");document.write(ed.iframeHTML);document.close();ed.setupIframe();})()';				
+				u = 'javascript:(function(){document.open();document.domain="' + document.domain + '";var ed = window.parent.tinyMCE.get("' + t.id + '");document.write(ed.iframeHTML);document.close();ed.setupIframe();})()';
 			}
 
 			// Create iframe
@@ -10658,24 +10725,6 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 
 			// Setup iframe body
 			if (!isIE || !tinymce.relaxedDomain) {
-				// Fix for a focus bug in FF 3.x where the body element
-				// wouldn't get proper focus if the user clicked on the HTML element
-				if (isGecko && !Range.prototype.getClientRects) { // Detect getClientRects got introduced in FF 4
-					t.onMouseDown.add(function(ed, e) {
-						if (e.target.nodeName === "HTML") {
-							var body = t.getBody();
-
-							// Blur the body it's focused but not correctly focused
-							body.blur();
-
-							// Refocus the body after a little while
-							setTimeout(function() {
-								body.focus();
-							}, 0);
-						}
-					});
-				}
-
 				d.open();
 				d.write(t.iframeHTML);
 				d.close();
@@ -11861,21 +11910,6 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 				t.onBeforeExecCommand.add(setOpts);
 				t.onMouseDown.add(setOpts);
 			}
-
-			t.onClick.add(function(ed, e) {
-				e = e.target;
-
-				// Workaround for bug, http://bugs.webkit.org/show_bug.cgi?id=12250
-				// WebKit can't even do simple things like selecting an image
-				// Needs tobe the setBaseAndExtend or it will fail to select floated images
-				if (tinymce.isWebKit && e.nodeName == 'IMG')
-					t.selection.getSel().setBaseAndExtent(e, 0, e, 1);
-
-				if (e.nodeName == 'A' && dom.hasClass(e, 'mceItemAnchor'))
-					t.selection.select(e);
-
-				t.nodeChanged();
-			});
 
 			// Add node change handlers
 			t.onMouseUp.add(t.nodeChanged);
@@ -13633,7 +13667,12 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 
 			id = t.prefix + id;
 
-			if (ed.settings.use_native_selects)
+
+			function useNativeListForAccessibility(ed) {
+				return ed.settings.use_accessible_selects && !tinymce.isGecko
+			}
+
+			if (ed.settings.use_native_selects || useNativeListForAccessibility(ed))
 				c = new tinymce.ui.NativeListBox(id, s);
 			else {
 				cls = cc || t._cls.listbox || tinymce.ui.ListBox;
@@ -14650,7 +14689,7 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 				selection.moveToBookmark(bookmark);
 
 				// Check if start element still has formatting then we are at: "<b>text|</b>text" and need to move the start into the next text node
-				if (match(name, vars, selection.getStart())) {
+				if (format.inline && match(name, vars, selection.getStart())) {
 					moveStart(selection.getRng(true));
 				}
 
