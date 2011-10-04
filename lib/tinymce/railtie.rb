@@ -5,6 +5,10 @@ module TinyMCE
     end
     
     rake_tasks do
+      # Replacement for assets:precompile task in Rails 3.1.0
+      load "tinymce/rails-3.1.0.rake" if Rails.version <= "3.1.0"
+      
+      # Copy TinyMCE assets when assets:precompile task is called
       load "tinymce/assets.rake"
     end
     
