@@ -12,13 +12,13 @@ module TinyMCE
       load "tinymce/assets.rake"
     end
     
-    initializer "configure assets" do |app|
+    initializer "configure assets", :group => :all do |app|
       app.config.assets.paths.unshift File.join(asset_root, 'integration')
       app.config.assets.paths.unshift File.join(asset_root, 'vendor')
       app.config.assets.precompile << "tinymce/*"
     end
     
-    initializer "static assets" do |app|
+    initializer "static assets", :group => :all do |app|
       if app.config.serve_static_assets
         app.config.assets.paths.unshift File.join(asset_root, 'precompiled')
       end
