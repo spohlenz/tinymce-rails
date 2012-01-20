@@ -6,8 +6,8 @@ end
 Gem::Specification.new do |s|
   s.name = "tinymce-rails"
   s.version = TinyMCE::VERSION
-  s.summary = "Rails 3.1 integration for TinyMCE."
-  s.description = "Seamlessly integrates TinyMCE into the Rails 3.1 asset pipeline."
+  s.summary = "Rails asset pipeline integration for TinyMCE."
+  s.description = "Seamlessly integrates TinyMCE into the Rails asset pipeline introduced in Rails 3.1."
   s.files = Dir["README.md", "LICENSE", "Rakefile", "assets/**/*", "lib/**/*"]
   s.authors = ["Sam Pohlenz"]
   s.email = "sam@sampohlenz.com"

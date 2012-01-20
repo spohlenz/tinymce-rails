@@ -1,7 +1,8 @@
 source :rubygems
 
 #gem 'rails', '3.1.0'
-gem 'rails', :git => 'git://github.com/rails/rails.git', :branch => '3-1-stable'
+gem 'rails', '3.2.0'
+
 gem 'jquery-rails'
 gem 'uglifier'
 gem 'json', :platforms => [:ruby_18]

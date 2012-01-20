@@ -50,4 +50,3 @@ module Sandbox
     config.assets.precompile += %w(tinymce-standalone.js tinymce-with-jquery.js)
   end
 end
-
