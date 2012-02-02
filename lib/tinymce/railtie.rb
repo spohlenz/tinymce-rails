@@ -1,4 +1,9 @@
 module TinyMCE
+  def self.base
+    [Rails.application.config.action_controller.asset_host,
+     Rails.application.config.assets.prefix, "/tinymce"].compact.join
+  end
+  
   class Railtie < Rails::Railtie
     def asset_root
       File.join(File.dirname(__FILE__), "../../assets")
