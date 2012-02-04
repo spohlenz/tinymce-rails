@@ -19,8 +19,8 @@ desc "Update TinyMCE to version specified in lib/tinymce/version.rb"
 task :update => [ :fetch, :extract, :process ]
 
 task :fetch do
-  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::TINYMCE_VERSION}.zip", "tinymce.zip")
-  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::TINYMCE_VERSION}_jquery.zip", "tinymce.jquery.zip")
+  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::VERSION}.zip", "tinymce.zip")
+  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::VERSION}_jquery.zip", "tinymce.jquery.zip")
 end
 
 task :extract do

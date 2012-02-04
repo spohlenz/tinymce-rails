@@ -1,11 +1,6 @@
-unless defined? TinyMCE::VERSION
-  $:.unshift File.expand_path("../lib", __FILE__)
-  require "tinymce/version"
-end
-
 Gem::Specification.new do |s|
   s.name = "tinymce-rails"
-  s.version = TinyMCE::VERSION
+  s.version = "3.4.8"
   s.summary = "Rails asset pipeline integration for TinyMCE."
   s.description = "Seamlessly integrates TinyMCE into the Rails asset pipeline introduced in Rails 3.1."
   s.files = Dir["README.md", "LICENSE", "Rakefile", "assets/**/*", "lib/**/*"]
