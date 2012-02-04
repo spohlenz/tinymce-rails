@@ -1,6 +1,7 @@
 module TinyMCE
   def self.base
     [Rails.application.config.action_controller.asset_host,
+     Rails.application.config.relative_url_root,
      Rails.application.config.assets.prefix, "/tinymce"].compact.join
   end
   
