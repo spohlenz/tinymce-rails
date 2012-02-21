@@ -1,5 +1,6 @@
 tmp
 *.gem
+Gemfile.lock
 sandbox/log
 sandbox/tmp
 sandbox/public/assets
