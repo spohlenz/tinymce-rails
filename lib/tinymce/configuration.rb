@@ -11,12 +11,36 @@ module TinyMCE
     
     attr_reader :options
     
-    def initialize(config=nil)
-      @options = self.class.defaults.dup
+    def initialize(options)
+      @options = options
+    end
+    
+    def load(filename)
+      options.merge!(YAML::load(ERB.new(IO.read(filename)).result))
+    end
+    
+    def self.load(filename)
+      config = new(defaults)
+      config.load(filename) if File.exists?(filename)
+      config
+    end
+    
+    def options_for_tinymce
+      result = {}
       
-      if config && File.exists?(config)
-        @options.merge!(YAML::load(ERB.new(IO.read(config)).result))
+      options.each do |key, value|
+        if value.is_a?(Array) && value.all? { |v| v.is_a?(String) }
+          result[key] = value.join(",")
+        else
+          result[key] = value
+        end
       end
+      
+      result
+    end
+    
+    def merge(options)
+      self.class.new(self.options.merge(options))
     end
     
     # Default language falls back to English if current locale is not available.

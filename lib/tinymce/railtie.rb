@@ -1,4 +1,8 @@
 module TinyMCE
+  def self.configuration
+    Configuration.new(Configuration.defaults)
+  end
+  
   def self.base
     [Rails.application.config.action_controller.asset_host,
      ActionController::Base.config.relative_url_root,
@@ -28,6 +32,10 @@ module TinyMCE
       if app.config.serve_static_assets
         app.config.assets.paths.unshift File.join(asset_root, 'precompiled')
       end
+    end
+    
+    initializer "helper" do |app|
+      ActionController::Base.helper(TinyMCEHelper)
     end
   end
 end
