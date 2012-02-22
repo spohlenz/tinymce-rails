@@ -14,16 +14,6 @@ module TinyMCE::Rails
       @options = options
     end
     
-    def load(filename)
-      options.merge!(YAML::load(ERB.new(IO.read(filename)).result))
-    end
-    
-    def self.load(filename)
-      config = new(defaults)
-      config.load(filename) if File.exists?(filename)
-      config
-    end
-    
     def options_for_tinymce
       result = {}
       
@@ -42,6 +32,16 @@ module TinyMCE::Rails
     
     def merge(options)
       self.class.new(self.options.merge(options))
+    end
+    
+    def load(filename)
+      options.merge!(YAML::load(ERB.new(IO.read(filename)).result))
+    end
+    
+    def self.load(filename)
+      config = new(defaults)
+      config.load(filename) if File.exists?(filename)
+      config
     end
     
     # Default language falls back to English if current locale is not available.
