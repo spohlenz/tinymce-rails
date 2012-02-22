@@ -6,19 +6,8 @@ module TinyMCE::Rails
       Configuration.defaults.should eq(
         "mode"            => "textareas",
         "theme"           => "advanced",
-        "language"        => "en",
         "editor_selector" => "tinymce"
       )
-    end
-    
-    it "uses the current locale if available" do
-      I18n.locale = "pirate"
-      Configuration.defaults["language"].should eq("pirate")
-    end
-    
-    it "falls back to English if the current locale is not available" do
-      I18n.locale = "missing"
-      Configuration.defaults["language"].should eq("en")
     end
     
     it "is instantiable with an options hash" do
@@ -33,7 +22,6 @@ module TinyMCE::Rails
       config.options.should eq(
         "mode" => "textareas",
         "theme" => "advanced",
-        "language" => "en",
         "editor_selector" => "tinymce",
         "plugins" => %w(inlinepopups imageselector contextmenu paste table fullscreen),
         "theme_advanced_toolbar_location" => "top",
@@ -66,6 +54,25 @@ module TinyMCE::Rails
       it "combines arrays of strings into a single comma-separated string" do
         config = Configuration.new("plugins" => %w(paste table fullscreen))
         config.options_for_tinymce["plugins"].should eq("paste,table,fullscreen")
+      end
+      
+      it "returns the language based on the current locale" do
+        I18n.locale = "pirate"
+        
+        config = Configuration.new({})
+        config.options_for_tinymce["language"].should eq("pirate")
+      end
+      
+      it "falls back to English if the current locale is not available" do
+        I18n.locale = "missing"
+        
+        config = Configuration.new({})
+        config.options_for_tinymce["language"].should eq("en")
+      end
+      
+      it "does not override the language if already provided" do
+        config = Configuration.new("language" => "es")
+        config.options_for_tinymce["language"].should eq("es")
       end
     end
     
