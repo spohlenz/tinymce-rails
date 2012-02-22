@@ -21,14 +21,15 @@ module TinyMCE::Rails
       Configuration.defaults["language"].should eq("en")
     end
     
-    it "uses default options when instantiated without a filename" do
-      config = Configuration.new
-      config.options.should eq(Configuration.defaults)
+    it "is instantiable with an options hash" do
+      options = { "option" => "value" }
+      config = Configuration.new(options)
+      config.options.should eq(options)
     end
     
-    it "loads configuration from YAML file when instantiated with a filename" do
+    it "loads configuration from YAML file" do
       file = File.expand_path("../fixtures/tinymce.yml", File.dirname(__FILE__))
-      config = Configuration.new(file)
+      config = Configuration.load(file)
       config.options.should eq(
         "mode" => "textareas",
         "theme" => "advanced",
@@ -41,8 +42,8 @@ module TinyMCE::Rails
       )
     end
     
-    it "uses default configuration when instantiated with missing filename" do
-      config = Configuration.new("missing.yml")
+    it "uses default configuration when loading a nonexistant file" do
+      config = Configuration.load("missing.yml")
       config.options.should eq(Configuration.defaults)
     end
     
@@ -54,6 +55,35 @@ module TinyMCE::Rails
       langs.should include("erb")
       
       langs.should_not include("missing")
+    end
+    
+    describe "#options_for_tinymce" do
+      it "returns string options as normal" do
+        config = Configuration.new("mode" => "textareas")
+        config.options_for_tinymce["mode"].should eq("textareas")
+      end
+      
+      it "combines arrays of strings into a single comma-separated string" do
+        config = Configuration.new("plugins" => %w(paste table fullscreen))
+        config.options_for_tinymce["plugins"].should eq("paste,table,fullscreen")
+      end
+    end
+    
+    describe "#merge" do
+      subject { Configuration.new("mode" => "textareas") }
+      
+      it "merges given options with configuration options" do
+        result = subject.merge("theme" => "advanced")
+        result.options.should eq(
+          "mode" => "textareas",
+          "theme" => "advanced"
+        )
+      end
+      
+      it "does not alter the original configuration object" do
+        subject.merge("theme" => "advanced")
+        subject.options.should_not have_key("theme")
+      end
     end
   end
 end

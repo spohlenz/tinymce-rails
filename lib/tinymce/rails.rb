@@ -3,6 +3,11 @@ module TinyMCE
     require 'tinymce/rails/engine'
     require 'tinymce/rails/version'
     require "tinymce/rails/configuration"
+    require "tinymce/rails/tinymce_helper"
+
+    def self.configuration
+      Configuration.new(Configuration.defaults)
+    end
 
     def self.base
       Engine.config.tinymce.base ||
