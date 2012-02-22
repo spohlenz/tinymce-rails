@@ -6,7 +6,7 @@ module TinyMCE
     require "tinymce/rails/tinymce_helper"
 
     def self.configuration
-      Configuration.new(Configuration.defaults)
+      @configuration ||= Configuration.load(::Rails.root.join("config/tinymce.yml"))
     end
 
     def self.base
