@@ -21,4 +21,13 @@ describe TinyMCE do
       TinyMCE.base.should eq("/subfolder/assets/tinymce")
     end
   end
+  
+  describe ".configuration" do
+    let(:configuration) { stub }
+    
+    it "loads the tinymce.yml config file" do
+      TinyMCE::Configuration.should_receive(:load).with(Rails.root.join("config/tinymce.yml")).and_return(configuration)
+      TinyMCE.configuration.should eq(configuration)
+    end
+  end
 end
