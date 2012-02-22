@@ -2,6 +2,7 @@ module TinyMCE
   module Rails
     require 'tinymce/rails/engine'
     require 'tinymce/rails/version'
+    require "tinymce/rails/configuration"
 
     def self.base
       Engine.config.tinymce.base ||
