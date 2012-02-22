@@ -36,7 +36,8 @@ module TinyMCE
         "editor_selector" => "tinymce",
         "plugins" => %w(inlinepopups imageselector contextmenu paste table fullscreen),
         "theme_advanced_toolbar_location" => "top",
-        "theme_advanced_toolbar_align" => "left"
+        "theme_advanced_toolbar_align" => "left",
+        "option_specified_with_erb_value" => "ERB"
       )
     end
     
