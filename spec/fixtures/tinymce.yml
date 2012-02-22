@@ -7,3 +7,4 @@ plugins:
   - paste
   - table
   - fullscreen
+option_specified_with_erb_value: <%= "ERB" %>
