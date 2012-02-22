@@ -4,7 +4,6 @@ module TinyMCE
       {
         "mode"            => "textareas",
         "theme"           => "advanced",
-        "language"        => default_language,
         "editor_selector" => "tinymce"
       }
     end
@@ -35,6 +34,8 @@ module TinyMCE
           result[key] = value
         end
       end
+      
+      result["language"] ||= self.class.default_language
       
       result
     end
