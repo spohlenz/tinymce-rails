@@ -11,8 +11,12 @@ module TinyMCE::Rails
     
     attr_reader :options
     
-    def initialize
-      @options = self.class.defaults
+    def initialize(config=nil)
+      @options = self.class.defaults.dup
+      
+      if config && File.exists?(config)
+        @options.merge!(YAML::load(ERB.new(IO.read(config)).result))
+      end
     end
     
     # Default language falls back to English if current locale is not available.

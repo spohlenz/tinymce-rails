@@ -4,9 +4,9 @@ module TinyMCE::Rails
   describe Configuration do
     it "has default options" do
       Configuration.defaults.should eq(
-        "mode"     => "textareas",
-        "theme"    => "advanced",
-        "language" => "en",
+        "mode"            => "textareas",
+        "theme"           => "advanced",
+        "language"        => "en",
         "editor_selector" => "tinymce"
       )
     end
@@ -26,7 +26,24 @@ module TinyMCE::Rails
       config.options.should eq(Configuration.defaults)
     end
     
-    it "loads configuration from YAML file when instantiated with a filename"
+    it "loads configuration from YAML file when instantiated with a filename" do
+      file = File.expand_path("../fixtures/tinymce.yml", File.dirname(__FILE__))
+      config = Configuration.new(file)
+      config.options.should eq(
+        "mode" => "textareas",
+        "theme" => "advanced",
+        "language" => "en",
+        "editor_selector" => "tinymce",
+        "plugins" => %w(inlinepopups imageselector contextmenu paste table fullscreen),
+        "theme_advanced_toolbar_location" => "top",
+        "theme_advanced_toolbar_align" => "left"
+      )
+    end
+    
+    it "uses default configuration when instantiated with missing filename" do
+      config = Configuration.new("missing.yml")
+      config.options.should eq(Configuration.defaults)
+    end
     
     it "detects available languages" do
       langs = Configuration.available_languages
