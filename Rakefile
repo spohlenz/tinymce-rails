@@ -1,6 +1,6 @@
-unless defined? TinyMCE::VERSION
+unless defined? TinyMCE::Rails::VERSION
   $:.unshift File.expand_path("../lib", __FILE__)
-  require "tinymce/version"
+  require "tinymce/rails/version"
 end
 
 def step(name)
@@ -19,8 +19,8 @@ desc "Update TinyMCE to version specified in lib/tinymce/version.rb"
 task :update => [ :fetch, :extract, :process ]
 
 task :fetch do
-  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::VERSION}.zip", "tinymce.zip")
-  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::VERSION}_jquery.zip", "tinymce.jquery.zip")
+  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::Rails::VERSION}.zip", "tinymce.zip")
+  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::Rails::VERSION}_jquery.zip", "tinymce.jquery.zip")
 end
 
 task :extract do
