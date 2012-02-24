@@ -1,5 +1,5 @@
 module TinyMCE::Rails
-  module TinyMCEHelper
+  module Helper
     def tinymce(options={})
       configuration = TinyMCE::Rails.configuration.merge(options)
       

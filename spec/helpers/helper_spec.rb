@@ -1,7 +1,7 @@
 require 'spec_helper'
 
 module TinyMCE::Rails
-  describe TinyMCEHelper do
+  describe Helper do
     describe "#tinymce_assets" do
       it "returns a TinyMCE javascript tag" do
         tinymce_assets.should have_selector("script", :type => "text/javascript", :src => "/assets/tinymce.js")

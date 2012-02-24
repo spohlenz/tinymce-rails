@@ -7,7 +7,7 @@ module TinyMCE::Rails
     end
 
     initializer "helper" do |app|
-      ActionController::Base.helper(TinyMCEHelper)
+      ActionController::Base.helper(Helper)
     end
   end
 end
