@@ -1,7 +1,4 @@
-unless defined? TinyMCE::Rails::VERSION
-  $:.unshift File.expand_path("../lib", __FILE__)
-  require "tinymce/rails/version"
-end
+require File.expand_path('../lib/tinymce/rails/version', __FILE__)
 
 def step(name)
   print "#{name} ..."
@@ -15,12 +12,12 @@ def download(url, filename)
   `curl -L -# #{url} -o tmp/#{filename}`
 end
 
-desc "Update TinyMCE to version specified in lib/tinymce/version.rb"
+desc "Update TinyMCE to version #{TinyMCE::Rails::TINYMCE_VERSION}"
 task :update => [ :fetch, :extract, :process ]
 
 task :fetch do
-  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::Rails::VERSION}.zip", "tinymce.zip")
-  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::Rails::VERSION}_jquery.zip", "tinymce.jquery.zip")
+  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}.zip", "tinymce.zip")
+  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}_jquery.zip", "tinymce.jquery.zip")
 end
 
 task :extract do
