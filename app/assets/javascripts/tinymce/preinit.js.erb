@@ -1,5 +1,5 @@
 window.tinyMCEPreInit = window.tinyMCEPreInit || {
-  base:   '<%= TinyMCE::Rails.base %>',
+  base:   '<%= TinyMCE::Rails::Engine.config.tinymce.base || asset_path("tinymce", :digest => false) %>',
   query:  '<%= TinyMCE::Rails::VERSION %>',
   suffix: ''
 };
