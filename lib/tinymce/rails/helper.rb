@@ -1,5 +1,18 @@
 module TinyMCE::Rails
   module Helper
+    # Initializes TinyMCE on the current page based on the global configuration.
+    #
+    # Custom options can be set via the options hash, which will be passed to
+    # the TinyMCE init function.
+    #
+    # By default, all textareas with a class of "tinymce" will have the TinyMCE
+    # editor applied. The current locale will also be used as the language when
+    # TinyMCE language files are available, falling back to English if not
+    # available. The :editor_selector and :language options can be used to
+    # override these defaults.
+    #
+    # @example
+    #   <%= tinymce(:theme => "advanced", :editor_selector => "editorClass") %>
     def tinymce(options={})
       configuration = TinyMCE::Rails.configuration.merge(options)
       
@@ -8,6 +21,7 @@ module TinyMCE::Rails
       end
     end
     
+    # Includes TinyMCE javascript assets via a script tag.
     def tinymce_assets
       javascript_include_tag "tinymce"
     end
