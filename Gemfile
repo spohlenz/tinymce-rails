@@ -9,6 +9,8 @@ gem 'json', :platforms => [:ruby_18]
 
 group :test do
   gem "rspec-rails"
+  gem "guard-rspec"
+  gem "capybara"
 end
 
 gemspec

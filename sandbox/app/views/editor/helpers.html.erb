@@ -1,0 +1,16 @@
+<h1>TinyMCE Helpers</h1>
+
+<ul>
+  <li><%= link_to 'Back to index', root_path %></li>
+  
+  <% if params[:locale] == "es" %>
+    <li><%= link_to 'Switch to English', :locale => nil %></li>
+  <% else %>
+    <li><%= link_to 'Switch to Spanish', :locale => "es" %></li>
+  <% end %>
+</ul>
+
+<%= text_area_tag :editor, "", :class => "tinymce", :rows => 20, :cols => 60 %>
+
+<%= tinymce_assets %>
+<%= tinymce %>
