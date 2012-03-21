@@ -11,7 +11,7 @@ Instructions
 
     gem 'tinymce-rails'
 
-Then run `bundle install`.
+Be sure to add to the global group, not the `assets` group. Then run `bundle install`.
 
 
 **2. Create a `config/tinymce.yml` file with your global configuration options:**
