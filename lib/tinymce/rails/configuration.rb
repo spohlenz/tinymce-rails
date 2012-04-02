@@ -2,9 +2,9 @@ module TinyMCE::Rails
   class Configuration
     def self.defaults
       {
-        "mode"            => "textareas",
-        "theme"           => "advanced",
-        "editor_selector" => "tinymce"
+        "mode"            => "specific_textareas",
+        "editor_selector" => "tinymce",
+        "theme"           => "advanced"
       }
     end
     
