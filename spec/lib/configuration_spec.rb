@@ -4,7 +4,7 @@ module TinyMCE::Rails
   describe Configuration do
     it "has default options" do
       Configuration.defaults.should eq(
-        "mode"            => "textareas",
+        "mode"            => "specific_textareas",
         "theme"           => "advanced",
         "editor_selector" => "tinymce"
       )
@@ -20,7 +20,7 @@ module TinyMCE::Rails
       file = File.expand_path("../fixtures/tinymce.yml", File.dirname(__FILE__))
       config = Configuration.load(file)
       config.options.should eq(
-        "mode" => "textareas",
+        "mode" => "specific_textareas",
         "theme" => "advanced",
         "editor_selector" => "tinymce",
         "plugins" => %w(inlinepopups imageselector contextmenu paste table fullscreen),
