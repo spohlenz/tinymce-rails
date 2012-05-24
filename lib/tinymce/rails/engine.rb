@@ -10,7 +10,9 @@ module TinyMCE::Rails
     end
 
     initializer "helper" do |app|
-      ActionController::Base.helper(Helper)
+      ActiveSupport.on_load(:action_view) do
+        include Helper
+      end
     end
   end
 end
