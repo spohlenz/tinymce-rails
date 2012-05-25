@@ -1,5 +1,11 @@
 module TinyMCE::Rails
   class Configuration
+    class Function < String
+      def encode_json(encoder)
+        self
+      end
+    end
+    
     def self.defaults
       {
         "mode"            => "specific_textareas",
@@ -20,6 +26,8 @@ module TinyMCE::Rails
       options.each do |key, value|
         if value.is_a?(Array) && value.all? { |v| v.is_a?(String) }
           result[key] = value.join(",")
+        elsif value.starts_with?("function(")
+          result[key] = Function.new(value)
         else
           result[key] = value
         end

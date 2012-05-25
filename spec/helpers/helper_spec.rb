@@ -31,6 +31,11 @@ module TinyMCE::Rails
         result.should include('"theme":"simple"')
         result.should include('"plugins":"paste,table,fullscreen"')
       end
+      
+      it "outputs function strings without quotes" do
+        result = tinymce(:oninit => "function() { alert('Hello'); }")
+        result.should include('"oninit":function() { alert(\'Hello\'); }')
+      end
     end
   end
 end

@@ -56,6 +56,11 @@ module TinyMCE::Rails
         config.options_for_tinymce["plugins"].should eq("paste,table,fullscreen")
       end
       
+      it "converts javascript function strings to Function objects" do
+        config = Configuration.new("oninit" => "function() {}")
+        config.options_for_tinymce["oninit"].should be_a(Configuration::Function)
+      end
+      
       it "returns the language based on the current locale" do
         I18n.locale = "pirate"
         
