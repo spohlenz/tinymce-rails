@@ -6,7 +6,7 @@ module TinyMCE::Rails
     config.tinymce.base = nil
 
     initializer "precompile", :group => :all do |app|
-      app.config.assets.precompile << "tinymce.js"
+      app.config.assets.precompile += ['tinymce/*', 'tinymce-jquery.js', 'tinymce.js']
     end
 
     initializer "helper" do |app|
