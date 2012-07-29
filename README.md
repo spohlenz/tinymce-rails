@@ -31,15 +31,17 @@ See the [TinyMCE Documentation](http://www.tinymce.com/wiki.php/Configuration) f
 
 **3. Include the TinyMCE assets**
 
-Add to your application.js:
+Use *one* of the following options to include TinyMCE assets.
+
+(1) Add to your application.js:
 
     //= require tinymce
 
-or with jQuery integration:
+or (2) with jQuery integration:
 
     //= require tinymce-jquery
 
-The TinyMCE assets can be included on a per-page basis using the `tinymce_assets` helper:
+(3) The TinyMCE assets can be included on a per-page basis using the `tinymce_assets` helper:
 
     <%= tinymce_assets %>
     #=> <script type="text/javascript" src="/assets/tinymce.js">
