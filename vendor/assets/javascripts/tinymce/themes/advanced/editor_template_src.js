@@ -1039,6 +1039,8 @@
 							width = startWidth + (e.screenX - startX);
 							height = startHeight + (e.screenY - startY);
 							t.resizeTo(width, height, true);
+
+							ed.nodeChanged();
 						};
 
 						e.preventDefault();
@@ -1287,7 +1289,7 @@
 						ti += 'id: ' + v + ' ';
 
 					if (v = n.className) {
-						v = v.replace(/\b\s*(webkit|mce|Apple-)\w+\s*\b/g, '')
+						v = v.replace(/\b\s*(webkit|mce|Apple-)\w+\s*\b/g, '');
 
 						if (v) {
 							ti += 'class: ' + v + ' ';

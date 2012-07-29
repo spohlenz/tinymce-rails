@@ -6,9 +6,9 @@
 	var tinymce = {
 		majorVersion : '3',
 
-		minorVersion : '5.5',
+		minorVersion : '5.6',
 
-		releaseDate : '2012-07-19',
+		releaseDate : '2012-07-26',
 
 		_init : function() {
 			var t = this, d = document, na = navigator, ua = na.userAgent, i, nl, n, base, p, v;
@@ -1566,7 +1566,7 @@ tinymce.util.Quirks = function(editor) {
 		}
 
 		function isSelectionAcrossElements() {
-			return !selection.isCollapsed() && selection.getStart() != selection.getEnd();
+			return !selection.isCollapsed() && dom.getParent(selection.getStart(), dom.isBlock) != dom.getParent(selection.getEnd(), dom.isBlock);
 		}
 
 		function blockEvent(editor, e) {
@@ -1885,7 +1885,7 @@ tinymce.util.Quirks = function(editor) {
 	};
 
 	function fakeImageResize() {
-		var selectedElmX, selectedElmY, selectedElm, selectedElmGhost, selectedHandle, startX, startY, startW, startH,
+		var selectedElmX, selectedElmY, selectedElm, selectedElmGhost, selectedHandle, startX, startY, startW, startH, ratio,
 			resizeHandles, width, height, rootDocument = document, editableDoc = editor.getDoc();
 
 		if (!settings.object_resizing || settings.webkit_fake_resize === false) {
@@ -1909,26 +1909,25 @@ tinymce.util.Quirks = function(editor) {
 		};
 
 		function resizeElement(e) {
-			var deltaX, deltaY, ratio;
+			var deltaX, deltaY;
 
 			// Calc new width/height
 			deltaX = e.screenX - startX;
 			deltaY = e.screenY - startY;
-			ratio = Math.max((startW + deltaX) / startW, (startH + deltaY) / startH);
 
-			if (VK.modifierPressed(e)) {
-				// Constrain proportions
-				width = Math.round(startW * ratio);
-				height = Math.round(startH * ratio);
-			} else {
-				// Calc new size
-				width = deltaX * selectedHandle[2] + startW;
-				height = deltaY * selectedHandle[3] + startH;
-			}
+			// Calc new size
+			width = deltaX * selectedHandle[2] + startW;
+			height = deltaY * selectedHandle[3] + startH;
 
 			// Never scale down lower than 5 pixels
 			width = width < 5 ? 5 : width;
 			height = height < 5 ? 5 : height;
+
+			// Constrain proportions when modifier key is pressed or if the nw, ne, sw, se corners are moved on an image
+			if (VK.modifierPressed(e) || (selectedElm.nodeName == "IMG" && selectedHandle[2] * selectedHandle[3] !== 0)) {
+				width = Math.round(height / ratio);
+				height = Math.round(width * ratio);
+			}
 
 			// Update ghost size
 			dom.setStyles(selectedElmGhost, {
@@ -1938,12 +1937,12 @@ tinymce.util.Quirks = function(editor) {
 
 			// Update ghost X position if needed
 			if (selectedHandle[2] < 0 && selectedElmGhost.clientWidth <= width) {
-				dom.setStyle(selectedElmGhost, 'left', selectedElmX + deltaX);
+				dom.setStyle(selectedElmGhost, 'left', selectedElmX + (startW - width));
 			}
 
 			// Update ghost Y position if needed
 			if (selectedHandle[3] < 0 && selectedElmGhost.clientHeight <= height) {
-				dom.setStyle(selectedElmGhost, 'top', selectedElmY + deltaY);
+				dom.setStyle(selectedElmGhost, 'top', selectedElmY + (startH - height));
 			}
 		}
 
@@ -2015,6 +2014,7 @@ tinymce.util.Quirks = function(editor) {
 						startY = e.screenY;
 						startW = selectedElm.clientWidth;
 						startH = selectedElm.clientHeight;
+						ratio = startH / startW;
 						selectedHandle = handle;
 
 						selectedElmGhost = selectedElm.cloneNode(true);
@@ -5984,7 +5984,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 				styleElm.id = 'mceDefaultStyles';
 				styleElm.type = 'text/css';
 
-				head = doc.getElementsByTagName('head')[0]
+				head = doc.getElementsByTagName('head')[0];
 				if (head.firstChild) {
 					head.insertBefore(styleElm, head.firstChild);
 				} else {
@@ -13095,7 +13095,7 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 		},
 
 		getContent : function(args) {
-			var self = this, content;
+			var self = this, content, body = self.getBody();
 
 			// Setup args object
 			args = args || {};
@@ -13109,11 +13109,18 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 
 			// Get raw contents or by default the cleaned contents
 			if (args.format == 'raw')
-				content = self.getBody().innerHTML;
+				content = body.innerHTML;
+			else if (args.format == 'text')
+				content = body.innerText || body.textContent;
 			else
-				content = self.serializer.serialize(self.getBody(), args);
+				content = self.serializer.serialize(body, args);
 
-			args.content = tinymce.trim(content);
+			// Trim whitespace in beginning/end of HTML
+			if (args.format != 'text') {
+				args.content = tinymce.trim(content);
+			} else {
+				args.content = content;
+			}
 
 			// Do post processing
 			if (!args.no_events)
@@ -14447,6 +14454,14 @@ tinymce.ForceBlocks = function(editor) {
 		node = rootNode.firstChild;
 		while (node) {
 			if (node.nodeType === 3 || (node.nodeType == 1 && !blockElements[node.nodeName])) {
+				// Remove empty text nodes
+				if (node.nodeType === 3 && node.nodeValue.length == 0) {
+					tempNode = node;
+					node = node.nextSibling;
+					dom.remove(tempNode);
+					continue;
+				}
+
 				if (!rootBlockNode) {
 					rootBlockNode = dom.create(settings.forced_root_block);
 					node.parentNode.insertBefore(rootBlockNode, node);
@@ -17403,7 +17418,7 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 				if (container && container.nodeType == 3 && offset >= container.nodeValue.length) {
 					// Insert extra BR element at the end block elements
 					if (!tinymce.isIE && !hasRightSideBr()) {
-						brElm = dom.create('br')
+						brElm = dom.create('br');
 						rng.insertNode(brElm);
 						rng.setStartAfter(brElm);
 						rng.setEndAfter(brElm);
@@ -17488,7 +17503,7 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 			// Setup range items and newBlockName
 			container = rng.startContainer;
 			offset = rng.startOffset;
-			newBlockName = settings.forced_root_block;
+			newBlockName = (settings.force_p_newlines ? 'p' : '') || settings.forced_root_block;
 			newBlockName = newBlockName ? newBlockName.toUpperCase() : '';
 			documentMode = dom.doc.documentMode;
 			shiftKey = evt.shiftKey;
