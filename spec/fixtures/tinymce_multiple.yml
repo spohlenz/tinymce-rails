@@ -1,0 +1,20 @@
+default:
+  theme_advanced_toolbar_location: top
+  theme_advanced_toolbar_align: left
+  plugins:
+    - inlinepopups
+    - imageselector
+    - contextmenu
+    - paste
+    - table
+    - fullscreen
+  option_specified_with_erb_value: <%= "ERB" %>
+
+sexy:
+  theme_advanced_toolbar_location: sexy_top
+  theme_advanced_toolbar_align: sexy_left
+  plugins:
+    - inlinepopups
+    - imageselector
+    - contextmenu
+  option_specified_with_erb_value: <%= "SEXY_ERB" %>

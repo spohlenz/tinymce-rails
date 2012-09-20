@@ -16,13 +16,13 @@ module TinyMCE::Rails
     def tinymce(options={})
       javascript_tag { tinymce_javascript(options) }
     end
-    
+
     # Returns the JavaScript code required to initialize TinyMCE.
     def tinymce_javascript(options={})
       configuration = TinyMCE::Rails.configuration.merge(options)
       "tinyMCE.init(#{configuration.options_for_tinymce.to_json});".html_safe
     end
-    
+
     # Includes TinyMCE javascript assets via a script tag.
     def tinymce_assets
       javascript_include_tag "tinymce"
