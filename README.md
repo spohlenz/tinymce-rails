@@ -26,8 +26,23 @@ Be sure to add to the global group, not the `assets` group. Then run `bundle ins
       - table
       - fullscreen
 
-See the [TinyMCE Documentation](http://www.tinymce.com/wiki.php/Configuration) for a full list of configuration options.
+If you want to use multiple configs follow this syntax:
 
+    default:
+      theme_advanced_toolbar_align: left
+      theme_advanced_buttons3_add:
+        - tablecontrols
+      plugins:
+        - table
+    custom:
+      theme_advanced_toolbar_location: top
+      theme_advanced_toolbar_align: left
+      theme_advanced_buttons3_add:
+        - tablecontrols
+      plugins:
+        - table
+
+See the [TinyMCE Documentation](http://www.tinymce.com/wiki.php/Configuration) for a full list of configuration options.
 
 **3. Include the TinyMCE assets**
 
@@ -61,6 +76,9 @@ Custom options can be passed to `tinymce` to override the global options specifi
 
     <%= tinymce :theme => "simple", :language => "de", :plugins => ["inlinepopups", "paste"] %>
 
+Use different configs defined in 'config/tinymce.yml':
+
+    <%= tinymce :config => "custom" %>
 
 Language Packs
 --------------
