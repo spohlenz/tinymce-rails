@@ -16,9 +16,10 @@ module TinyMCE::Rails
       config.options.should eq(options)
     end
     
-    it "loads configuration from YAML file" do
-      file = File.expand_path("../fixtures/tinymce.yml", File.dirname(__FILE__))
+    it "loads single-configuration YAML files" do
+      file = File.expand_path("../fixtures/single.yml", File.dirname(__FILE__))
       config = Configuration.load(file)
+      config.should be_an_instance_of(Configuration)
       config.options.should eq(
         "mode" => "specific_textareas",
         "theme" => "advanced",
@@ -27,6 +28,23 @@ module TinyMCE::Rails
         "theme_advanced_toolbar_location" => "top",
         "theme_advanced_toolbar_align" => "left",
         "option_specified_with_erb_value" => "ERB"
+      )
+    end
+    
+    it "loads multiple-configuration YAML files" do
+      file = File.expand_path("../fixtures/multiple.yml", File.dirname(__FILE__))
+      config = Configuration.load(file)
+      
+      config.should be_an_instance_of(MultipleConfiguration)
+      config[:default].should be_an_instance_of(Configuration)
+      config[:alternate].should be_an_instance_of(Configuration)
+      
+      config[:default].options.should eq(Configuration.defaults)
+      config[:alternate].options.should eq(
+        "mode" => "specific_textareas",
+        "theme" => "advanced",
+        "editor_selector" => "tinymce",
+        "skin" => "alternate"
       )
     end
     

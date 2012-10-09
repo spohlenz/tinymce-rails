@@ -20,6 +20,12 @@ module TinyMCE::Rails
       @options = options
     end
     
+    def self.new_with_defaults(options={})
+      config = new(defaults)
+      config = config.merge(options) if options
+      config
+    end
+    
     def options_for_tinymce
       result = {}
       
@@ -42,14 +48,16 @@ module TinyMCE::Rails
       self.class.new(self.options.merge(options))
     end
     
-    def load(filename)
-      options.merge!(YAML::load(ERB.new(IO.read(filename)).result))
-    end
-    
     def self.load(filename)
-      config = new(defaults)
-      config.load(filename) if File.exists?(filename)
-      config
+      return new_with_defaults if !File.exists?(filename)
+      
+      options = load_yaml(filename)
+      
+      if options.has_key?('default')
+        MultipleConfiguration.new(options)
+      else
+        new_with_defaults(options)
+      end
     end
     
     # Default language falls back to English if current locale is not available.
@@ -70,6 +78,20 @@ module TinyMCE::Rails
   
     def self.assets
       Rails.application.assets
+    end
+    
+    def self.load_yaml(filename)
+      YAML::load(ERB.new(IO.read(filename)).result)
+    end
+  end
+  
+  class MultipleConfiguration < ActiveSupport::HashWithIndifferentAccess
+    def initialize(configurations={})
+      configurations = configurations.each_with_object({}) { |(name, options), h|
+        h[name] = Configuration.new_with_defaults(options)
+      }
+      
+      super(configurations)
     end
   end
 end
