@@ -1,7 +1,7 @@
 source :rubygems
 
 #gem 'rails', '3.1.0'
-gem 'rails', '3.2.7'
+gem 'rails', '3.2.8'
 
 gem 'jquery-rails'
 gem 'uglifier'
