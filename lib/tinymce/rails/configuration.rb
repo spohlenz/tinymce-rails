@@ -1,3 +1,5 @@
+require "active_support/hash_with_indifferent_access"
+
 module TinyMCE::Rails
   class Configuration
     class Function < String
