@@ -3,5 +3,5 @@ Rake::Task['assets:precompile:primary'].enhance do
   target = File.join(Rails.public_path, Rails.application.config.assets.prefix)
 
   mkdir_p target
-  cp_r assets, target
+  cp_r assets, target, :preserve => true
 end
