@@ -8,5 +8,10 @@ module TinyMCE
     def self.configuration
       @configuration ||= Configuration.load(::Rails.root.join("config/tinymce.yml"))
     end
+
+    def self.configuration=(configuration)
+      @configuration = configuration
+    end
+
   end
 end
