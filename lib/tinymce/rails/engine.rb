@@ -14,13 +14,13 @@ module TinyMCE::Rails
         include Helper
       end
     end
-    
+
     def self.base
       config.tinymce.base || default_base
     end
-    
+
     def self.default_base
-      File.join(Rails.application.config.assets.prefix || "/", "tinymce")
+      File.join(Rails.application.config.relative_url_root || "", Rails.application.config.assets.prefix || "/", "tinymce")
     end
   end
 end
