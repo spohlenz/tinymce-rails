@@ -71,7 +71,7 @@ module TinyMCE::Rails
         end
         
         it "raises an error when given an invalid configuration" do
-          expect { tinymce(:missing) }.to raise_error(KeyError)
+          expect { tinymce(:missing) }.to raise_error(IndexError)
         end
       end
     end
