@@ -12,6 +12,5 @@ module TinyMCE
     def self.configuration=(configuration)
       @configuration = configuration
     end
-
   end
 end
