@@ -2,9 +2,11 @@ require 'spec_helper'
 
 module TinyMCE::Rails
   describe Helper do
+    include Sprockets::Helpers::RailsHelper
+    
     describe "#tinymce_assets" do
       it "returns a TinyMCE javascript tag" do
-        tinymce_assets.should have_selector("script", :type => "text/javascript", :src => "/assets/tinymce.js")
+        tinymce_assets.should have_selector("script[type='text/javascript'][src='/assets/tinymce.js']")
       end
     end
     
@@ -20,7 +22,7 @@ module TinyMCE::Rails
         
         it "initializes TinyMCE using global configuration" do
           result = tinymce
-          result.should have_selector("script", :type => "text/javascript")
+          result.should have_selector("script[type='text/javascript']")
           result.should include('tinyMCE.init({')
           result.should include('"theme":"advanced"')
           result.should include('"plugins":"paste,table,fullscreen"')
