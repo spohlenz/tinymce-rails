@@ -13,10 +13,16 @@ module TinyMCE
         @manifest[file] = file
       end
       
+      def to_s
+        dump
+      end
+      
+      def dump(io=nil)
+        YAML.dump(@manifest, io)
+      end
+      
       def write
-        File.open(@manifest_file, "wb") do |f|
-          YAML.dump(@manifest, f)
-        end
+        File.open(@manifest_file, "wb") { |f| dump(f) }
       end
     end
   end
