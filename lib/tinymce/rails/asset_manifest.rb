@@ -2,10 +2,10 @@ module TinyMCE
   module Rails
     class AssetManifest
       class NullManifest
-        def append(file); end
-        def remove(file); end
-        def remove_digest(file); end
-        def each; end
+        def append(*); end
+        def remove(*); end
+        def remove_digest(*); end
+        def each(*); end
         def write; end
       end
       
