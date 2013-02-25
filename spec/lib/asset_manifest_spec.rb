@@ -3,7 +3,7 @@ require "tinymce/rails/asset_manifest"
 module TinyMCE
   module Rails
     describe AssetManifest do
-      subject(:manifest) { AssetManifest.new(fixture("yaml_manifest")) }
+      subject(:manifest) { AssetManifest.load(fixture("yaml_manifest")) }
       
       def fixture(directory)
         File.expand_path("../fixtures/#{directory}", File.dirname(__FILE__))
@@ -13,8 +13,21 @@ module TinyMCE
         YAML.load(manifest.to_s)
       end
       
-      it "raises an exception if it can't find a manifest" do
-        expect { AssetManifest.new(fixture("no_manifest")) }.to raise_error(AssetManifest::NoManifest)
+      describe ".load" do
+        it "returns a NullManifest if it can't find a manifest" do
+          manifest = AssetManifest.load(fixture("no_manifest"))
+          manifest.should be_an_instance_of(AssetManifest::NullManifest)
+        end
+      end
+      
+      describe AssetManifest::NullManifest do
+        subject { AssetManifest::NullManifest.new }
+        
+        it { should respond_to(:append) }
+        it { should respond_to(:remove) }
+        it { should respond_to(:remove_digest) }
+        it { should respond_to(:each) }
+        it { should respond_to(:write) }
       end
       
       it "keeps existing manifest data" do

@@ -1,12 +1,27 @@
 module TinyMCE
   module Rails
     class AssetManifest
-      class NoManifest < StandardError; end
+      class NullManifest
+        def append(file); end
+        def remove(file); end
+        def remove_digest(file); end
+        def each; end
+        def write; end
+      end
       
-      def initialize(manifest_path)
-        @manifest_file = File.join(manifest_path, "manifest.yml")
-        raise NoManifest unless File.exists?(@manifest_file)
-        @manifest = YAML.load_file(@manifest_file)
+      def initialize(file)
+        @file = file
+        @manifest = YAML.load_file(file)
+      end
+      
+      def self.load(manifest_path)
+        yaml_file = File.join(manifest_path, "manifest.yml")
+        
+        if File.exists?(yaml_file)
+          new(yaml_file)
+        else
+          NullManifest.new
+        end
       end
       
       def append(file)
@@ -39,7 +54,7 @@ module TinyMCE
       end
       
       def write
-        File.open(@manifest_file, "wb") { |f| dump(f) }
+        File.open(@file, "wb") { |f| dump(f) }
       end
     end
   end

@@ -13,24 +13,23 @@ module TinyMCE
       def install
         copy_assets
         append_to_manifest
+        manifest.write
       end
     
     private
+      def manifest
+        @manifest ||= AssetManifest.load(@manifest_path)
+      end
+      
       def copy_assets
         FileUtils.cp_r(ASSETS, @target, :preserve => true)
       end
       
       def append_to_manifest
-        manifest = AssetManifest.new(@manifest_path)
-        
         asset_files.each do |file|
           relative_path = file.relative_path_from(ASSETS.parent).to_s
           manifest.append(relative_path)
         end
-        
-        manifest.write
-      rescue AssetManifest::NoManifest
-        # No manifest file found. Ignore.
       end
       
       def asset_files
