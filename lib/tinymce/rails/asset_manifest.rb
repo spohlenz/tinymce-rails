@@ -13,6 +13,23 @@ module TinyMCE
         @manifest[file] = file
       end
       
+      def remove(file)
+        @manifest.delete(file)
+      end
+      
+      def remove_digest(file)
+        if digested = @manifest[file]
+          @manifest[file] = file
+          yield digested, file if block_given?
+        end
+      end
+      
+      def each(pattern)
+        @manifest.each_key do |asset|
+          yield asset if asset =~ pattern
+        end
+      end
+      
       def to_s
         dump
       end
