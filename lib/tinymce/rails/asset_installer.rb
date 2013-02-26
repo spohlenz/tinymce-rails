@@ -39,8 +39,7 @@ module TinyMCE
       
       def append_to_manifest
         asset_files.each do |file|
-          relative_path = file.relative_path_from(ASSETS.parent).to_s
-          manifest.append(relative_path)
+          manifest.append(logical_path(file), file)
         end
       end
       
@@ -48,11 +47,15 @@ module TinyMCE
         Pathname.glob("#{ASSETS}/**/*").select(&:file?)
       end
       
+      def logical_path(file)
+        file.relative_path_from(ASSETS.parent).to_s
+      end
+      
       def move_asset(src, dest)
         src = File.join(@target, src)
         dest = File.join(@target, dest)
         
-        FileUtils.mv(src, dest) if File.exists?(src)
+        FileUtils.mv(src, dest, :force => true) if src != dest && File.exists?(src)
       end
       
       def index_asset?(asset)
