@@ -34,7 +34,7 @@ module TinyMCE
         manifest.stub(:each).and_yield(asset)
         manifest.should_receive(:remove_digest).with(asset).and_yield(digested_asset, asset)
         File.stub(:exists?).and_return(true)
-        FileUtils.should_receive(:mv).with("/assets/tinymce/langs/es-abcde1234567890.js", "/assets/tinymce/langs/es.js")
+        FileUtils.should_receive(:mv).with("/assets/tinymce/langs/es-abcde1234567890.js", "/assets/tinymce/langs/es.js", :force => true)
         
         install
       end
