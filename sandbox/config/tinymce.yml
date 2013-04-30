@@ -6,9 +6,10 @@ theme_advanced_buttons3_add:
   - fullscreen
 
 plugins:
-  - inlinepopups
-  - paste
-  - table
   - fullscreen
+  - image
+  - link
+  - table
+  - paste
 
 dialog_type: "modal"

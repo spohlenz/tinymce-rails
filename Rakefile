@@ -13,11 +13,11 @@ def download(url, filename)
 end
 
 desc "Update TinyMCE to version #{TinyMCE::Rails::TINYMCE_VERSION}"
-task :update => [ :fetch, :extract, :process ]
+task :update => [ :fetch, :extract, :rename ]
 
 task :fetch do
-  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}.zip", "tinymce.zip")
-  download("https://github.com/downloads/tinymce/tinymce/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}_jquery.zip", "tinymce.jquery.zip")
+  download("http://www.tinymce.com/#{TinyMCE::Rails::TINYMCE_VERSION}/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}.zip", "tinymce.zip")
+  download("http://www.tinymce.com/#{TinyMCE::Rails::TINYMCE_VERSION}/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}_jquery.zip", "tinymce.jquery.zip")
 end
 
 task :extract do
@@ -26,26 +26,21 @@ task :extract do
     `unzip -u tmp/tinymce.zip -d tmp`
     `rm -rf vendor/assets/javascripts/tinymce`
     `mkdir -p vendor/assets/javascripts/tinymce`
-    `mv tmp/tinymce/jscripts/tiny_mce/* vendor/assets/javascripts/tinymce/`
+    `mv tmp/tinymce/js/tinymce/* vendor/assets/javascripts/tinymce/`
   end
   
   step "Extracting jQuery files" do
-    `rm -rf tmp/tinymce`
-    `unzip -u tmp/tinymce.jquery.zip -d tmp`
-    `mv tmp/tinymce/jscripts/tiny_mce/jquery.tinymce.js vendor/assets/javascripts/tinymce/jquery.tinymce.js`
-    `mv tmp/tinymce/jscripts/tiny_mce/tiny_mce.js vendor/assets/javascripts/tinymce/tiny_mce_jquery.js`
-    `mv tmp/tinymce/jscripts/tiny_mce/tiny_mce_src.js vendor/assets/javascripts/tinymce/tiny_mce_jquery_src.js`
+   `rm -rf tmp/tinymce`
+   `unzip -u tmp/tinymce.jquery.zip -d tmp`
+   `mv tmp/tinymce/js/tinymce/jquery.tinymce.min.js vendor/assets/javascripts/tinymce/jquery.tinymce.js`
+   `mv tmp/tinymce/js/tinymce/tinymce.min.js vendor/assets/javascripts/tinymce/tinymce_jquery.js`
   end
 end
 
-task :process do
-  step "Fixing file encoding" do
-    require 'iconv'
-    converter = Iconv.new('UTF-8', 'ISO-8859-1')
-    Dir["vendor/assets/javascripts/tinymce/**/*.js"].each do |file|
-      contents = converter.iconv(File.read(file))
-      contents = contents.force_encoding('UTF-8') if contents.respond_to?(:force_encoding)
-      File.open(file, 'w') { |f| f.write(contents) }
+task :rename do
+  step "Renaming files" do
+    Dir["vendor/assets/javascripts/tinymce/**/*.min.js"].each do |file|
+      FileUtils.mv(file, file.sub(/\.min\.js$/, '.js'))
     end
   end
 end

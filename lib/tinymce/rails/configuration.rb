@@ -10,9 +10,7 @@ module TinyMCE::Rails
     
     def self.defaults
       {
-        "mode"            => "specific_textareas",
-        "editor_selector" => "tinymce",
-        "theme"           => "advanced"
+        "selector" => "textarea.tinymce"
       }
     end
     
@@ -41,7 +39,9 @@ module TinyMCE::Rails
         end
       end
       
-      result["language"] ||= self.class.default_language
+      if self.class.default_language
+        result["language"] ||= self.class.default_language
+      end
       
       result
     end
@@ -64,7 +64,7 @@ module TinyMCE::Rails
     
     # Default language falls back to English if current locale is not available.
     def self.default_language
-      available_languages.include?(I18n.locale.to_s) ? I18n.locale.to_s : "en"
+      I18n.locale.to_s if available_languages.include?(I18n.locale.to_s)
     end
     
     # Searches asset paths for TinyMCE language files.
