@@ -1,7 +1,9 @@
-Rails 3.1 Integration for TinyMCE
+Rails Integration for TinyMCE
 =================================
 
-The `tinymce-rails` gem integrates the [TinyMCE](http://www.tinymce.com/) editor with the Rails 3.1 asset pipeline.
+The `tinymce-rails` gem integrates the [TinyMCE](http://www.tinymce.com/) editor with the Rails asset pipeline.
+
+This gem is compatible with Rails 3.1.1 and higher.
 
 
 Instructions
