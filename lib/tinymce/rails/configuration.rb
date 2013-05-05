@@ -71,7 +71,7 @@ module TinyMCE::Rails
     def self.available_languages
       assets.paths.map { |path|
         files = assets.entries(File.join(path, "tinymce/langs"))
-        files.map { |file|
+        files.select { |file| file.to_s =~ /\.js/ }.map { |file|
           asset = assets.attributes_for(File.join(path, file))
           asset.logical_path.sub(/\.js$/, "")
         }

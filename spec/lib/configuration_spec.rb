@@ -4,9 +4,7 @@ module TinyMCE::Rails
   describe Configuration do
     it "has default options" do
       Configuration.defaults.should eq(
-        "mode"            => "specific_textareas",
-        "theme"           => "advanced",
-        "editor_selector" => "tinymce"
+        "selector" => "textarea.tinymce"
       )
     end
     
@@ -21,9 +19,7 @@ module TinyMCE::Rails
       config = Configuration.load(file)
       config.should be_an_instance_of(Configuration)
       config.options.should eq(
-        "mode" => "specific_textareas",
-        "theme" => "advanced",
-        "editor_selector" => "tinymce",
+        "selector" => "textarea.tinymce",
         "plugins" => %w(inlinepopups imageselector contextmenu paste table fullscreen),
         "theme_advanced_toolbar_location" => "top",
         "theme_advanced_toolbar_align" => "left",
@@ -41,9 +37,7 @@ module TinyMCE::Rails
       
       config[:default].options.should eq(Configuration.defaults)
       config[:alternate].options.should eq(
-        "mode" => "specific_textareas",
-        "theme" => "advanced",
-        "editor_selector" => "tinymce",
+        "selector" => "textarea.tinymce",
         "skin" => "alternate"
       )
     end
@@ -56,10 +50,10 @@ module TinyMCE::Rails
     it "detects available languages" do
       langs = Configuration.available_languages
 
-      langs.should include("en")
       langs.should include("pirate")
       langs.should include("erb")
       
+      langs.should_not include("readme.md")
       langs.should_not include("missing")
     end
     
@@ -91,11 +85,11 @@ module TinyMCE::Rails
         config.options_for_tinymce["language"].should eq("pirate")
       end
       
-      it "falls back to English if the current locale is not available" do
+      it "falls back to English (nil) if the current locale is not available" do
         I18n.locale = "missing"
         
         config = Configuration.new({})
-        config.options_for_tinymce["language"].should eq("en")
+        config.options_for_tinymce["language"].should be_nil
       end
       
       it "does not override the language if already provided" do
