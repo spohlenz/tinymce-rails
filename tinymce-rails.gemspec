@@ -8,6 +8,7 @@ Gem::Specification.new do |s|
   s.files = Dir["README.md", "LICENSE", "Rakefile", "app/**/*", "lib/**/*", "vendor/**/*"]
   s.authors = ["Sam Pohlenz"]
   s.email = "sam@sampohlenz.com"
+  s.homepage = "https://github.com/spohlenz/tinymce-rails"
   
   s.add_dependency "railties",  ">= 3.1.1"
 end
