@@ -10,12 +10,13 @@ module TinyMCE
         stub_const("TinyMCE::Rails::AssetManifest", stub(:load => manifest))
       end
       
+      let(:assets) { Pathname.new(File.expand_path(File.dirname(__FILE__) + "/../../vendor/assets/javascripts/tinymce")) }
       let(:target) { "/assets" }
       let(:manifest_path) { nil }
       let(:manifest) { stub.as_null_object }
       
       def install
-        AssetInstaller.new(target, manifest_path).install
+        AssetInstaller.new(assets, target, manifest_path).install
       end
       
       it "removes TinyMCE index assets" do
@@ -40,13 +41,13 @@ module TinyMCE
       end
       
       it "copies TinyMCE assets to the target directory" do
-        FileUtils.should_receive(:cp_r).with(AssetInstaller::ASSETS, target, :preserve => true)
+        FileUtils.should_receive(:cp_r).with(assets, target, :preserve => true)
         install
       end
       
       it "adds TinyMCE assets to the manifest" do
-        manifest.should_receive(:append).with("tinymce/tinymce.js", AssetInstaller::ASSETS.parent.join("tinymce/tinymce.js"))
-        manifest.should_receive(:append).with("tinymce/themes/modern/theme.js", AssetInstaller::ASSETS.parent.join("tinymce/themes/modern/theme.js"))
+        manifest.should_receive(:append).with("tinymce/tinymce.js", assets.parent.join("tinymce/tinymce.js"))
+        manifest.should_receive(:append).with("tinymce/themes/modern/theme.js", assets.parent.join("tinymce/themes/modern/theme.js"))
         install
       end
       
