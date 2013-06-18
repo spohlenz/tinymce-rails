@@ -3,9 +3,8 @@ require "tinymce/rails/asset_manifest"
 module TinyMCE
   module Rails
     class AssetInstaller
-      ASSETS = Pathname.new(File.expand_path(File.dirname(__FILE__) + "/../../../vendor/assets/javascripts/tinymce"))
-      
-      def initialize(target, manifest_path)
+      def initialize(assets, target, manifest_path)
+        @assets = assets
         @target = target
         @manifest_path = manifest_path || target
       end
@@ -34,7 +33,7 @@ module TinyMCE
       end
       
       def copy_assets
-        FileUtils.cp_r(ASSETS, @target, :preserve => true)
+        FileUtils.cp_r(@assets, @target, :preserve => true)
       end
       
       def append_to_manifest
@@ -44,11 +43,11 @@ module TinyMCE
       end
       
       def asset_files
-        Pathname.glob("#{ASSETS}/**/*").select(&:file?)
+        Pathname.glob("#{@assets}/**/*").select(&:file?)
       end
       
       def logical_path(file)
-        file.relative_path_from(ASSETS.parent).to_s
+        file.relative_path_from(@assets.parent).to_s
       end
       
       def move_asset(src, dest)
