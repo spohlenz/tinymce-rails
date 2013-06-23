@@ -3,7 +3,9 @@ Rails Integration for TinyMCE
 
 The `tinymce-rails` gem integrates the [TinyMCE](http://www.tinymce.com/) editor with the Rails asset pipeline.
 
-This gem is compatible with Rails 3.1.1 and higher. Support for TinyMCE 4 is currently under development in the [tinymce-4 branch](https://github.com/spohlenz/tinymce-rails/tree/tinymce-4).
+This gem is compatible with Rails 3.1.1 and higher (including Rails 4).
+
+Support for TinyMCE 4 is currently available in the [tinymce-4 branch](https://github.com/spohlenz/tinymce-rails/tree/tinymce-4). For the time being, parallel versions of TinyMCE (3.5.x and 4.x) will be maintained. However TinyMCE 4 will eventually be promoted to the master branch.
 
 [![Build Status](https://travis-ci.org/spohlenz/tinymce-rails.png?branch=master)](https://travis-ci.org/spohlenz/tinymce-rails)
 
@@ -29,6 +31,8 @@ Be sure to add to the global group, not the `assets` group. Then run `bundle ins
     plugins:
       - table
       - fullscreen
+
+The Rails server no longer needs to be restarted when this file is updated in development mode.
 
 To define multiple configuration sets, follow this syntax (a default configuration must be specified):
 
@@ -87,12 +91,6 @@ Alternate configurations defined in 'config/tinymce.yml' can be used with:
     <%= tinymce :alternate %>
 
 
-Language Packs
---------------
-
-See the [tinymce-rails-langs](https://github.com/spohlenz/tinymce-rails-langs) gem for additional language packs for TinyMCE. The `tinymce` helper will use the current locale as the language if available, falling back to English if the core language files are missing.
-
-
 Manual Initialization
 ---------------------
 
@@ -106,6 +104,12 @@ Using the `tinymce` helper and global configuration file is entirely optional. T
         theme: 'advanced'
       });
     </script>
+
+
+Language Packs
+--------------
+
+See the [tinymce-rails-langs](https://github.com/spohlenz/tinymce-rails-langs) gem for additional language packs for TinyMCE. The `tinymce` helper will use the current locale as the language if available, falling back to English if the core language files are missing.
 
 
 Custom Plugins & Skins
