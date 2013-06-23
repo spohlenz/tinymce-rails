@@ -50,18 +50,6 @@ module TinyMCE::Rails
       self.class.new(self.options.merge(options))
     end
     
-    def self.load(filename)
-      return new_with_defaults if !File.exists?(filename)
-      
-      options = load_yaml(filename)
-      
-      if options.has_key?('default')
-        MultipleConfiguration.new(options)
-      else
-        new_with_defaults(options)
-      end
-    end
-    
     # Default language falls back to English if current locale is not available.
     def self.default_language
       available_languages.include?(I18n.locale.to_s) ? I18n.locale.to_s : "en"
@@ -80,10 +68,6 @@ module TinyMCE::Rails
   
     def self.assets
       Rails.application.assets
-    end
-    
-    def self.load_yaml(filename)
-      YAML::load(ERB.new(IO.read(filename)).result)
     end
   end
   
