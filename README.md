@@ -3,7 +3,9 @@ Rails Integration for TinyMCE
 
 The `tinymce-rails` gem integrates the [TinyMCE](http://www.tinymce.com/) editor with the Rails asset pipeline.
 
-This gem is compatible with Rails 3.1.1 and higher. This is the development branch for TinyMCE 4. The current stable is available in the [master branch](https://github.com/spohlenz/tinymce-rails).
+This gem is compatible with Rails 3.1.1 and higher (including Rails 4).
+
+This is the branch for TinyMCE 4. TinyMCE 3.5.x is currently available in the [master branch](https://github.com/spohlenz/tinymce-rails). For the time being, parallel versions of TinyMCE (3.5.x and 4.x) will be maintained. However TinyMCE 4 will eventually be promoted to the master branch.
 
 [![Build Status](https://travis-ci.org/spohlenz/tinymce-rails.png?branch=tinymce-4)](https://travis-ci.org/spohlenz/tinymce-rails)
 
@@ -20,34 +22,28 @@ Be sure to add to the global group, not the `assets` group. Then run `bundle ins
 
 **2. Create a `config/tinymce.yml` file with your global configuration options:**
 
-    theme_advanced_toolbar_location: top
-    theme_advanced_toolbar_align: left
-    theme_advanced_statusbar_location: bottom
-    theme_advanced_buttons3_add:
-      - tablecontrols
-      - fullscreen
+    toolbar1: styleselect | bold italic | link image | undo redo
+    toolbar2: table | fullscreen
     plugins:
       - table
       - fullscreen
+      
+The Rails server no longer needs to be restarted when this file is updated in development mode.
 
 To define multiple configuration sets, follow this syntax (a default configuration must be specified):
 
     default:
-      theme_advanced_toolbar_align: left
-      theme_advanced_buttons3_add:
-        - tablecontrols
       plugins:
-        - table
+        - image
+        - link
     
     alternate:
-      theme_advanced_toolbar_location: top
-      theme_advanced_toolbar_align: left
-      theme_advanced_buttons3_add:
-        - tablecontrols
+      selector: textarea.table-editor
+      toolbar: styleselect | bold italic | link image | undo redo | table
       plugins:
         - table
 
-See the [TinyMCE Documentation](http://www.tinymce.com/wiki.php/Configuration) for a full list of configuration options.
+See the [TinyMCE 4 Documentation](http://www.tinymce.com/wiki.php/Configuration) for a full list of configuration options.
 
 
 **3. Include the TinyMCE assets**
@@ -80,7 +76,7 @@ Then invoke the `tinymce` helper to initialize TinyMCE:
 
 Custom options can be passed to `tinymce` to override the global options specified in `config/tinymce.yml`:
 
-    <%= tinymce :theme => "simple", :language => "de", :plugins => ["inlinepopups", "paste"] %>
+    <%= tinymce :theme => "simple", :language => "de", :plugins => ["wordcount", "paste"] %>
 
 Alternate configurations defined in 'config/tinymce.yml' can be used with:
 
@@ -102,8 +98,7 @@ Using the `tinymce` helper and global configuration file is entirely optional. T
 
     <script type="text/javascript">
       tinyMCE.init({
-        mode: 'textareas',
-        theme: 'advanced'
+        selector: 'textarea.editor'
       });
     </script>
 
@@ -111,9 +106,9 @@ Using the `tinymce` helper and global configuration file is entirely optional. T
 Custom Plugins & Skins
 ----------------------
 
-To use custom plugins or skins, simply add the files to your asset load path so that they are locatable at a path beneath `tinymce/plugins/` or `tinymce/themes/advanced/skins/`.
+To use custom plugins or skins, simply add the files to your asset load path so that they are locatable at a path beneath `tinymce/plugins/` or `tinymce/skins/`.
 
-For example, a plugin called `mycustomplugin` could have its main JS file at `app/assets/javascripts/tinymce/plugins/mycustomplugin/editor_plugin.js`.
+For example, a plugin called `mycustomplugin` could have its main JS file at `app/assets/javascripts/tinymce/plugins/mycustomplugin/plugin.js`.
 
 You should also ensure that your custom paths are added to the asset precompile paths.
 
