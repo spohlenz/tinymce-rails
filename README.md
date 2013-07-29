@@ -100,8 +100,7 @@ Using the `tinymce` helper and global configuration file is entirely optional. T
 
     <script type="text/javascript">
       tinyMCE.init({
-        mode: 'textareas',
-        theme: 'advanced'
+        mode: 'textareas'
       });
     </script>
 
