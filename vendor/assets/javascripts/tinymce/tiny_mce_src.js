@@ -6,9 +6,9 @@
 	var tinymce = {
 		majorVersion : '3',
 
-		minorVersion : '5.8',
+		minorVersion : '5.9.pre',
 
-		releaseDate : '2012-11-20',
+		releaseDate : '2013-08-11',
 
 		_init : function() {
 			var t = this, d = document, na = navigator, ua = na.userAgent, i, nl, n, base, p, v;
@@ -504,9 +504,6 @@
 	// Describe the different namespaces
 
 	})(window);
-
-
-
 tinymce.create('tinymce.util.Dispatcher', {
 	scope : null,
 	listeners : null,
@@ -571,7 +568,6 @@ tinymce.create('tinymce.util.Dispatcher', {
 	}
 
 	});
-
 (function() {
 	var each = tinymce.each;
 
@@ -822,7 +818,6 @@ tinymce.create('tinymce.util.Dispatcher', {
 		}
 	});
 })();
-
 (function() {
 	var each = tinymce.each;
 
@@ -893,7 +888,6 @@ tinymce.create('tinymce.util.Dispatcher', {
 		}
 	});
 })();
-
 (function() {
 	function serialize(o, quote) {
 		var i, v, t, name;
@@ -959,7 +953,6 @@ tinymce.create('tinymce.util.Dispatcher', {
 
 		};
 })();
-
 tinymce.create('static tinymce.util.XHR', {
 	send : function(o) {
 		var x, t, w = window, c = 0;
@@ -1018,7 +1011,6 @@ tinymce.create('static tinymce.util.XHR', {
 		}
 	}
 });
-
 (function() {
 	var extend = tinymce.extend, JSON = tinymce.util.JSON, XHR = tinymce.util.XHR;
 
@@ -1095,7 +1087,6 @@ tinymce.create('static tinymce.util.XHR', {
 		}
 	};
 })(tinymce);
-
 tinymce.util.Quirks = function(editor) {
 	var VK = tinymce.VK, BACKSPACE = VK.BACKSPACE, DELETE = VK.DELETE, dom = editor.dom, selection = editor.selection,
 		settings = editor.settings, parser = editor.parser, serializer = editor.serializer, each = tinymce.each;
@@ -1120,55 +1111,68 @@ tinymce.util.Quirks = function(editor) {
 
 	function cleanupStylesWhenDeleting() {
 		function removeMergedFormatSpans(isDelete) {
-			var rng, blockElm, node, clonedSpan;
+			var rng, blockElm, wrapperElm, bookmark, container, offset, elm;
+
+			function isAtStartOrEndOfElm() {
+				if (container.nodeType == 3) {
+					if (isDelete && offset == container.length) {
+						return true;
+					}
+
+					if (!isDelete && offset === 0) {
+						return true;
+					}
+				}
+			}
 
 			rng = selection.getRng();
+			var tmpRng = [rng.startContainer, rng.startOffset, rng.endContainer, rng.endOffset];
 
-			// Find root block
-			blockElm = dom.getParent(rng.startContainer, dom.isBlock);
-
-			// On delete clone the root span of the next block element
-			if (isDelete) {
-				blockElm = dom.getNext(blockElm, dom.isBlock);
+			if (!rng.collapsed) {
+				isDelete = true;
 			}
 
-			// Locate root span element and clone it since it would otherwise get merged by the "apple-style-span" on delete/backspace
-			if (blockElm) {
-				node = blockElm.firstChild;
+			container = rng[(isDelete ? 'start' : 'end') + 'Container'];
+			offset = rng[(isDelete ? 'start' : 'end') + 'Offset'];
 
-				// Ignore empty text nodes
-				while (node && node.nodeType == 3 && node.nodeValue.length === 0) {
-					node = node.nextSibling;
+			if (container.nodeType == 3) {
+				blockElm = dom.getParent(rng.startContainer, dom.isBlock);
+
+				// On delete clone the root span of the next block element
+				if (isDelete) {
+					blockElm = dom.getNext(blockElm, dom.isBlock);
 				}
 
-				if (node && node.nodeName === 'SPAN') {
-					clonedSpan = node.cloneNode(false);
+				if (blockElm && (isAtStartOrEndOfElm() || !rng.collapsed)) {
+					// Wrap children of block in a EM and let WebKit stick is
+					// runtime styles junk into that EM
+					wrapperElm = dom.create('em', {'id': '__mceDel'});
+
+					each(tinymce.grep(blockElm.childNodes), function(node) {
+						wrapperElm.appendChild(node);
+					});
+
+					blockElm.appendChild(wrapperElm);
 				}
 			}
-
-			each(dom.select('span', blockElm), function(span) {
-				span.setAttribute('data-mce-mark', '1');
-			});
 
 			// Do the backspace/delete action
+			rng = dom.createRng();
+			rng.setStart(tmpRng[0], tmpRng[1]);
+			rng.setEnd(tmpRng[2], tmpRng[3]);
+			selection.setRng(rng);
 			editor.getDoc().execCommand(isDelete ? 'ForwardDelete' : 'Delete', false, null);
 
-			// Find all odd apple-style-spans
-			blockElm = dom.getParent(rng.startContainer, dom.isBlock);
-			each(dom.select('span', blockElm), function(span) {
-				var bm = selection.getBookmark();
+			// Remove temp wrapper element
+			if (wrapperElm) {
+				bookmark = selection.getBookmark();
 
-				if (clonedSpan) {
-					dom.replace(clonedSpan.cloneNode(false), span, true);
-				} else if (!span.getAttribute('data-mce-mark')) {
-					dom.remove(span, true);
-				} else {
-					span.removeAttribute('data-mce-mark');
+				while (elm = dom.get('__mceDel')) {
+					dom.remove(elm, true);
 				}
 
-				// Restore the selection
-				selection.moveToBookmark(bm);
-			});
+				selection.moveToBookmark(bookmark);
+			}
 		}
 
 		editor.onKeyDown.add(function(editor, e) {
@@ -1490,6 +1494,12 @@ tinymce.util.Quirks = function(editor) {
 				// Override delete if the start container is a text node and is at the beginning of text or
 				// just before/after the last character to be deleted in collapsed mode
 				if (container.nodeType == 3 && container.nodeValue.length > 0 && ((offset === 0 && !collapsed) || (collapsed && offset === (isDelete ? 0 : 1)))) {
+					// Edge case when deleting <p><b><img> |x</b></p>
+					sibling = container.previousSibling;
+					if (sibling && sibling.nodeName == "IMG") {
+						return;
+					}
+
 					nonEmptyElements = editor.schema.getNonEmptyElements();
 
 					// Prevent default logic since it's broken
@@ -2155,7 +2165,6 @@ tinymce.util.Quirks = function(editor) {
 		}
 	};
 })(tinymce);
-
 tinymce.html.Styles = function(settings, schema) {
 	var rgbRegExp = /rgb\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/gi,
 		urlOrStrRegExp = /(?:url(?:(?:\(\s*\"([^\"]+)\"\s*\))|(?:\(\s*\'([^\']+)\'\s*\))|(?:\(\s*([^)\s]+)\s*\))))|(?:\'([^\']+)\')|(?:\"([^\"]+)\")/gi,
@@ -2378,7 +2387,6 @@ tinymce.html.Styles = function(settings, schema) {
 		}
 	};
 };
-
 (function(tinymce) {
 	var mapCache = {}, makeMap = tinymce.makeMap, each = tinymce.each;
 
@@ -2715,7 +2723,7 @@ tinymce.html.Styles = function(settings, schema) {
 		selfClosingElementsMap = createLookupTable('self_closing_elements', 'colgroup dd dt li option p td tfoot th thead tr');
 		shortEndedElementsMap = createLookupTable('short_ended_elements', 'area base basefont br col frame hr img input isindex link meta param embed source wbr');
 		boolAttrMap = createLookupTable('boolean_attributes', 'checked compact declare defer disabled ismap multiple nohref noresize noshade nowrap readonly selected autoplay loop controls');
-		nonEmptyElementsMap = createLookupTable('non_empty_elements', 'td th iframe video audio object', shortEndedElementsMap);
+		nonEmptyElementsMap = createLookupTable('non_empty_elements', 'td th iframe video audio object script', shortEndedElementsMap);
 		textBlockElementsMap = createLookupTable('text_block_elements', 'h1 h2 h3 h4 h5 h6 p div address pre form ' + 
 						'blockquote center dir fieldset header footer article section hgroup aside nav figure');
 		blockElementsMap = createLookupTable('block_elements', 'hr table tbody thead tfoot ' + 
@@ -3099,7 +3107,6 @@ tinymce.html.Styles = function(settings, schema) {
 		self.elements = elements;
 	};
 })(tinymce);
-
 (function(tinymce) {
 	tinymce.html.SaxParser = function(settings, schema) {
 		var self = this, noop = function() {};
@@ -3390,7 +3397,6 @@ tinymce.html.Styles = function(settings, schema) {
 		};
 	}
 })(tinymce);
-
 (function(tinymce) {
 	var whiteSpaceRegExp = /^[ \t\r\n]*$/, typeLookup = {
 		'#text' : 3,
@@ -3723,7 +3729,6 @@ tinymce.html.Styles = function(settings, schema) {
 
 	tinymce.html.Node = Node;
 })(tinymce);
-
 (function(tinymce) {
 	var Node = tinymce.html.Node;
 
@@ -4346,7 +4351,6 @@ tinymce.html.Styles = function(settings, schema) {
 		}
 	}
 })(tinymce);
-
 tinymce.html.Writer = function(settings) {
 	var html = [], indent, indentBefore, indentAfter, encode, htmlOutput;
 
@@ -4446,7 +4450,6 @@ tinymce.html.Writer = function(settings) {
 		}
 	};
 };
-
 (function(tinymce) {
 	tinymce.html.Serializer = function(settings, schema) {
 		var self = this, writer = new tinymce.html.Writer(settings);
@@ -4562,7 +4565,6 @@ tinymce.html.Writer = function(settings) {
 		};
 	}
 })(tinymce);
-
 // JSLint defined globals
 /*global tinymce:false, window:false */
 
@@ -5108,7 +5110,6 @@ tinymce.dom = {};
 
 	namespace = 0;
 })(tinymce.dom, 'data-mce-expando'); // Namespace and expando
-
 tinymce.dom.TreeWalker = function(start_node, root_node) {
 	var node = start_node;
 
@@ -5148,7 +5149,6 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		return (node = findSibling(node, 'lastChild', 'previousSibling', shallow));
 	};
 };
-
 (function(tinymce) {
 	// Shorten names
 	var each = tinymce.each,
@@ -6563,7 +6563,6 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 
 	tinymce.DOM = new tinymce.dom.DOMUtils(document, {process_html : 0});
 })(tinymce);
-
 (function(ns) {
 	// Range constructor
 	function Range(dom) {
@@ -7268,7 +7267,6 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		return this.toStringIE();
 	};
 })(tinymce.dom);
-
 (function() {
 	function Selection(selection) {
 		var self = this, dom = selection.dom, TRUE = true, FALSE = false;
@@ -7741,7 +7739,6 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 	// Expose the selection object
 	tinymce.dom.TridentSelection = Selection;
 })();
-
 
 /*
  * Sizzle CSS Selector Engine
@@ -9185,7 +9182,6 @@ window.tinymce.dom.Sizzle = Sizzle;
 
 })();
 
-
 (function(tinymce) {
 	tinymce.dom.Element = function(id, settings) {
 		var t = this, dom, el;
@@ -9294,7 +9290,6 @@ window.tinymce.dom.Sizzle = Sizzle;
 		});
 	};
 })(tinymce);
-
 (function(tinymce) {
 	function trimNl(s) {
 		return s.replace(/[\n\r]+/g, '');
@@ -10434,7 +10429,6 @@ window.tinymce.dom.Sizzle = Sizzle;
 		}
 	});
 })(tinymce);
-
 (function(tinymce) {
 	tinymce.dom.Serializer = function(settings, dom, schema) {
 		var onPreProcess, onPostProcess, isIE = tinymce.isIE, each = tinymce.each, htmlParser;
@@ -10911,7 +10905,6 @@ window.tinymce.dom.Sizzle = Sizzle;
 	// Global script loader
 	tinymce.ScriptLoader = new tinymce.dom.ScriptLoader();
 })(tinymce);
-
 (function(tinymce) {
 	tinymce.dom.RangeUtils = function(dom) {
 		var INVISIBLE_CHAR = '\uFEFF';
@@ -11110,7 +11103,6 @@ window.tinymce.dom.Sizzle = Sizzle;
 		return false;
 	};
 })(tinymce);
-
 (function(tinymce) {
 	var Event = tinymce.dom.Event, each = tinymce.each;
 
@@ -11196,18 +11188,22 @@ window.tinymce.dom.Sizzle = Sizzle;
 				switch (evt.keyCode) {
 					case DOM_VK_LEFT:
 						if (enableLeftRight) t.moveFocus(-1);
+						Event.cancel(evt);
 						break;
 	
 					case DOM_VK_RIGHT:
 						if (enableLeftRight) t.moveFocus(1);
+						Event.cancel(evt);
 						break;
 	
 					case DOM_VK_UP:
 						if (enableUpDown) t.moveFocus(-1);
+						Event.cancel(evt);
 						break;
 
 					case DOM_VK_DOWN:
 						if (enableUpDown) t.moveFocus(1);
+						Event.cancel(evt);
 						break;
 
 					case DOM_VK_ESCAPE:
@@ -11263,7 +11259,6 @@ window.tinymce.dom.Sizzle = Sizzle;
 		}
 	});
 })(tinymce);
-
 (function(tinymce) {
 	// Shorten class names
 	var DOM = tinymce.DOM, is = tinymce.is;
@@ -11388,7 +11383,6 @@ tinymce.create('tinymce.ui.Container:tinymce.ui.Control', {
 	}
 });
 
-
 tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 	Separator : function(id, s) {
 		this.parent(id, s);
@@ -11400,7 +11394,6 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		return tinymce.DOM.createHTML('span', {'class' : this.classPrefix, role : 'separator', 'aria-orientation' : 'vertical', tabindex : '-1'});
 	}
 });
-
 (function(tinymce) {
 	var is = tinymce.is, DOM = tinymce.DOM, each = tinymce.each, walk = tinymce.walk;
 
@@ -11431,7 +11424,6 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
-
 (function(tinymce) {
 	var is = tinymce.is, DOM = tinymce.DOM, each = tinymce.each, walk = tinymce.walk;
 
@@ -11904,7 +11896,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 			else
 				h += '<span class="mceIcon ' + s['class'] + '"></span>' + (l ? '<span class="' + cp + 'Label">' + l + '</span>' : '');
 
-			h += '<span class="mceVoiceLabel mceIconOnly" style="display: none;" id="' + this.id + '_voice">' + s.title + '</span>'; 
+			h += '<span class="mceVoiceLabel mceIconOnly" style="display: none;" id="' + this.id + '_voice">' + s.title + '</span>';
 			h += '</a>';
 			return h;
 		},
@@ -11929,14 +11921,15 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 					return s.onclick.call(s.scope, e);
 				}
 			});
-			tinymce.dom.Event.add(t.id, 'keyup', function(e) {
-				if (!t.isDisabled() && e.keyCode==tinymce.VK.SPACEBAR)
+			tinymce.dom.Event.add(t.id, 'keydown', function(e) {
+				if (!t.isDisabled() && e.keyCode==tinymce.VK.SPACEBAR) {
+					tinymce.dom.Event.cancel(e);
 					return s.onclick.call(s.scope, e);
+				}
 			});
 		}
 	});
 })(tinymce);
-
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each, Dispatcher = tinymce.util.Dispatcher, undef;
 
@@ -12232,7 +12225,6 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
-
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each, Dispatcher = tinymce.util.Dispatcher, undef;
 
@@ -12344,7 +12336,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 
 			// Accessibility keyhandler
 			Event.add(t.id, 'keydown', function(e) {
-				var bf;
+				var bf, DOM_VK_LEFT = 37, DOM_VK_RIGHT = 39, DOM_VK_UP = 38, DOM_VK_DOWN = 40, DOM_VK_RETURN = 13, DOM_VK_SPACE = 32;
 
 				Event.remove(t.id, 'change', ch);
 				changeListenerAdded = false;
@@ -12356,14 +12348,12 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 					Event.remove(t.id, 'blur', bf);
 				});
 
-				//prevent default left and right keys on chrome - so that the keyboard navigation is used.
-				if (tinymce.isWebKit && (e.keyCode==37 ||e.keyCode==39)) {
-					return Event.prevent(e);
-				}
-				
-				if (e.keyCode == 13 || e.keyCode == 32) {
+				if (e.keyCode == DOM_VK_RETURN || e.keyCode == DOM_VK_SPACE) {
 					onChange(e);
 					return Event.cancel(e);
+				} else if (e.keyCode == DOM_VK_DOWN || e.keyCode == DOM_VK_UP) {
+					// allow native implementation (navigate select element options)
+					e.stopImmediatePropagation();
 				}
 			});
 
@@ -12371,7 +12361,6 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
-
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each;
 
@@ -12464,7 +12453,6 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
-
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each;
 
@@ -12548,7 +12536,6 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
-
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, is = tinymce.is, each = tinymce.each;
 
@@ -12758,7 +12745,6 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
-
 (function(tinymce) {
 // Shorten class names
 var dom = tinymce.DOM, each = tinymce.each, Event = tinymce.dom.Event;
@@ -12818,7 +12804,6 @@ tinymce.create('tinymce.ui.ToolbarGroup:tinymce.ui.Container', {
 	}
 });
 })(tinymce);
-
 (function(tinymce) {
 // Shorten class names
 var dom = tinymce.DOM, each = tinymce.each;
@@ -12885,7 +12870,6 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 	}
 });
 })(tinymce);
-
 (function(tinymce) {
 	var Dispatcher = tinymce.util.Dispatcher, each = tinymce.each;
 
@@ -15548,7 +15532,6 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 		});
 	};
 })(tinymce);
-
 (function(tinymce) {
 	var Dispatcher = tinymce.util.Dispatcher;
 
@@ -15768,7 +15751,6 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 		return self;
 	};
 })(tinymce);
-
 tinymce.ForceBlocks = function(editor) {
 	var settings = editor.settings, dom = editor.dom, selection = editor.selection, blockElements = editor.schema.getBlockElements();
 
@@ -15874,7 +15856,6 @@ tinymce.ForceBlocks = function(editor) {
 		editor.onNodeChange.add(addRootBlocks);
 	}
 };
-
 (function(tinymce) {
 	// Shorten names
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each, extend = tinymce.extend;
@@ -16267,7 +16248,6 @@ tinymce.ForceBlocks = function(editor) {
 		}
 	});
 })(tinymce);
-
 (function(tinymce) {
 	var Dispatcher = tinymce.util.Dispatcher, each = tinymce.each, isIE = tinymce.isIE, isOpera = tinymce.isOpera;
 
@@ -16405,7 +16385,11 @@ tinymce.ForceBlocks = function(editor) {
 			getContentEditable = dom.getContentEditable;
 
 		function isTextBlock(name) {
-			return !!ed.schema.getTextBlocks()[name.toLowerCase()];
+			if (name.nodeType) {
+				name = name.nodeName;
+			}
+
+			return !!ed.schema.getTextBlockElements()[name.toLowerCase()];
 		}
 
 		function getParents(node, selector) {
@@ -16766,7 +16750,7 @@ tinymce.ForceBlocks = function(editor) {
 
 						// Is it valid to wrap this item
 						if (contentEditable && !hasContentEditableState && isValid(wrapName, nodeName) && isValid(parentName, wrapName) &&
-								!(!node_specific && node.nodeType === 3 && node.nodeValue.length === 1 && node.nodeValue.charCodeAt(0) === 65279) && !isCaretNode(node)) {
+								!(!node_specific && node.nodeType === 3 && node.nodeValue.length === 1 && node.nodeValue.charCodeAt(0) === 65279) && !isCaretNode(node) && (!format.inline || !isBlock(node))) {
 							// Start wrapping
 							if (!currentWrapElm) {
 								// Wrap the node
@@ -18046,10 +18030,6 @@ tinymce.ForceBlocks = function(editor) {
 			return next;
 		};
 
-		function isTextBlock(name) {
-			return /^(h[1-6]|p|div|pre|address|dl|dt|dd)$/.test(name);
-		};
-
 		function getContainer(rng, start) {
 			var container, offset, lastIdx, walker;
 
@@ -18398,7 +18378,6 @@ tinymce.ForceBlocks = function(editor) {
 		};
 	};
 })(tinymce);
-
 tinymce.onAddEditor.add(function(tinymce, ed) {
 	var filters, fontSizes, dom, settings = ed.settings;
 
@@ -18455,7 +18434,6 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 		});
 	}
 });
-
 (function(tinymce) {
 	var TreeWalker = tinymce.dom.TreeWalker;
 
@@ -18776,26 +18754,24 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 				undoManager.add();
 			};
 
-			// Walks the parent block to the right and look for BR elements
-			function hasRightSideBr() {
+			// Walks the parent block to the right and look for any contents
+			function hasRightSideContent() {
 				var walker = new TreeWalker(container, parentBlock), node;
 
-				while (node = walker.current()) {
-					if (node.nodeName == 'BR') {
+				while (node = walker.next()) {
+					if (nonEmptyElementsMap[node.nodeName.toLowerCase()] || node.length > 0) {
 						return true;
 					}
-
-					node = walker.next();
 				}
 			}
-			
+
 			// Inserts a BR element if the forced_root_block option is set to false or empty string
 			function insertBr() {
 				var brElm, extraBr, marker;
 
 				if (container && container.nodeType == 3 && offset >= container.nodeValue.length) {
 					// Insert extra BR element at the end block elements
-					if (!tinymce.isIE && !hasRightSideBr()) {
+					if (!tinymce.isIE && !hasRightSideContent()) {
 						brElm = dom.create('br');
 						rng.insertNode(brElm);
 						rng.setStartAfter(brElm);
@@ -19027,4 +19003,3 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 		});
 	};
 })(tinymce);
-
