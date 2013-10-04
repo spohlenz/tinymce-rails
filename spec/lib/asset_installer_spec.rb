@@ -7,13 +7,13 @@ module TinyMCE
         FileUtils.stub(:cp_r)
         FileUtils.stub(:mv)
         
-        stub_const("TinyMCE::Rails::AssetManifest", stub(:load => manifest))
+        stub_const("TinyMCE::Rails::AssetManifest", double(:load => manifest))
       end
       
       let(:assets) { Pathname.new(File.expand_path(File.dirname(__FILE__) + "/../../vendor/assets/javascripts/tinymce")) }
       let(:target) { "/assets" }
       let(:manifest_path) { nil }
-      let(:manifest) { stub.as_null_object }
+      let(:manifest) { double.as_null_object }
       
       def install
         AssetInstaller.new(assets, target, manifest_path).install

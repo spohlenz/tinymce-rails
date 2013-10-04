@@ -39,7 +39,7 @@ module TinyMCE
     
         describe "#append" do
           it "adds files to the manifest without a fingerprint" do
-            manifest.append("tinymce/tiny_mce_jquery.js", stub)
+            manifest.append("tinymce/tiny_mce_jquery.js", double)
         
             result = reload_manifest(manifest)
             result["tinymce/tiny_mce_jquery.js"].should == "tinymce/tiny_mce_jquery.js"
@@ -109,11 +109,11 @@ module TinyMCE
         end
         
         describe "#append" do
-          let(:file) { stub }
-          let(:mtime) { stub(:iso8601 => "2013-02-26T12:29:33+10:30") }
+          let(:file) { double }
+          let(:mtime) { double(:iso8601 => "2013-02-26T12:29:33+10:30") }
           
           it "adds files to the manifest without a fingerprint" do
-            File.should_receive(:stat).with(file).and_return(stub(:mtime => mtime, :size => 123))
+            File.should_receive(:stat).with(file).and_return(double(:mtime => mtime, :size => 123))
             
             manifest.append("tinymce/tiny_mce_jquery.js", file)
         
