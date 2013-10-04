@@ -1,4 +1,4 @@
-// 4.0.6 (2013-09-12)
+// 4.0.7 (2013-10-02)
 
 /**
  * Compiled inline version. (Library mode)
@@ -486,7 +486,6 @@ define("tinymce/dom/EventUtils", [], function() {
 										callbackList.nativeHandler = nativeHandler;
 
 										eventMap[name] = callbackList;
-										callbackList.splice(ci, 1);
 									}
 								}
 							}
@@ -22610,6 +22609,13 @@ define("tinymce/ui/FloatPanel", [
 				visiblePanels.splice(i, 1);
 			}
 		}
+
+		i = zOrder.length;
+		while (i--) {
+			if (zOrder[i] === panel) {
+				zOrder.splice(i, 1);
+			}
+		}
 	}
 
 	return FloatPanel;
@@ -23272,7 +23278,7 @@ define("tinymce/ui/Window", [
 						items.push(ctrl.getEl('inp'));
 
 						if (ctrl.getEl('open')) {
-							items.push(ctrl.getEl('open').firstChild);
+							items.push(ctrl.getEl('open'));
 						}
 					} else {
 						items.push(ctrl.getEl());
@@ -23327,12 +23333,6 @@ define("tinymce/ui/Window", [
 		 * @return {Object} Event arguments object.
 		 */
 		submit: function() {
-			// Blur current control so a onchange is fired before submit
-			var ctrl = this.getParentCtrl(document.activeElement);
-			if (ctrl) {
-				ctrl.blur();
-			}
-
 			return this.fire('submit', {data: this.toJSON()});
 		},
 
@@ -23491,6 +23491,7 @@ define("tinymce/ui/MessageBox", [
 						buttons = [
 							{type: "button", text: "Ok", subtype: "primary", onClick: function(e) {
 								e.control.parents()[1].close();
+								callback(true);
 							}}
 						];
 						break;
@@ -23712,7 +23713,9 @@ define("tinymce/WindowManager", [
 		 */
 		self.alert = function(message, callback, scope) {
 			MessageBox.alert(message, function() {
-				callback.call(scope || this);
+				if (callback) {
+					callback.call(scope || this);
+				}
 			});
 		};
 
@@ -25012,6 +25015,14 @@ define("tinymce/util/Observable", [
 			}
 
 			return self;
+		},
+
+		hasEventListeners: function(name) {
+			var bindings = this[bindingsName];
+
+			name = name.toLowerCase();
+
+			return !(!bindings || !bindings[name] || bindings[name].length === 0);
 		}
 	};
 });
@@ -25208,7 +25219,7 @@ define("tinymce/Editor", [
 	var extend = Tools.extend, each = Tools.each, explode = Tools.explode;
 	var inArray = Tools.inArray, trim = Tools.trim, resolve = Tools.resolve;
 	var Event = EventUtils.Event;
-	var isGecko = Env.gecko, ie = Env.ie, isOpera = Env.opera;
+	var isGecko = Env.gecko, ie = Env.ie;
 
 	function getEventTarget(editor, eventName) {
 		if (eventName == 'selectionchange' || eventName == 'drop') {
@@ -25445,6 +25456,7 @@ define("tinymce/Editor", [
 				// Add hidden input for non input elements inside form elements
 				if (settings.hidden_input && !/TEXTAREA|INPUT/i.test(self.getElement().nodeName)) {
 					DOM.insertAfter(DOM.create('input', {type: 'hidden', name: id}), id);
+					self.hasHiddenInput = true;
 				}
 
 				// Pass submit/reset from form to editor instance
@@ -25734,11 +25746,6 @@ define("tinymce/Editor", [
 				return self.initContentBody();
 			}
 
-			// User specified a document.domain value
-			if (document.domain && location.hostname != document.domain) {
-				self.editorManager.relaxedDomain = document.domain;
-			}
-
 			self.iframeHTML = settings.doctype + '<html><head>';
 
 			// We only need to override paths if we have to
@@ -25776,13 +25783,14 @@ define("tinymce/Editor", [
 			self.iframeHTML += '</head><body id="' + bodyId + '" class="mce-content-body ' + bodyClass + '" ' +
 				'onload="window.parent.tinymce.get(\'' + self.id + '\').fire(\'load\');"><br></body></html>';
 
-			// Domain relaxing enabled, then set document domain
-			// TODO: Fix this old stuff
-			if (self.editorManager.relaxedDomain && (ie || (isOpera && parseFloat(window.opera.version()) < 11))) {
-				// We need to write the contents here in IE since multiple writes messes up refresh button and back button
-				url = 'javascript:(function(){document.open();document.domain="' + document.domain + '";' +
-					'var ed = window.parent.tinymce.get("' + self.id + '");document.write(ed.iframeHTML);' +
-					'document.close();ed.initContentBody();})()';
+			var domainRelaxUrl = 'javascript:(function(){'+
+				'document.open();document.domain="' + document.domain + '";' +
+				'var ed = window.parent.tinymce.get("' + self.id + '");document.write(ed.iframeHTML);' +
+				'document.close();ed.initContentBody(true);})()';
+
+			// Domain relaxing is required since the user has messed around with document.domain
+			if (document.domain != location.hostname) {
+				url = domainRelaxUrl;
 			}
 
 			// Create iframe
@@ -25803,6 +25811,16 @@ define("tinymce/Editor", [
 				}
 			});
 
+			// Try accessing the document this will fail on IE when document.domain is set to the same as location.hostname
+			// Then we have to force domain relaxing using the domainRelaxUrl approach very ugly!!
+			if (ie) {
+				try {
+					self.getDoc();
+				} catch (e) {
+					n.src = url = domainRelaxUrl;
+				}
+			}
+
 			self.contentAreaContainer = o.iframeContainer;
 
 			if (o.editorContainer) {
@@ -25812,7 +25830,7 @@ define("tinymce/Editor", [
 			DOM.get(self.id).style.display = 'none';
 			DOM.setAttrib(self.id, 'aria-hidden', true);
 
-			if (!self.editorManager.relaxedDomain || !url) {
+			if (!url) {
 				self.initContentBody();
 			}
 
@@ -25826,7 +25844,7 @@ define("tinymce/Editor", [
 		 * @method initContentBody
 		 * @private
 		 */
-		initContentBody: function() {
+		initContentBody: function(skipWrite) {
 			var self = this, settings = self.settings, targetElm = DOM.get(self.id), doc = self.getDoc(), body, contentCssText;
 
 			// Restore visibility on target element
@@ -25835,14 +25853,10 @@ define("tinymce/Editor", [
 			}
 
 			// Setup iframe body
-			if ((!ie || !self.editorManager.relaxedDomain) && !settings.content_editable) {
+			if (!skipWrite && !settings.content_editable) {
 				doc.open();
 				doc.write(self.iframeHTML);
 				doc.close();
-
-				if (self.editorManager.relaxedDomain) {
-					doc.domain = self.editorManager.relaxedDomain;
-				}
 			}
 
 			if (settings.content_editable) {
@@ -27143,12 +27157,18 @@ define("tinymce/Editor", [
 		 * @method remove
 		 */
 		remove: function() {
-			var self = this, elm = self.getContainer(), doc = self.getDoc();
+			var self = this;
 
 			if (!self.removed) {
 				self.removed = 1; // Cancels post remove event execution
 
+				// Remove any hidden input
+				if (self.hasHiddenInput) {
+					DOM.remove(self.getElement().nextSibling);
+				}
+
 				// Fixed bug where IE has a blinking cursor left from the editor
+				var doc = self.getDoc();
 				if (ie && doc) {
 					doc.execCommand('SelectAll');
 				}
@@ -27165,6 +27185,7 @@ define("tinymce/Editor", [
 					Event.unbind(self.getDoc());
 				}
 
+				var elm = self.getContainer();
 				Event.unbind(self.getBody());
 				Event.unbind(elm);
 
@@ -27213,6 +27234,13 @@ define("tinymce/Editor", [
 
 			// One time is enough
 			if (self.destroyed) {
+				return;
+			}
+
+			// If user manually calls destroy and not remove
+			// Users seems to have logic that calls destroy instead of remove
+			if (!automatic && !self.removed) {
+				self.remove();
 				return;
 			}
 
@@ -27618,7 +27646,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion : '0.6',
+		minorVersion : '0.7',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -27626,7 +27654,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2013-09-12',
+		releaseDate: '2013-10-02',
 
 		/**
 		 * Collection of editor instances.
@@ -29611,12 +29639,24 @@ define("tinymce/ui/PanelButton", [
 		showPanel: function() {
 			var self = this, settings = self.settings;
 
-			settings.panel.popover = true;
-			settings.panel.autohide = true;
 			self.active(true);
 
 			if (!self.panel) {
-				self.panel = new FloatPanel(settings.panel).on('hide', function() {
+				var panelSettings = settings.panel;
+
+				// Wrap panel in grid layout if type if specified
+				// This makes it possible to add forms or other containers directly in the panel option
+				if (panelSettings.type) {
+					panelSettings = {
+						layout: 'grid',
+						items: panelSettings
+					};
+				}
+
+				panelSettings.popover = true;
+				panelSettings.autohide = true;
+
+				self.panel = new FloatPanel(panelSettings).on('hide', function() {
 					self.active(false);
 				}).parent(self).renderTo(self.getContainerElm());
 				self.panel.fire('show');
@@ -29625,7 +29665,7 @@ define("tinymce/ui/PanelButton", [
 				self.panel.show();
 			}
 
-			self.panel.moveRel(self.getEl(), settings.popoverAlign || 'bc-tc');
+			self.panel.moveRel(self.getEl(), settings.popoverAlign || ['bc-tl', 'bc-tc']);
 		},
 
 		/**
@@ -29908,11 +29948,11 @@ define("tinymce/ui/ComboBox", [
 		disabled: function(state) {
 			var self = this;
 
-			self._super(state);
-
-			if (self._rendered) {
+			if (self._rendered && typeof(state) != 'undefined') {
 				self.getEl('inp').disabled = state;
 			}
+
+			return self._super(state);
 		},
 
 		/**
@@ -30006,7 +30046,7 @@ define("tinymce/ui/ComboBox", [
 			return (
 				'<div id="' + id + '" class="' + self.classes() + '">' +
 					'<input id="' + id + '-inp" class="' + prefix + 'textbox ' + prefix + 'placeholder" value="' +
-					value + '" hidefocus="true">' +
+					value + '" hidefocus="true"' + (self.disabled() ? ' disabled="disabled"' : '') + '>' +
 					openBtnHtml +
 				'</div>'
 			);
@@ -30430,12 +30470,6 @@ define("tinymce/ui/Form", [
 		 * @return {Object} Event arguments object.
 		 */
 		submit: function() {
-			// Blur current control so a onchange is fired before submit
-			var ctrl = this.getParentCtrl(document.activeElement);
-			if (ctrl) {
-				ctrl.blur();
-			}
-
 			return this.fire('submit', {data: this.toJSON()});
 		},
 
@@ -32556,6 +32590,10 @@ define("tinymce/ui/MenuItem", [
 				settings.icon = 'selected';
 			}
 
+			if (!settings.preview && !settings.selectable) {
+				self.addClass('menu-item-normal');
+			}
+
 			self.on('mousedown', function(e) {
 				e.preventDefault();
 			});
@@ -33235,7 +33273,7 @@ define("tinymce/ui/TabPanel", [
 	"tinymce/ui/Panel",
 	"tinymce/ui/DomUtils"
 ], function(Panel, DomUtils) {
-	"use stict";
+	"use strict";
 
 	return Panel.extend({
 		lastIdx: 0,
@@ -33342,7 +33380,9 @@ define("tinymce/ui/TabPanel", [
 		initLayoutRect: function() {
 			var self = this, rect, minW, minH;
 
-			minW = minH = 0;
+			minW = self.getEl('head').offsetWidth;
+			minW = minW < 0 ? 0 : minW;
+			minH = 0;
 			self.items().each(function(item, i) {
 				minW = Math.max(minW, item.layoutRect().minW);
 				minH = Math.max(minH, item.layoutRect().minH);
@@ -33439,6 +33479,23 @@ define("tinymce/ui/TextBox", [
 					}
 				});
 			}
+		},
+
+		/**
+		 * Getter/setter function for the disabled state.
+		 *
+		 * @method value
+		 * @param {Boolean} [state] State to be set.
+		 * @return {Boolean|tinymce.ui.ComboBox} True/false or self if it's a set operation.
+		 */
+		disabled: function(state) {
+			var self = this;
+
+			if (self._rendered && typeof(state) != 'undefined') {
+				self.getEl().disabled = state;
+			}
+
+			return self._super(state);
 		},
 
 		/**
@@ -33539,6 +33596,10 @@ define("tinymce/ui/TextBox", [
 
 			if (settings.subtype) {
 				extraAttrs += ' type="' + settings.subtype + '"';
+			}
+
+			if (self.disabled()) {
+				extraAttrs += ' disabled="disabled"';
 			}
 
 			if (settings.multiline) {
