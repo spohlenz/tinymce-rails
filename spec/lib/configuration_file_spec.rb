@@ -43,12 +43,12 @@ module TinyMCE::Rails
       before(:each) { file.configuration }
       
       it "returns true if the file has been modified (different mtime)" do
-        File.stub!(:mtime).and_return(Time.now)
+        File.stub(:mtime).and_return(Time.now)
         file.should be_changed
       end
       
       it "returns true if the file no longer exists" do
-        File.stub!(:exists?).and_return(false)
+        File.stub(:exists?).and_return(false)
         file.should be_changed
       end
       

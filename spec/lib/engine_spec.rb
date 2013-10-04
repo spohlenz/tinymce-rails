@@ -8,12 +8,12 @@ module TinyMCE::Rails
       end
 
       it "ignores the asset prefix if missing" do
-        Rails.application.config.assets.stub!(:prefix).and_return nil
+        Rails.application.config.assets.stub(:prefix).and_return nil
         TinyMCE::Rails::Engine.default_base.should eq "/tinymce"
       end
 
       it "includes the Rails relative_url_root if provided" do
-        Rails.application.config.stub!(:relative_url_root).and_return "/prefix"
+        Rails.application.config.stub(:relative_url_root).and_return "/prefix"
         TinyMCE::Rails::Engine.default_base.should eq "/prefix/assets/tinymce"
       end
     end
