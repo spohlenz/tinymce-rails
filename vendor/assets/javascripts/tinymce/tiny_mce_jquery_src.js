@@ -6,18 +6,20 @@
 	var tinymce = {
 		majorVersion : '3',
 
-		minorVersion : '5.9.pre',
+		minorVersion : '5.9',
 
-		releaseDate : '2013-08-11',
+		releaseDate : '2013-10-10',
 
 		_init : function() {
 			var t = this, d = document, na = navigator, ua = na.userAgent, i, nl, n, base, p, v;
+
+			t.isIE11 = ua.indexOf('Trident/') != -1 && ua.indexOf('rv:') != -1;
 
 			t.isOpera = win.opera && opera.buildNumber;
 
 			t.isWebKit = /WebKit/.test(ua);
 
-			t.isIE = !t.isWebKit && !t.isOpera && (/MSIE/gi).test(ua) && (/Explorer/gi).test(na.appName);
+			t.isIE = !t.isWebKit && !t.isOpera && (/MSIE/gi).test(ua) && (/Explorer/gi).test(na.appName) || t.isIE11;
 
 			t.isIE6 = t.isIE && /MSIE [56]/.test(ua);
 
@@ -27,7 +29,7 @@
 
 			t.isIE9 = t.isIE && /MSIE [9]/.test(ua);
 
-			t.isGecko = !t.isWebKit && /Gecko/.test(ua);
+			t.isGecko = !t.isWebKit && !t.isIE11 && /Gecko/.test(ua);
 
 			t.isMac = ua.indexOf('Mac') != -1;
 
@@ -451,6 +453,7 @@
 
 	})(window);
 
+
 (function($, tinymce) {
 	var is = tinymce.is, attrRegExp = /^(href|src|style)$/i, undef;
 
@@ -761,6 +764,8 @@
 	};
 })(window.jQuery, tinymce);
 
+
+
 tinymce.create('tinymce.util.Dispatcher', {
 	scope : null,
 	listeners : null,
@@ -825,6 +830,7 @@ tinymce.create('tinymce.util.Dispatcher', {
 	}
 
 	});
+
 (function() {
 	var each = tinymce.each;
 
@@ -1075,6 +1081,7 @@ tinymce.create('tinymce.util.Dispatcher', {
 		}
 	});
 })();
+
 (function() {
 	var each = tinymce.each;
 
@@ -1145,6 +1152,7 @@ tinymce.create('tinymce.util.Dispatcher', {
 		}
 	});
 })();
+
 (function() {
 	function serialize(o, quote) {
 		var i, v, t, name;
@@ -1210,6 +1218,7 @@ tinymce.create('tinymce.util.Dispatcher', {
 
 		};
 })();
+
 tinymce.create('static tinymce.util.XHR', {
 	send : function(o) {
 		var x, t, w = window, c = 0;
@@ -1268,6 +1277,7 @@ tinymce.create('static tinymce.util.XHR', {
 		}
 	}
 });
+
 (function() {
 	var extend = tinymce.extend, JSON = tinymce.util.JSON, XHR = tinymce.util.XHR;
 
@@ -1344,6 +1354,7 @@ tinymce.create('static tinymce.util.XHR', {
 		}
 	};
 })(tinymce);
+
 tinymce.util.Quirks = function(editor) {
 	var VK = tinymce.VK, BACKSPACE = VK.BACKSPACE, DELETE = VK.DELETE, dom = editor.dom, selection = editor.selection,
 		settings = editor.settings, parser = editor.parser, serializer = editor.serializer, each = tinymce.each;
@@ -2189,6 +2200,17 @@ tinymce.util.Quirks = function(editor) {
 		}
 	}
 
+	function bodyHeight() {
+		editor.contentStyles.push('body {min-height: 100px}');
+		editor.onClick.add(function(ed, e) {
+			if (e.target.nodeName == 'HTML') {
+				editor.execCommand('SelectAll');
+				editor.selection.collapse(true);
+				editor.nodeChanged();
+			}
+		});
+	}
+
 	// All browsers
 	disableBackspaceIntoATable();
 	removeBlockQuoteOnBackSpace();
@@ -2212,7 +2234,7 @@ tinymce.util.Quirks = function(editor) {
 	}
 
 	// IE
-	if (tinymce.isIE) {
+	if (tinymce.isIE && !tinymce.isIE11) {
 		removeHrOnBackspace();
 		ensureBodyHasRoleApplication();
 		addNewLinesBeforeBrInPre();
@@ -2222,8 +2244,13 @@ tinymce.util.Quirks = function(editor) {
 		keepNoScriptContents();
 	}
 
+	// IE 11+
+	if (tinymce.isIE11) {
+		bodyHeight();
+	}
+
 	// Gecko
-	if (tinymce.isGecko) {
+	if (tinymce.isGecko && !tinymce.isIE11) {
 		removeHrOnBackspace();
 		focusBody();
 		removeStylesWhenDeletingAccrossBlockElements();
@@ -2422,6 +2449,7 @@ tinymce.util.Quirks = function(editor) {
 		}
 	};
 })(tinymce);
+
 tinymce.html.Styles = function(settings, schema) {
 	var rgbRegExp = /rgb\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/gi,
 		urlOrStrRegExp = /(?:url(?:(?:\(\s*\"([^\"]+)\"\s*\))|(?:\(\s*\'([^\']+)\'\s*\))|(?:\(\s*([^)\s]+)\s*\))))|(?:\'([^\']+)\')|(?:\"([^\"]+)\")/gi,
@@ -2458,6 +2486,12 @@ tinymce.html.Styles = function(settings, schema) {
 
 			function compress(prefix, suffix) {
 				var top, right, bottom, left;
+
+				// IE 11 will produce a border-image: none when getting the style attribute from <p style="border: 1px solid red"></p>
+				// So lets asume it shouldn't be there
+				if (styles['border-image'] === 'none') {
+					delete styles['border-image'];
+				}
 
 				// Get values and check it it needs compressing
 				top = styles[prefix + '-top' + suffix];
@@ -2644,6 +2678,7 @@ tinymce.html.Styles = function(settings, schema) {
 		}
 	};
 };
+
 (function(tinymce) {
 	var mapCache = {}, makeMap = tinymce.makeMap, each = tinymce.each;
 
@@ -3364,6 +3399,7 @@ tinymce.html.Styles = function(settings, schema) {
 		self.elements = elements;
 	};
 })(tinymce);
+
 (function(tinymce) {
 	tinymce.html.SaxParser = function(settings, schema) {
 		var self = this, noop = function() {};
@@ -3654,6 +3690,7 @@ tinymce.html.Styles = function(settings, schema) {
 		};
 	}
 })(tinymce);
+
 (function(tinymce) {
 	var whiteSpaceRegExp = /^[ \t\r\n]*$/, typeLookup = {
 		'#text' : 3,
@@ -3986,6 +4023,7 @@ tinymce.html.Styles = function(settings, schema) {
 
 	tinymce.html.Node = Node;
 })(tinymce);
+
 (function(tinymce) {
 	var Node = tinymce.html.Node;
 
@@ -4608,6 +4646,7 @@ tinymce.html.Styles = function(settings, schema) {
 		}
 	}
 })(tinymce);
+
 tinymce.html.Writer = function(settings) {
 	var html = [], indent, indentBefore, indentAfter, encode, htmlOutput;
 
@@ -4707,6 +4746,7 @@ tinymce.html.Writer = function(settings) {
 		}
 	};
 };
+
 (function(tinymce) {
 	tinymce.html.Serializer = function(settings, schema) {
 		var self = this, writer = new tinymce.html.Writer(settings);
@@ -4822,6 +4862,7 @@ tinymce.html.Writer = function(settings) {
 		};
 	}
 })(tinymce);
+
 // JSLint defined globals
 /*global tinymce:false, window:false */
 
@@ -5367,6 +5408,7 @@ tinymce.dom = {};
 
 	namespace = 0;
 })(tinymce.dom, 'data-mce-expando'); // Namespace and expando
+
 tinymce.dom.TreeWalker = function(start_node, root_node) {
 	var node = start_node;
 
@@ -5406,6 +5448,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		return (node = findSibling(node, 'lastChild', 'previousSibling', shallow));
 	};
 };
+
 (function(tinymce) {
 	// Shorten names
 	var each = tinymce.each,
@@ -5493,7 +5536,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		fixDoc: function(doc) {
 			var settings = this.settings, name;
 
-			if (isIE && settings.schema) {
+			if (isIE && !tinymce.isIE11 && settings.schema) {
 				// Add missing HTML 4/5 elements to IE
 				('abbr article aside audio canvas ' +
 				'details figcaption figure footer ' +
@@ -5514,7 +5557,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 			var self = this, clone, doc;
 
 			// TODO: Add feature detection here in the future
-			if (!isIE || node.nodeType !== 1 || deep) {
+			if (!isIE || tinymce.isIE11 || node.nodeType !== 1 || deep) {
 				return node.cloneNode(deep);
 			}
 
@@ -5754,7 +5797,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 				switch (na) {
 					case 'opacity':
 						// IE specific opacity
-						if (isIE) {
+						if (isIE && ! tinymce.isIE11) {
 							s.filter = v === '' ? '' : "alpha(opacity=" + (v * 100) + ")";
 
 							if (!n.currentStyle || !n.currentStyle.hasLayout)
@@ -5766,7 +5809,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 						break;
 
 					case 'float':
-						isIE ? s.styleFloat = v : s.cssFloat = v;
+						(isIE && ! tinymce.isIE11) ? s.styleFloat = v : s.cssFloat = v;
 						break;
 					
 					default:
@@ -6132,7 +6175,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 				// IE 8 has a bug where dynamically loading stylesheets would produce a 1 item remaining bug
 				// This fix seems to resolve that issue by realcing the document ones a stylesheet finishes loading
 				// It's ugly but it seems to work fine.
-				if (isIE && d.documentMode && d.recalc) {
+				if (isIE && !tinymce.isIE11 && d.documentMode && d.recalc) {
 					link.onload = function() {
 						if (d.recalc)
 							d.recalc();
@@ -6451,7 +6494,12 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 
 						// Import
 						case 3:
-							addClasses(r.styleSheet);
+							try {
+								addClasses(r.styleSheet);
+							} catch (ex) {
+								// Ignore
+							}
+
 							break;
 					}
 				});
@@ -6787,6 +6835,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 
 	tinymce.DOM = new tinymce.dom.DOMUtils(document, {process_html : 0});
 })(tinymce);
+
 (function(ns) {
 	// Range constructor
 	function Range(dom) {
@@ -7491,6 +7540,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		return this.toStringIE();
 	};
 })(tinymce.dom);
+
 (function() {
 	function Selection(selection) {
 		var self = this, dom = selection.dom, TRUE = true, FALSE = false;
@@ -7963,6 +8013,8 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 	// Expose the selection object
 	tinymce.dom.TridentSelection = Selection;
 })();
+
+
 (function(tinymce) {
 	tinymce.dom.Element = function(id, settings) {
 		var t = this, dom, el;
@@ -8071,6 +8123,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		});
 	};
 })(tinymce);
+
 (function(tinymce) {
 	function trimNl(s) {
 		return s.replace(/[\n\r]+/g, '');
@@ -8105,7 +8158,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 			if (!t.win.getSelection)
 				t.tridentSel = new tinymce.dom.TridentSelection(t);
 
-			if (tinymce.isIE && dom.boxModel)
+			if (tinymce.isIE && ! tinymce.isIE11 && dom.boxModel)
 				this._fixIESelection();
 
 			// Prevent leaks
@@ -8397,8 +8450,20 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 			}
 
 			// Handle simple range
-			if (type)
-				return {rng : t.getRng()};
+			if (type) {
+				rng = t.getRng();
+
+				if (rng.setStart) {
+					rng = {
+						startContainer: rng.startContainer,
+						startOffset: rng.startOffset,
+						endContainer: rng.endContainer,
+						endOffset: rng.endOffset
+					};
+				}
+
+				return {rng : rng};
+			}
 
 			rng = t.getRng();
 			id = dom.uniqueId();
@@ -8464,7 +8529,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		},
 
 		moveToBookmark : function(bookmark) {
-			var t = this, dom = t.dom, marker1, marker2, rng, root, startContainer, endContainer, startOffset, endOffset;
+			var t = this, dom = t.dom, marker1, marker2, rng, rng2, root, startContainer, endContainer, startOffset, endOffset;
 
 			function setEndPoint(start) {
 				var point = bookmark[start ? 'start' : 'end'], i, node, offset, children;
@@ -8594,8 +8659,24 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 					}
 				} else if (bookmark.name) {
 					t.select(dom.select(bookmark.name)[bookmark.index]);
-				} else if (bookmark.rng)
-					t.setRng(bookmark.rng);
+				} else if (bookmark.rng) {
+					rng = bookmark.rng;
+
+					if (rng.startContainer) {
+						rng2 = t.dom.createRng();
+
+						try {
+							rng2.setStart(rng.startContainer, rng.startOffset);
+							rng2.setEnd(rng.endContainer, rng.endOffset);
+						} catch (e) {
+							// Might fail with index error
+						}
+
+						rng = rng2;
+					}
+
+					t.setRng(rng);
+				}
 			}
 		},
 
@@ -8694,7 +8775,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 			}
 
 			// We have W3C ranges and it's IE then fake control selection since IE9 doesn't handle that correctly yet
-			if (tinymce.isIE && rng && rng.setStart && doc.selection.createRange().item) {
+			if (tinymce.isIE && ! tinymce.isIE11 && rng && rng.setStart && doc.selection.createRange().item) {
 				elm = doc.selection.createRange().item(0);
 				rng = doc.createRange();
 				rng.setStartBefore(elm);
@@ -9210,6 +9291,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	tinymce.dom.Serializer = function(settings, dom, schema) {
 		var onPreProcess, onPostProcess, isIE = tinymce.isIE, each = tinymce.each, htmlParser;
@@ -9558,7 +9640,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 
 			// Add onload listener for non IE browsers since IE9
 			// fires onload event before the script is parsed and executed
-			if (!tinymce.isIE)
+			if (!tinymce.isIE || tinymce.isIE11)
 				elm.onload = done;
 
 			// Add onerror event will get fired on some browsers but not all of them
@@ -9686,6 +9768,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 	// Global script loader
 	tinymce.ScriptLoader = new tinymce.dom.ScriptLoader();
 })(tinymce);
+
 (function(tinymce) {
 	tinymce.dom.RangeUtils = function(dom) {
 		var INVISIBLE_CHAR = '\uFEFF';
@@ -9884,6 +9967,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		return false;
 	};
 })(tinymce);
+
 (function(tinymce) {
 	var Event = tinymce.dom.Event, each = tinymce.each;
 
@@ -10040,6 +10124,7 @@ tinymce.dom.TreeWalker = function(start_node, root_node) {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	// Shorten class names
 	var DOM = tinymce.DOM, is = tinymce.is;
@@ -10164,6 +10249,7 @@ tinymce.create('tinymce.ui.Container:tinymce.ui.Control', {
 	}
 });
 
+
 tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 	Separator : function(id, s) {
 		this.parent(id, s);
@@ -10175,6 +10261,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		return tinymce.DOM.createHTML('span', {'class' : this.classPrefix, role : 'separator', 'aria-orientation' : 'vertical', tabindex : '-1'});
 	}
 });
+
 (function(tinymce) {
 	var is = tinymce.is, DOM = tinymce.DOM, each = tinymce.each, walk = tinymce.walk;
 
@@ -10205,6 +10292,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	var is = tinymce.is, DOM = tinymce.DOM, each = tinymce.each, walk = tinymce.walk;
 
@@ -10711,6 +10799,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each, Dispatcher = tinymce.util.Dispatcher, undef;
 
@@ -11006,6 +11095,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each, Dispatcher = tinymce.util.Dispatcher, undef;
 
@@ -11142,6 +11232,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each;
 
@@ -11234,6 +11325,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each;
 
@@ -11317,6 +11409,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, is = tinymce.is, each = tinymce.each;
 
@@ -11526,6 +11619,7 @@ tinymce.create('tinymce.ui.Separator:tinymce.ui.Control', {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 // Shorten class names
 var dom = tinymce.DOM, each = tinymce.each, Event = tinymce.dom.Event;
@@ -11585,6 +11679,7 @@ tinymce.create('tinymce.ui.ToolbarGroup:tinymce.ui.Container', {
 	}
 });
 })(tinymce);
+
 (function(tinymce) {
 // Shorten class names
 var dom = tinymce.DOM, each = tinymce.each;
@@ -11651,6 +11746,7 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 	}
 });
 })(tinymce);
+
 (function(tinymce) {
 	var Dispatcher = tinymce.util.Dispatcher, each = tinymce.each;
 
@@ -12022,7 +12118,7 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 					ed.render();
 
 					// Fix IE memory leaks
-					if (tinymce.isIE) {
+					if (tinymce.isIE && ! tinymce.isIE11) {
 						w.attachEvent('onunload', clr);
 					}
 
@@ -12420,9 +12516,15 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 					// Store away the selection when it's changed to it can be restored later with a editor.focus() call
 					if (isIE) {
 						t.onInit.add(function(ed) {
-							ed.dom.bind(ed.getBody(), 'beforedeactivate keydown', function() {
-								ed.lastIERng = ed.selection.getRng();
+							ed.dom.bind(ed.getBody(), 'beforedeactivate keydown keyup', function() {
+								ed.bookmark = ed.selection.getBookmark(1);
 							});
+						});
+
+						t.onNodeChange.add(function(ed) {
+							if (document.activeElement.id == ed.id + "_ifr") {
+								ed.bookmark = ed.selection.getBookmark(1);
+							}
 						});
 					}
 				}
@@ -12743,8 +12845,9 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 			var oed, self = this, selection = self.selection, contentEditable = self.settings.content_editable, ieRng, controlElm, doc = self.getDoc(), body;
 
 			if (!skip_focus) {
-				if (self.lastIERng) {
-					selection.setRng(self.lastIERng);
+				if (self.bookmark) {
+					selection.moveToBookmark(self.bookmark);
+					self.bookmark = null;
 				}
 
 				// Get selected control element
@@ -12765,7 +12868,7 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 					body = self.getBody();
 
 					// Check for setActive since it doesn't scroll to the element
-					if (body.setActive) {
+					if (body.setActive && ! tinymce.isIE11) {
 						body.setActive();
 					} else {
 						body.focus();
@@ -14318,6 +14421,7 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 		});
 	};
 })(tinymce);
+
 (function(tinymce) {
 	var Dispatcher = tinymce.util.Dispatcher;
 
@@ -14537,6 +14641,7 @@ tinymce.create('tinymce.ui.Toolbar:tinymce.ui.Container', {
 		return self;
 	};
 })(tinymce);
+
 tinymce.ForceBlocks = function(editor) {
 	var settings = editor.settings, dom = editor.dom, selection = editor.selection, blockElements = editor.schema.getBlockElements();
 
@@ -14642,6 +14747,7 @@ tinymce.ForceBlocks = function(editor) {
 		editor.onNodeChange.add(addRootBlocks);
 	}
 };
+
 (function(tinymce) {
 	// Shorten names
 	var DOM = tinymce.DOM, Event = tinymce.dom.Event, each = tinymce.each, extend = tinymce.extend;
@@ -15034,6 +15140,7 @@ tinymce.ForceBlocks = function(editor) {
 		}
 	});
 })(tinymce);
+
 (function(tinymce) {
 	var Dispatcher = tinymce.util.Dispatcher, each = tinymce.each, isIE = tinymce.isIE, isOpera = tinymce.isOpera;
 
@@ -17051,11 +17158,23 @@ tinymce.ForceBlocks = function(editor) {
 					node.appendChild(dom.doc.createTextNode(INVISIBLE_CHAR));
 					node = node.firstChild;
 
-					// Insert caret container after the formated node
-					dom.insertAfter(caretContainer, formatNode);
+					var block = dom.getParent(formatNode, isTextBlock);
+
+					if (block && dom.isEmpty(block)) {
+						// Replace formatNode with caretContainer when removing format from empty block like <p><b>|</b></p>
+						formatNode.parentNode.replaceChild(caretContainer, formatNode);
+					} else {
+						// Insert caret container after the formated node
+						dom.insertAfter(caretContainer, formatNode);
+					}
 
 					// Move selection to text node
 					selection.setCursorLocation(node, 1);
+
+					// If the formatNode is empty, we can remove it safely. 
+					if (dom.isEmpty(formatNode)) {
+						dom.remove(formatNode);
+					}
 				}
 			};
 
@@ -17164,6 +17283,7 @@ tinymce.ForceBlocks = function(editor) {
 		};
 	};
 })(tinymce);
+
 tinymce.onAddEditor.add(function(tinymce, ed) {
 	var filters, fontSizes, dom, settings = ed.settings;
 
@@ -17220,6 +17340,7 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 		});
 	}
 });
+
 (function(tinymce) {
 	var TreeWalker = tinymce.dom.TreeWalker;
 
@@ -17243,7 +17364,7 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 			function renderBlockOnIE(block) {
 				var oldRng;
 
-				if (tinymce.isIE && dom.isBlock(block)) {
+				if (tinymce.isIE && !tinymce.isIE11 && dom.isBlock(block)) {
 					oldRng = selection.getRng();
 					block.appendChild(dom.create('span', null, '\u00a0'));
 					selection.select(block);
@@ -17378,7 +17499,7 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 				}
 
 				// BR is needed in empty blocks on non IE browsers
-				if (!tinymce.isIE) {
+				if (!tinymce.isIE || tinymce.isIE11) {
 					caretNode.innerHTML = '<br data-mce-bogus="1">';
 				}
 
@@ -17557,7 +17678,7 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 
 				if (container && container.nodeType == 3 && offset >= container.nodeValue.length) {
 					// Insert extra BR element at the end block elements
-					if (!tinymce.isIE && !hasRightSideContent()) {
+					if ((!tinymce.isIE || tinymce.isIE11) && !hasRightSideContent()) {
 						brElm = dom.create('br');
 						rng.insertNode(brElm);
 						rng.setStartAfter(brElm);
@@ -17570,7 +17691,7 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 				rng.insertNode(brElm);
 
 				// Rendering modes below IE8 doesn't display BR elements in PRE unless we have a \n before it
-				if (tinymce.isIE && parentBlockName == 'PRE' && (!documentMode || documentMode < 8)) {
+				if ((tinymce.isIE && !tinymce.isIE11) && parentBlockName == 'PRE' && (!documentMode || documentMode < 8)) {
 					brElm.parentNode.insertBefore(dom.doc.createTextNode('\r'), brElm);
 				}
 
@@ -17624,7 +17745,7 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 				var lastChild;
 
 				// IE will render the blocks correctly other browsers needs a BR
-				if (!tinymce.isIE) {
+				if (!tinymce.isIE || tinymce.isIE11) {
 					block.normalize(); // Remove empty text nodes that got left behind by the extract
 
 					// Check if the block is empty or contains a floated last child
@@ -17789,3 +17910,4 @@ tinymce.onAddEditor.add(function(tinymce, ed) {
 		});
 	};
 })(tinymce);
+
