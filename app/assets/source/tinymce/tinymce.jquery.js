@@ -1,4 +1,4 @@
-// 4.0.7 (2013-10-02)
+// 4.0.8 (2013-10-10)
 
 /**
  * Compiled inline version. (Library mode)
@@ -201,6 +201,12 @@ define("tinymce/html/Styles", [], function() {
 
 				function compress(prefix, suffix) {
 					var top, right, bottom, left;
+
+					// IE 11 will produce a border-image: none when getting the style attribute from <p style="border: 1px solid red"></p>
+					// So lets asume it shouldn't be there
+					if (styles['border-image'] === 'none') {
+						delete styles['border-image'];
+					}
 
 					// Get values and check it it needs compressing
 					top = styles[prefix + '-top' + suffix];
@@ -628,9 +634,9 @@ define("tinymce/dom/EventUtils", [], function() {
 		 * @param {String} id Expando id value to look for.
 		 */
 		function executeHandlers(evt, id) {
-			var callbackList, i, l, callback;
+			var callbackList, i, l, callback, container = events[id];
 
-			callbackList = events[id][evt.type];
+			callbackList = container && container[evt.type];
 			if (callbackList) {
 				for (i = 0, l = callbackList.length; i < l; i++) {
 					callback = callbackList[i];
@@ -13634,8 +13640,9 @@ define("tinymce/Formatter", [
 
 					// Move selection to text node
 					selection.setCursorLocation(node, 1);
+
 					// If the formatNode is empty, we can remove it safely. 
-					if(dom.isEmpty(formatNode)) {
+					if (dom.isEmpty(formatNode)) {
 						dom.remove(formatNode);
 					}
 				}
@@ -14690,6 +14697,10 @@ define("tinymce/EnterKey", [
 			}
 
 			dom.setAttrib(newBlock, 'id', ''); // Remove ID since it needs to be document unique
+
+			// Allow custom handling of new blocks
+			editor.fire('NewBlock', { newBlock: newBlock });
+
 			undoManager.add();
 		}
 
@@ -16878,7 +16889,19 @@ define("tinymce/ui/DomUtils", [
 		},
 
 		getSize: function(elm) {
-			return DOMUtils.DOM.getSize(elm);
+			var width, height;
+
+			if (elm.getBoundingClientRect) {
+				var rect = elm.getBoundingClientRect();
+
+				width = Math.max(rect.width || (rect.right - rect.left), elm.offsetWidth);
+				height = Math.max(rect.height || (rect.bottom - rect.bottom), elm.offsetHeight);
+			} else {
+				width = elm.offsetWidth;
+				height = elm.offsetHeight;
+			}
+
+			return {width: width, height: height};
 		},
 
 		getPos: function(elm, root) {
@@ -16968,6 +16991,10 @@ define("tinymce/ui/Control", [
 	var Control = Class.extend({
 		Statics: {
 			controlIdLookup: {}
+		},
+
+		isRtl: function() {
+			return Control.rtl;
 		},
 
 		/**
@@ -17173,7 +17200,7 @@ define("tinymce/ui/Control", [
 			}
 
 			function getSide(name) {
-				var val = parseInt(getStyle(name), 10);
+				var val = parseFloat(getStyle(name), 10);
 
 				return isNaN(val) ? 0 : val;
 			}
@@ -17197,18 +17224,19 @@ define("tinymce/ui/Control", [
 		initLayoutRect: function() {
 			var self = this, settings = self.settings, borderBox, layoutRect;
 			var elm = self.getEl(), width, height, minWidth, minHeight, autoResize;
-			var startMinWidth, startMinHeight;
+			var startMinWidth, startMinHeight, initialSize;
 
-			// Measure boxes
+			// Measure the current element
 			borderBox = self._borderBox = self._borderBox || self.measureBox(elm, 'border');
 			self._paddingBox = self._paddingBox || self.measureBox(elm, 'padding');
 			self._marginBox = self._marginBox || self.measureBox(elm, 'margin');
+			initialSize = DomUtils.getSize(elm);
 
 			// Setup minWidth/minHeight and width/height
 			startMinWidth = settings.minWidth;
 			startMinHeight = settings.minHeight;
-			minWidth = startMinWidth || elm.offsetWidth;
-			minHeight = startMinHeight || elm.offsetHeight;
+			minWidth = startMinWidth || initialSize.width;
+			minHeight = startMinHeight || initialSize.height;
 			width = settings.width;
 			height = settings.height;
 			autoResize = settings.autoResize;
@@ -17624,6 +17652,17 @@ define("tinymce/ui/Control", [
 			}
 
 			return args;
+		},
+
+		/**
+		 * Returns true/false if the specified event has any listeners.
+		 *
+		 * @method hasEventListeners
+		 * @param {String} name Name of the event to check for.
+		 * @return {Boolean} True/false state if the event has listeners.
+		 */
+		hasEventListeners: function(name) {
+			return name in this._bindings;
 		},
 
 		/**
@@ -18434,7 +18473,7 @@ define("tinymce/ui/Control", [
 		 */
 		// title: function(value) {} -- Generated
 	});
-window.elementIdCache = elementIdCache;
+
 	return Control;
 });
 
@@ -18599,6 +18638,10 @@ define("tinymce/ui/Container", [
 			settings = self.settings;
 			self._fixed = settings.fixed;
 			self._items = new Collection();
+
+			if (self.isRtl()) {
+				self.addClass('rtl');
+			}
 
 			self.addClass('container');
 			self.addClass('container-body', 'body');
@@ -19391,7 +19434,7 @@ define("tinymce/ui/Movable", [
 	"use strict";
 
 	function calculateRelativePosition(ctrl, targetElm, rel) {
-		var ctrlElm, pos, x, y, selfW, selfH, targetW, targetH, viewport;
+		var ctrlElm, pos, x, y, selfW, selfH, targetW, targetH, viewport, size;
 
 		viewport = DomUtils.getViewPort();
 
@@ -19407,12 +19450,14 @@ define("tinymce/ui/Movable", [
 
 		// Get size of self
 		ctrlElm = ctrl.getEl();
-		selfW = ctrlElm.offsetWidth;
-		selfH = ctrlElm.offsetHeight;
+		size = DomUtils.getSize(ctrlElm);
+		selfW = size.width;
+		selfH = size.height;
 
 		// Get size of target
-		targetW = targetElm.offsetWidth;
-		targetH = targetElm.offsetHeight;
+		size = DomUtils.getSize(targetElm);
+		targetW = size.width;
+		targetH = size.height;
 
 		// Parse align string
 		rel = (rel || '').split('');
@@ -19869,7 +19914,7 @@ define("tinymce/ui/FloatPanel", [
 
 			if (settings.popover) {
 				self._preBodyHtml = '<div class="' + self.classPrefix + 'arrow"></div>';
-				self.addClass('popover').addClass('bottom').addClass('start');
+				self.addClass('popover').addClass('bottom').addClass(self.isRtl() ? 'end' : 'start');
 			}
 		},
 
@@ -20401,6 +20446,10 @@ define("tinymce/ui/Window", [
 
 			self._super(settings);
 
+			if (self.isRtl()) {
+				self.addClass('rtl');
+			}
+
 			self.addClass('window');
 			self._fixed = true;
 
@@ -20412,7 +20461,7 @@ define("tinymce/ui/Window", [
 					spacing: 3,
 					padding: 10,
 					align: 'center',
-					pack: 'end',
+					pack: self.isRtl() ? 'start' : 'end',
 					defaults: {
 						type: 'button'
 					},
@@ -20491,8 +20540,12 @@ define("tinymce/ui/Window", [
 			// Reserve vertical space for title
 			if (self.settings.title && !self._fullscreen) {
 				headEl = self.getEl('head');
-				layoutRect.headerW = headEl.offsetWidth;
-				layoutRect.headerH = headEl.offsetHeight;
+
+				var size = DomUtils.getSize(headEl);
+
+				layoutRect.headerW = size.width;
+				layoutRect.headerH = size.height;
+
 				deltaH += layoutRect.headerH;
 			}
 
@@ -22107,6 +22160,7 @@ define("tinymce/util/Quirks", [
 					if (e.target.nodeName == 'HTML') {
 						editor.execCommand('SelectAll');
 						editor.selection.collapse(true);
+						editor.nodeChanged();
 					}
 				});
 			}
@@ -22995,6 +23049,7 @@ define("tinymce/Editor", [
 			var self = this, settings = self.settings, elm = self.getElement();
 			var w, h, minHeight, n, o, url, bodyId, bodyClass, re, i, initializedPlugins = [];
 
+			self.rtl = this.editorManager.i18n.rtl;
 			self.editorManager.add(self);
 
 			settings.aria_label = settings.aria_label || DOM.getAttrib(elm, 'aria-label', self.getLang('aria.rich_text_area'));
@@ -24270,8 +24325,17 @@ define("tinymce/Editor", [
 			// Move selection to start of body if it's a after init setContent call
 			// This prevents IE 7/8 from moving focus to empty editors
 			if (!args.initial) {
-				self.selection.select(body, true);
-				self.selection.collapse(true);
+				var dom = self.dom, selection = self.selection;
+
+				// IE can't have the caret inside <body><p>|</p></body> unless we do some magic
+				if (ie < 11 && dom.isBlock(body.firstChild) && dom.isEmpty(body.firstChild)) {
+					body.firstChild.appendChild(dom.doc.createTextNode('\u00a0'));
+					selection.select(body.firstChild, true);
+					dom.remove(body.firstChild.lastChild);
+				} else {
+					selection.select(body, true);
+					selection.collapse(true);
+				}
 			}
 
 			return args.content;
@@ -24581,6 +24645,10 @@ define("tinymce/Editor", [
 		bindNative: function(name) {
 			var self = this;
 
+			if (self.settings.readonly) {
+				return;
+			}
+
 			if (self.initialized) {
 				self.dom.bind(getEventTarget(self, name), name, function(e) {
 					self.fire(name, e);
@@ -24726,6 +24794,14 @@ define("tinymce/util/I18n", [], function() {
 
 	return {
 		/**
+		 * Property gets set to true if a RTL language pack was loaded.
+		 *
+		 * @property rtl
+		 * @type {Boolean}
+		 */
+		rtl: false,
+
+		/**
 		 * Adds translations for a specific language code.
 		 *
 		 * @method add
@@ -24736,6 +24812,8 @@ define("tinymce/util/I18n", [], function() {
 			for (var name in items) {
 				data[name] = items[name];
 			}
+
+			this.rtl = this.rtl || data._dir === 'rtl';
 		},
 
 		/**
@@ -25027,7 +25105,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion : '0.7',
+		minorVersion : '0.8',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -25035,7 +25113,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2013-10-02',
+		releaseDate: '2013-10-10',
 
 		/**
 		 * Collection of editor instances.
@@ -26792,7 +26870,7 @@ define("tinymce/ui/Button", [
 				'<div id="' + id + '" class="' + self.classes() + '" tabindex="-1">' +
 					'<button role="presentation" type="button" tabindex="-1">' +
 						(icon ? '<i class="' + icon + '"' + image + '></i>' : '') +
-						(self._text ? (icon ? ' ' : '') + self.encode(self._text) : '') +
+						(self._text ? (icon ? '\u00a0' : '') + self.encode(self._text) : '') +
 					'</button>' +
 				'</div>'
 			);
@@ -27046,7 +27124,7 @@ define("tinymce/ui/PanelButton", [
 				self.panel.show();
 			}
 
-			self.panel.moveRel(self.getEl(), settings.popoverAlign || ['bc-tl', 'bc-tc']);
+			self.panel.moveRel(self.getEl(), settings.popoverAlign || (self.isRtl() ? ['bc-tr', 'bc-tc'] : ['bc-tl', 'bc-tc']));
 		},
 
 		/**
@@ -27250,8 +27328,8 @@ define("tinymce/ui/ComboBox", [
 						e.preventDefault();
 						self.fire('change');
 
-						if (ctrl.submit) {
-							ctrl.submit();
+						if (ctrl.hasEventListeners('submit') && ctrl.toJSON) {
+							ctrl.fire('submit', {data: ctrl.toJSON()});
 							return false;
 						}
 					});
@@ -27355,7 +27433,7 @@ define("tinymce/ui/ComboBox", [
 			var width, lineHeight;
 
 			if (openElm) {
-				width = rect.w - openElm.offsetWidth - 10;
+				width = rect.w - DomUtils.getSize(openElm).width - 10;
 			} else {
 				width = rect.w - 10;
 			}
@@ -27452,19 +27530,15 @@ define("tinymce/ui/ComboBox", [
  *
  * @-x-less Path.less
  * @class tinymce.ui.Path
- * @extends tinymce.ui.Control
+ * @extends tinymce.ui.Widget
  */
 define("tinymce/ui/Path", [
-	"tinymce/ui/Control",
+	"tinymce/ui/Widget",
 	"tinymce/ui/KeyboardNavigation"
-], function(Control, KeyboardNavigation) {
+], function(Widget, KeyboardNavigation) {
 	"use strict";
 
-	return Control.extend({
-		Defaults: {
-			delimiter: "\u00BB"
-		},
-
+	return Widget.extend({
 		/**
 		 * Constructs a instance with the specified settings.
 		 *
@@ -27474,6 +27548,10 @@ define("tinymce/ui/Path", [
 		 */
 		init: function(settings) {
 			var self = this;
+
+			if (!settings.delimiter) {
+				settings.delimiter = '\u00BB';
+			}
 
 			self._super(settings);
 			self.addClass('path');
@@ -27558,7 +27636,7 @@ define("tinymce/ui/Path", [
 			var self = this;
 
 			return (
-				'<div id="' + self._id + '" class="' + self.classPrefix + 'path">' +
+				'<div id="' + self._id + '" class="' + self.classes() + '">' +
 					self._getPathHtml() +
 				'</div>'
 			);
@@ -27763,7 +27841,12 @@ define("tinymce/ui/Form", [
 			flex: 1,
 			padding: 20,
 			labelGap: 30,
-			spacing: 10
+			spacing: 10,
+			callbacks: {
+				submit: function() {
+					this.submit();
+				}
+			}
 		},
 
 		/**
@@ -28088,9 +28171,9 @@ define("tinymce/ui/FlexLayout", [
 			contLayoutRect = container.layoutRect();
 			contPaddingBox = container._paddingBox;
 			contSettings = container.settings;
-			direction = contSettings.direction;
+			direction = container.isRtl() ? (contSettings.direction || 'row-reversed') : contSettings.direction;
 			align = contSettings.align;
-			pack = contSettings.pack;
+			pack = container.isRtl() ? (contSettings.pack || 'end') : contSettings.pack;
 			spacing = contSettings.spacing || 0;
 
 			if (direction == "row-reversed" || direction == "column-reverse") {
@@ -28366,6 +28449,10 @@ define("tinymce/ui/FormatControls", [
 	var each = Tools.each;
 
 	EditorManager.on('AddEditor', function(e) {
+		if (e.editor.rtl) {
+			Control.rtl = true;
+		}
+
 		registerControls(e.editor);
 	});
 
@@ -29313,8 +29400,9 @@ define("tinymce/ui/Iframe", [
  * @extends tinymce.ui.Widget
  */
 define("tinymce/ui/Label", [
-	"tinymce/ui/Widget"
-], function(Widget) {
+	"tinymce/ui/Widget",
+	"tinymce/ui/DomUtils"
+], function(Widget, DomUtils) {
 	"use strict";
 
 	return Widget.extend({
@@ -29354,38 +29442,19 @@ define("tinymce/ui/Label", [
 			var self = this, layoutRect = self._super();
 
 			if (self.settings.multiline) {
+				var size = DomUtils.getSize(self.getEl());
+
 				// Check if the text fits within maxW if not then try word wrapping it
-				if (self.getEl().offsetWidth > layoutRect.maxW) {
+				if (size.width > layoutRect.maxW) {
 					layoutRect.minW = layoutRect.maxW;
 					self.addClass('multiline');
 				}
 
 				self.getEl().style.width = layoutRect.minW + 'px';
-				layoutRect.startMinH = layoutRect.h = layoutRect.minH = Math.min(layoutRect.maxH, self.getEl().offsetHeight);
+				layoutRect.startMinH = layoutRect.h = layoutRect.minH = Math.min(layoutRect.maxH, DomUtils.getSize(self.getEl()).height);
 			}
 
 			return layoutRect;
-		},
-
-		/**
-		 * Sets/gets the disabled state on the control.
-		 *
-		 * @method disabled
-		 * @param {Boolean} state Value to set to control.
-		 * @return {Boolean/tinymce.ui.Label} Current control on a set operation or current state on a get.
-		 */
-		disabled: function(state) {
-			var self = this, undef;
-
-			if (state !== undef) {
-				self.toggleClass('label-disabled', state);
-
-				if (self._rendered) {
-					self.getEl()[0].className = self.classes();
-				}
-			}
-
-			return self._super(state);
 		},
 
 		/**
@@ -29643,7 +29712,7 @@ define("tinymce/ui/MenuButton", [
 
 			self.menu.show();
 			self.menu.layoutRect({w: self.layoutRect().w});
-			self.menu.moveRel(self.getEl(), ['bl-tl', 'tl-bl']);
+			self.menu.moveRel(self.getEl(), self.isRtl() ? ['br-tr', 'tr-br'] : ['bl-tl', 'tl-bl']);
 		},
 
 		/**
@@ -29691,7 +29760,7 @@ define("tinymce/ui/MenuButton", [
 				'<div id="' + id + '" class="' + self.classes() + '" tabindex="-1">' +
 					'<button id="' + id + '-open" role="presentation" type="button" tabindex="-1">' +
 						(icon ? '<i class="' + icon + '"></i>' : '') +
-						'<span>' + (self._text ? (icon ? ' ' : '') + self.encode(self._text) : '') + '</span>' +
+						'<span>' + (self._text ? (icon ? '\u00a0' : '') + self.encode(self._text) : '') + '</span>' +
 						' <i class="' + prefix + 'caret"></i>' +
 					'</button>' +
 				'</div>'
@@ -30066,7 +30135,11 @@ define("tinymce/ui/MenuItem", [
 
 				menu.addClass('menu-sub');
 
-				var rel = menu.testMoveRel(self.getEl(), ['tr-tl', 'br-bl', 'tl-tr', 'bl-br']);
+				var rel = menu.testMoveRel(
+					self.getEl(),
+					self.isRtl() ? ['tl-tr', 'bl-br', 'tr-tl', 'br-bl'] : ['tr-tl', 'br-bl', 'tl-tr', 'bl-br']
+				);
+
 				menu.moveRel(self.getEl(), rel);
 
 				rel = 'menu-sub-' + rel;
@@ -30497,10 +30570,8 @@ define("tinymce/ui/Spacer", [
  */
 define("tinymce/ui/SplitButton", [
 	"tinymce/ui/MenuButton",
-	"tinymce/dom/DOMUtils"
+	"tinymce/ui/DomUtils"
 ], function(MenuButton, DomUtils) {
-	var DOM = DomUtils.DOM;
-
 	return MenuButton.extend({
 		Defaults: {
 			classes: "widget btn splitbtn",
@@ -30520,12 +30591,12 @@ define("tinymce/ui/SplitButton", [
 			mainButtonElm = elm.firstChild;
 			menuButtonElm = elm.lastChild;
 
-			DOM.css(mainButtonElm, {
-				width: rect.w - menuButtonElm.offsetWidth,
+			DomUtils.css(mainButtonElm, {
+				width: rect.w - DomUtils.getSize(menuButtonElm).width,
 				height: rect.h - 2
 			});
 
-			DOM.css(menuButtonElm, {
+			DomUtils.css(menuButtonElm, {
 				height: rect.h - 2
 			});
 
@@ -30546,7 +30617,7 @@ define("tinymce/ui/SplitButton", [
 		activeMenu: function(state) {
 			var self = this;
 
-			DOM.toggleClass(self.getEl().lastChild, self.classPrefix + 'active', state);
+			DomUtils.toggleClass(self.getEl().lastChild, self.classPrefix + 'active', state);
 		},
 
 		/**
@@ -30567,7 +30638,7 @@ define("tinymce/ui/SplitButton", [
 					'</button>' +
 					'<button type="button" class="' + prefix + 'open" hidefocus tabindex="-1">' +
 						//(icon ? '<i class="' + icon + '"></i>' : '') +
-						(self._menuBtnText ? (icon ? ' ' : '') + self._menuBtnText : '') +
+						(self._menuBtnText ? (icon ? '\u00a0' : '') + self._menuBtnText : '') +
 						' <i class="' + prefix + 'caret"></i>' +
 					'</button>' +
 				'</div>'
@@ -30583,9 +30654,19 @@ define("tinymce/ui/SplitButton", [
 			var self = this, onClickHandler = self.settings.onclick;
 
 			self.on('click', function(e) {
-				if (e.control == this && !DOM.getParent(e.target, '.' + this.classPrefix + 'open')) {
-					e.stopImmediatePropagation();
-					onClickHandler.call(this, e);
+				var node = e.target;
+
+				if (e.control == this) {
+					// Find clicks that is on the main button
+					while (node) {
+						if (node.nodeName == 'BUTTON' && node.className.indexOf('open') == -1) {
+							e.stopImmediatePropagation();
+							onClickHandler.call(this, e);
+							return;
+						}
+
+						node = node.parentNode;
+					}
 				}
 			});
 
@@ -30761,7 +30842,7 @@ define("tinymce/ui/TabPanel", [
 		initLayoutRect: function() {
 			var self = this, rect, minW, minH;
 
-			minW = self.getEl('head').offsetWidth;
+			minW = DomUtils.getSize(self.getEl('head')).width;
 			minW = minW < 0 ? 0 : minW;
 			minH = 0;
 			self.items().each(function(item, i) {
@@ -30786,13 +30867,13 @@ define("tinymce/ui/TabPanel", [
 				});
 			});
 
-			var headH = self.getEl('head').offsetHeight;
+			var headH = DomUtils.getSize(self.getEl('head')).height;
 
 			self.settings.minWidth = minW;
 			self.settings.minHeight = minH + headH;
 
 			rect = self._super();
-			rect.deltaH += self.getEl('head').offsetHeight;
+			rect.deltaH += headH;
 			rect.innerH = rect.h - rect.deltaH;
 
 			return rect;
@@ -30852,8 +30933,8 @@ define("tinymce/ui/TextBox", [
 						self.parents().reverse().each(function(ctrl) {
 							e.preventDefault();
 
-							if (ctrl.submit) {
-								ctrl.submit();
+							if (ctrl.hasEventListeners('submit') && ctrl.toJSON) {
+								ctrl.fire('submit', {data: ctrl.toJSON()});
 								return false;
 							}
 						});
