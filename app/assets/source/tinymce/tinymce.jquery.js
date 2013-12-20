@@ -1,4 +1,4 @@
-// 4.0.11 (2013-11-20)
+// 4.0.12 (2013-12-18)
 
 /**
  * Compiled inline version. (Library mode)
@@ -6227,7 +6227,7 @@ define("tinymce/html/Schema", [
 			'meta param embed source wbr track');
 		boolAttrMap = createLookupTable('boolean_attributes', 'checked compact declare defer disabled ismap multiple nohref noresize ' +
 			'noshade nowrap readonly selected autoplay loop controls');
-		nonEmptyElementsMap = createLookupTable('non_empty_elements', 'td th iframe video audio object', shortEndedElementsMap);
+		nonEmptyElementsMap = createLookupTable('non_empty_elements', 'td th iframe video audio object script', shortEndedElementsMap);
 		textBlockElementsMap = createLookupTable('text_block_elements', 'h1 h2 h3 h4 h5 h6 p div address pre form ' +
 						'blockquote center dir fieldset header footer article section hgroup aside nav figure');
 		blockElementsMap = createLookupTable('block_elements', 'hr table tbody thead tfoot ' +
@@ -10808,6 +10808,7 @@ define("tinymce/dom/Selection", [
 
 			function normalizeEndPoint(start) {
 				var container, offset, walker, dom = self.dom, body = dom.getRoot(), node, nonEmptyElementsMap, nodeName;
+				var directionLeft;
 
 				function hasBrBeforeAfter(node, left) {
 					var walker = new TreeWalker(node, dom.getParent(node.parentNode, dom.isBlock) || body);
@@ -10860,6 +10861,11 @@ define("tinymce/dom/Selection", [
 				container = rng[(start ? 'start' : 'end') + 'Container'];
 				offset = rng[(start ? 'start' : 'end') + 'Offset'];
 				nonEmptyElementsMap = dom.schema.getNonEmptyElements();
+				directionLeft = start;
+
+				if (container.nodeType == 1 && offset > container.childNodes.length - 1) {
+					directionLeft = false;
+				}
 
 				// If the container is a document move it to the body element
 				if (container.nodeType === 9) {
@@ -10870,7 +10876,7 @@ define("tinymce/dom/Selection", [
 				// If the container is body try move it into the closest text node or position
 				if (container === body) {
 					// If start is before/after a image, table etc
-					if (start) {
+					if (directionLeft) {
 						node = container.childNodes[offset > 0 ? offset - 1 : 0];
 						if (node) {
 							nodeName = node.nodeName.toLowerCase();
@@ -10882,7 +10888,7 @@ define("tinymce/dom/Selection", [
 
 					// Resolve the index
 					if (container.hasChildNodes()) {
-						offset = Math.min(!start && offset > 0 ? offset - 1 : offset, container.childNodes.length - 1);
+						offset = Math.min(!directionLeft && offset > 0 ? offset - 1 : offset, container.childNodes.length - 1);
 						container = container.childNodes[offset];
 						offset = 0;
 
@@ -10895,7 +10901,7 @@ define("tinymce/dom/Selection", [
 							do {
 								// Found a text node use that position
 								if (node.nodeType === 3 && node.nodeValue.length > 0) {
-									offset = start ? 0 : node.nodeValue.length;
+									offset = directionLeft ? 0 : node.nodeValue.length;
 									container = node;
 									normalized = true;
 									break;
@@ -10907,14 +10913,14 @@ define("tinymce/dom/Selection", [
 									container = node.parentNode;
 
 									// Put caret after image when moving the end point
-									if (node.nodeName ==  "IMG" && !start) {
+									if (node.nodeName ==  "IMG" && !directionLeft) {
 										offset++;
 									}
 
 									normalized = true;
 									break;
 								}
-							} while ((node = (start ? walker.next() : walker.prev())));
+							} while ((node = (directionLeft ? walker.next() : walker.prev())));
 						}
 					}
 				}
@@ -10945,7 +10951,7 @@ define("tinymce/dom/Selection", [
 				// Lean the start of the selection right if possible
 				// So this: x[<b>x]</b>
 				// Becomes: x<b>[x]</b>
-				if (start && !collapsed && container.nodeType === 3 && offset === container.nodeValue.length) {
+				if (directionLeft && !collapsed && container.nodeType === 3 && offset === container.nodeValue.length) {
 					findTextNodeRelative(false);
 				}
 
@@ -12464,6 +12470,10 @@ define("tinymce/Formatter", [
 			function matchParents(node) {
 				var root = dom.getRoot();
 
+				if (node === root) {
+					return false;
+				}
+
 				// Find first node with similar format settings
 				node = dom.getParent(node, function(node) {
 					return node.parentNode === root || !!matchNode(node, name, vars, true);
@@ -12978,7 +12988,7 @@ define("tinymce/Formatter", [
 
 				// Expand to block of similar type
 				if (!format[0].wrapper) {
-					node = dom.getParent(container, format[0].block);
+					node = dom.getParent(container, format[0].block, root);
 				}
 
 				// Expand to first wrappable block element or any block element
@@ -15186,7 +15196,7 @@ define("tinymce/EditorCommands", [
 			},
 
 			// Override unlink command
-			unlink: function(command) {
+			unlink: function() {
 				if (selection.isCollapsed()) {
 					var elm = selection.getNode();
 					if (elm.tagName == 'A') {
@@ -15196,8 +15206,7 @@ define("tinymce/EditorCommands", [
 					return;
 				}
 
-				execNativeCommand(command);
-				selection.collapse(FALSE);
+				formatter.remove("link");
 			},
 
 			// Override justify commands to use the text formatter engine
@@ -21505,92 +21514,166 @@ define("tinymce/util/Quirks", [
 		 * <h1>a</h1><p>|b</p>
 		 *
 		 * Will produce this on backspace:
-		 * <h1>a<span class="Apple-style-span" style="<all runtime styles>">b</span></p>
+		 * <h1>a<span style="<all runtime styles>">b</span></p>
 		 *
 		 * This fixes the backspace to produce:
 		 * <h1>a|b</p>
 		 *
 		 * See bug: https://bugs.webkit.org/show_bug.cgi?id=45784
 		 *
-		 * This code is a bit of a hack and hopefully it will be fixed soon in WebKit.
+		 * This fixes the following delete scenarios:
+		 *  1. Delete by pressing backspace key.
+		 *  2. Delete by pressing delete key.
+		 *  3. Delete by pressing backspace key with ctrl/cmd (Word delete).
+		 *  4. Delete by pressing delete key with ctrl/cmd (Word delete).
+		 *  5. Delete by drag/dropping contents inside the editor.
+		 *  6. Delete by using Cut Ctrl+X/Cmd+X.
+		 *  7. Delete by selecting contents and writing a character.'
+		 *
+		 * This code is a ugly hack since writing full custom delete logic for just this bug
+		 * fix seemed like a huge task. I hope we can remove this before the year 2030. 
 		 */
 		function cleanupStylesWhenDeleting() {
-			function removeMergedFormatSpans(isDelete) {
-				var rng, blockElm, wrapperElm, bookmark, container, offset, elm;
+			var doc = editor.getDoc();
 
-				function isAtStartOrEndOfElm() {
-					if (container.nodeType == 3) {
-						if (isDelete && offset == container.length) {
-							return true;
+			if (!window.MutationObserver) {
+				return;
+			}
+
+			function customDelete(isForward) {
+				var mutationObserver = new MutationObserver(function() {});
+
+				Tools.each(editor.getBody().getElementsByTagName('*'), function(elm) {
+					// Mark existing spans
+					if (elm.tagName == 'SPAN') {
+						elm.setAttribute('mce-data-marked', 1);
+					}
+
+					// Make sure all elements has a data-mce-style attribute
+					if (!elm.hasAttribute('data-mce-style') && elm.hasAttribute('style')) {
+						editor.dom.setAttrib(elm, 'style', elm.getAttribute('style'));
+					}
+				});
+
+				// Observe added nodes and style attribute changes
+				mutationObserver.observe(editor.getDoc(), {
+					childList: true,
+					attributes: true,
+					subtree: true,
+					attributeFilter: ['style']
+				});
+
+				editor.getDoc().execCommand(isForward ? 'ForwardDelete' : 'Delete', false, null);
+
+				var rng = editor.selection.getRng();
+				var caretElement = rng.startContainer.parentNode;
+
+				Tools.each(mutationObserver.takeRecords(), function(record) {
+					// Restore style attribute to previous value
+					if (record.attributeName == "style") {
+						var oldValue = record.target.getAttribute('data-mce-style');
+
+						if (oldValue) {
+							record.target.setAttribute("style", oldValue);
+						} else {
+							record.target.removeAttribute("style");
 						}
+					}
 
-						if (!isDelete && offset === 0) {
-							return true;
+					// Remove all spans that isn't maked and retain selection
+					Tools.each(record.addedNodes, function(node) {
+						if (node.nodeName == "SPAN" && !node.getAttribute('mce-data-marked')) {
+							var offset, container;
+
+							if (node == caretElement) {
+								offset = rng.startOffset;
+								container = node.firstChild;
+							}
+
+							dom.remove(node, true);
+
+							if (container) {
+								rng.setStart(container, offset);
+								rng.setEnd(container, offset);
+								editor.selection.setRng(rng);
+							}
 						}
-					}
-				}
+					});
+				});
 
-				rng = selection.getRng();
-				var tmpRng = [rng.startContainer, rng.startOffset, rng.endContainer, rng.endOffset];
+				mutationObserver.disconnect();
 
-				if (!rng.collapsed) {
-					isDelete = true;
-				}
-
-				container = rng[(isDelete ? 'start' : 'end') + 'Container'];
-				offset = rng[(isDelete ? 'start' : 'end') + 'Offset'];
-
-				if (container.nodeType == 3) {
-					blockElm = dom.getParent(rng.startContainer, dom.isBlock);
-
-					// On delete clone the root span of the next block element
-					if (isDelete) {
-						blockElm = dom.getNext(blockElm, dom.isBlock);
-					}
-
-					if (blockElm && (isAtStartOrEndOfElm() || !rng.collapsed)) {
-						// Wrap children of block in a EM and let WebKit stick is
-						// runtime styles junk into that EM
-						wrapperElm = dom.create('em', {'id': '__mceDel'});
-
-						each(Tools.grep(blockElm.childNodes), function(node) {
-							wrapperElm.appendChild(node);
-						});
-
-						blockElm.appendChild(wrapperElm);
-					}
-				}
-
-				// Do the backspace/delete action
-				rng = dom.createRng();
-				rng.setStart(tmpRng[0], tmpRng[1]);
-				rng.setEnd(tmpRng[2], tmpRng[3]);
-				selection.setRng(rng);
-				editor.getDoc().execCommand(isDelete ? 'ForwardDelete' : 'Delete', false, null);
-
-				// Remove temp wrapper element
-				if (wrapperElm) {
-					bookmark = selection.getBookmark();
-
-					while ((elm = dom.get('__mceDel'))) {
-						dom.remove(elm, true);
-					}
-
-					selection.moveToBookmark(bookmark);
-				}
+				// Remove any left over marks
+				Tools.each(editor.dom.select('span[mce-data-marked]'), function(span) {
+					span.removeAttribute('mce-data-marked');
+				});
 			}
 
 			editor.on('keydown', function(e) {
-				var isDelete;
+				var isForward = e.keyCode == DELETE, isMeta = VK.metaKeyPressed(e);
 
-				isDelete = e.keyCode == DELETE;
-				if (!isDefaultPrevented(e) && (isDelete || e.keyCode == BACKSPACE) && !VK.modifierPressed(e)) {
+				if (!isDefaultPrevented(e) && (isForward || e.keyCode == BACKSPACE)) {
+					var rng = editor.selection.getRng(), container = rng.startContainer, offset = rng.startOffset;
+
+					// Ignore non meta delete in the where there is text before/after the caret
+					if (!isMeta && rng.collapsed && container.nodeType == 3) {
+						if (isForward ? offset < container.data.length : offset > 0) {
+							return;
+						}
+					}
+
 					e.preventDefault();
-					removeMergedFormatSpans(isDelete);
+
+					if (isMeta) {
+						editor.selection.getSel().modify("extend", isForward ? "forward" : "backward", "word");
+					}
+
+					customDelete(isForward);
 				}
 			});
 
-			editor.addCommand('Delete', function() {removeMergedFormatSpans();});
+			editor.on('keypress', function(e) {
+				if (!isDefaultPrevented(e) && !selection.isCollapsed() && e.charCode) {
+					e.preventDefault();
+					customDelete(true);
+					editor.selection.setContent(String.fromCharCode(e.charCode));
+				}
+			});
+
+			editor.addCommand('Delete', function() {
+				customDelete();
+			});
+
+			editor.addCommand('ForwardDelete', function() {
+				customDelete(true);
+			});
+
+			editor.on('dragstart', function(e) {
+				e.dataTransfer.setData('mce-internal', editor.selection.getContent());
+			});
+
+			editor.on('drop', function(e) {
+				if (!isDefaultPrevented(e)) {
+					var internalContent = e.dataTransfer.getData('mce-internal');
+
+					if (internalContent && doc.caretRangeFromPoint) {
+						e.preventDefault();
+						customDelete();
+						editor.selection.setRng(doc.caretRangeFromPoint(e.x, e.y));
+						editor.insertContent(internalContent);
+					}
+				}
+			});
+
+			editor.on('cut', function(e) {
+				if (!isDefaultPrevented(e) && e.clipboardData) {
+					e.preventDefault();
+					e.clipboardData.clearData();
+					e.clipboardData.setData('text/html', editor.selection.getContent());
+					e.clipboardData.setData('text/plain', editor.selection.getContent({format: 'text'}));
+					customDelete(true);
+				}
+			});
 		}
 
 		/**
@@ -21969,68 +22052,6 @@ define("tinymce/util/Quirks", [
 					if ((value = dom.getStyle(node, 'height'))) {
 						dom.setAttrib(node, 'height', value.replace(/[^0-9%]+/g, ''));
 						dom.setStyle(node, 'height', '');
-					}
-				}
-			});
-		}
-
-		/**
-		 * Backspace or delete on WebKit will combine all visual styles in a span if the last character is deleted.
-		 *
-		 * For example backspace on:
-		 * <p><b>x|</b></p>
-		 *
-		 * Will produce:
-		 * <p><span style="font-weight: bold">|<br></span></p>
-		 *
-		 * When it should produce:
-		 * <p><b>|<br></b></p>
-		 *
-		 * See: https://bugs.webkit.org/show_bug.cgi?id=81656
-		 */
-		function keepInlineElementOnDeleteBackspace() {
-			editor.on('keydown', function(e) {
-				var isDelete, rng, container, offset, brElm, sibling, collapsed, nonEmptyElements;
-
-				isDelete = e.keyCode == DELETE;
-				if (!isDefaultPrevented(e) && (isDelete || e.keyCode == BACKSPACE) && !VK.modifierPressed(e)) {
-					rng = selection.getRng();
-					container = rng.startContainer;
-					offset = rng.startOffset;
-					collapsed = rng.collapsed;
-
-					// Override delete if the start container is a text node and is at the beginning of text or
-					// just before/after the last character to be deleted in collapsed mode
-					if (container.nodeType == 3 && container.nodeValue.length > 0 && ((offset === 0 && !collapsed) ||
-						(collapsed && offset === (isDelete ? 0 : 1)))) {
-						// Edge case when deleting <p><b><img> |x</b></p>
-						sibling = container.previousSibling;
-						if (sibling && sibling.nodeName == "IMG") {
-							return;
-						}
-
-						nonEmptyElements = editor.schema.getNonEmptyElements();
-
-						// Prevent default logic since it's broken
-						e.preventDefault();
-
-						// Insert a BR before the text node this will prevent the containing element from being deleted/converted
-						brElm = dom.create('br', {id: '__tmp'});
-						container.parentNode.insertBefore(brElm, container);
-
-						// Do the browser delete
-						editor.getDoc().execCommand(isDelete ? 'ForwardDelete' : 'Delete', false, null);
-
-						// Check if the previous sibling is empty after deleting for example: <p><b></b>|</p>
-						container = selection.getRng().startContainer;
-						sibling = container.previousSibling;
-						if (sibling && sibling.nodeType == 1 && !dom.isBlock(sibling) && dom.isEmpty(sibling) &&
-							!nonEmptyElements[sibling.nodeName.toLowerCase()]) {
-							dom.remove(sibling);
-						}
-
-						// Remove the temp element we inserted
-						dom.remove('__tmp');
 					}
 				}
 			});
@@ -22420,7 +22441,6 @@ define("tinymce/util/Quirks", [
 
 		// WebKit
 		if (isWebKit) {
-			keepInlineElementOnDeleteBackspace();
 			cleanupStylesWhenDeleting();
 			inputMethodFocus();
 			selectControlElements();
@@ -22493,7 +22513,7 @@ define("tinymce/util/Observable", [
 	var bindingsName = "__bindings";
 	var nativeEvents = Tools.makeMap(
 		"focusin focusout click dblclick mousedown mouseup mousemove mouseover beforepaste paste cut copy selectionchange" +
-		" mouseout mouseenter mouseleave keydown keypress keyup contextmenu dragend dragover draggesture dragdrop drop drag", ' '
+		" mouseout mouseenter mouseleave keydown keypress keyup contextmenu dragstart dragend dragover draggesture dragdrop drop drag", ' '
 	);
 
 	function returnFalse() {
@@ -25157,36 +25177,36 @@ define("tinymce/FocusManager", [
 			return rng;
 		}
 
-		function registerEvents(e) {
-			var editor = e.editor, lastRng, selectionChangeHandler;
+		function isUIElement(elm) {
+			return !!DOMUtils.DOM.getParent(elm, FocusManager.isEditorUIElement);
+		}
 
-			function isUIElement(elm) {
-				return !!DOMUtils.DOM.getParent(elm, FocusManager.isEditorUIElement);
-			}
+		function isNodeInBodyOfEditor(node, editor) {
+			var body = editor.getBody();
 
-			function isNodeInBody(node) {
-				var body = editor.getBody();
-
-				while (node) {
-					if (node == body) {
-						return true;
-					}
-
-					node = node.parentNode;
+			while (node) {
+				if (node == body) {
+					return true;
 				}
+
+				node = node.parentNode;
 			}
+		}
+
+		function registerEvents(e) {
+			var editor = e.editor, selectionChangeHandler;
 
 			editor.on('init', function() {
 				// On IE take selection snapshot onbeforedeactivate
 				if ("onbeforedeactivate" in document && Env.ie < 11) {
 					editor.dom.bind(editor.getBody(), 'beforedeactivate', function() {
-						var ieSelection = editor.getDoc().selection;
-
 						try {
-							lastRng = ieSelection && ieSelection.createRange ? ieSelection.createRange() : editor.selection.getRng();
+							editor.lastRng = editor.selection.getRng();
 						} catch (ex) {
 							// IE throws "Unexcpected call to method or property access" some times so lets ignore it
 						}
+
+						editor.selection.lastFocusBookmark = createBookmark(editor.lastRng);
 					});
 				} else if (editor.inline || Env.ie > 10) {
 					// On other browsers take snapshot on nodechange in inline mode since they have Ghost selections for iframes
@@ -25198,8 +25218,8 @@ define("tinymce/FocusManager", [
 							node = editor.getBody();
 						}
 
-						if (isNodeInBody(node)) {
-							lastRng = editor.selection.getRng();
+						if (isNodeInBodyOfEditor(node, editor)) {
+							editor.lastRng = editor.selection.getRng();
 						}
 					});
 
@@ -25213,7 +25233,7 @@ define("tinymce/FocusManager", [
 
 							// Store when it's non collapsed
 							if (!rng.collapsed) {
-								lastRng = rng;
+								editor.lastRng = rng;
 							}
 						};
 
@@ -25228,7 +25248,7 @@ define("tinymce/FocusManager", [
 			});
 
 			editor.on('setcontent', function() {
-				lastRng = null;
+				editor.lastRng = null;
 			});
 
 			// Remove last selection bookmark on mousedown see #6305
@@ -25250,31 +25270,17 @@ define("tinymce/FocusManager", [
 					}
 
 					editorManager.activeEditor = editor;
+					editorManager.focusedEditor = editor;
 					editor.fire('focus', {blurredEditor: focusedEditor});
 					editor.focus(false);
-					editorManager.focusedEditor = editor;
 				}
 
-				lastRng = null;
+				editor.lastRng = null;
 			});
 
-			editor.on('focusout', function(e) {
-				// Moving focus to elements within the body that have a control seleciton on IE
-				// will fire an focusout event so we need to check if the event is fired on the body
-				// or on a sub element see #6456
-				if (e.target !== editor.getBody() && isNodeInBody(e.target)) {
-					return;
-				}
-
-				editor.selection.lastFocusBookmark = createBookmark(lastRng);
-
+			editor.on('focusout', function() {
 				window.setTimeout(function() {
 					var focusedEditor = editorManager.focusedEditor;
-
-					// Focus from editorA into editorB then don't restore selection
-					if (focusedEditor != editor) {
-						editor.selection.lastFocusBookmark = null;
-					}
 
 					// Still the same editor the the blur was outside any editor UI
 					if (!isUIElement(getActiveElement()) && focusedEditor == editor) {
@@ -25285,6 +25291,22 @@ define("tinymce/FocusManager", [
 				}, 0);
 			});
 		}
+
+		// Check if focus is moved to an element outside the active editor by checking if the target node
+		// isn't within the body of the activeEditor nor a UI element such as a dialog child control
+		DOMUtils.DOM.bind(document, 'focusin', function(e) {
+			var activeEditor = editorManager.activeEditor;
+
+			if (activeEditor && e.target.ownerDocument == document) {
+				activeEditor.selection.lastFocusBookmark = createBookmark(activeEditor.lastRng);
+
+				// Fire a blur event if the element isn't a UI element
+				if (!isUIElement(e.target) && editorManager.focusedEditor == activeEditor) {
+					activeEditor.fire('blur', {focusedEditor: null});
+					editorManager.focusedEditor = null;
+				}
+			}
+		});
 
 		editorManager.on('AddEditor', registerEvents);
 	}
@@ -25354,7 +25376,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion : '0.11',
+		minorVersion : '0.12',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -25362,7 +25384,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2013-11-20',
+		releaseDate: '2013-12-18',
 
 		/**
 		 * Collection of editor instances.
@@ -26927,10 +26949,10 @@ define("tinymce/ui/Widget", [
 			self.canFocus = true;
 
 			if (settings.tooltip && Widget.tooltips !== false) {
-				self.on('mouseenter mouseleave', function(e) {
+				self.on('mouseenter', function(e) {
 					var tooltip = self.tooltip().moveTo(-0xFFFF);
 
-					if (e.control == self && e.type == 'mouseenter') {
+					if (e.control == self) {
 						var rel = tooltip.text(settings.tooltip).show().testMoveRel(self.getEl(), ['bc-tc', 'bc-tl', 'bc-tr']);
 
 						tooltip.toggleClass('tooltip-n', rel == 'bc-tc');
@@ -26942,6 +26964,11 @@ define("tinymce/ui/Widget", [
 						tooltip.hide();
 					}
 				});
+
+				self.on('mouseleave mousedown click', function() {
+					self.tooltip().hide();
+				});
+
 			}
 
 			self.aria('label', settings.tooltip);
@@ -29299,7 +29326,7 @@ define("tinymce/ui/FormatControls", [
 
 			return {
 				type: 'listbox',
-				text: {raw: blocks[0][0]},
+				text: blocks[0][0],
 				values: items,
 				fixedWidth: true,
 				onselect: toggleFormat,
