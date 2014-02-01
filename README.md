@@ -68,7 +68,11 @@ or (2) with jQuery integration:
 
 For each textarea that you want to use with TinyMCE, add the "tinymce" class and ensure it has a unique ID:
 
-    <%= text_area_tag :editor, "", :class => "tinymce", :rows => 40, :cols => 120 %>
+    <%= text_area_tag :content, "", :class => "tinymce", :rows => 40, :cols => 120 %>
+    
+or if you are using Rails' form builders:
+
+    <%= f.text_area :content, :class => "tinymce", :rows => 40, :cols => 120 %>
 
 Then invoke the `tinymce` helper to initialize TinyMCE:
 
