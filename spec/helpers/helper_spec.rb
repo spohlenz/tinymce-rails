@@ -31,20 +31,20 @@ module TinyMCE::Rails
           result = tinymce
           result.should have_selector("script")
           result.should include('tinyMCE.init({')
-          result.should include('"theme":"advanced"')
-          result.should include('"plugins":"paste,table,fullscreen"')
+          result.should include('theme: "advanced"')
+          result.should include('plugins: "paste,table,fullscreen"')
           result.should include('});')
         end
       
         it "initializes TinyMCE with passed in options" do
           result = tinymce(:theme => "simple")
-          result.should include('"theme":"simple"')
-          result.should include('"plugins":"paste,table,fullscreen"')
+          result.should include('theme: "simple"')
+          result.should include('plugins: "paste,table,fullscreen"')
         end
       
         it "outputs function strings without quotes" do
           result = tinymce(:oninit => "function() { alert('Hello'); }")
-          result.should include('"oninit":function() { alert(\'Hello\'); }')
+          result.should include('oninit: function() { alert(\'Hello\'); }')
         end
       end
       
@@ -58,25 +58,25 @@ module TinyMCE::Rails
         
         it "initializes TinyMCE with default configuration" do
           result = tinymce
-          result.should include('"theme":"advanced"')
-          result.should include('"plugins":"paste,table"')
+          result.should include('theme: "advanced"')
+          result.should include('plugins: "paste,table"')
         end
         
         it "merges passed in options with default configuration" do
           result = tinymce(:theme => "simple")
-          result.should include('"theme":"simple"')
-          result.should include('"plugins":"paste,table"')
+          result.should include('theme: "simple"')
+          result.should include('plugins: "paste,table"')
         end
         
         it "initializes TinyMCE with custom configuration" do
           result = tinymce(:alternate)
-          result.should include('"skin":"alternate"')
+          result.should include('skin: "alternate"')
         end
         
         it "merges passed in options with custom configuration" do
           result = tinymce(:alternate, :theme => "simple")
-          result.should include('"theme":"simple"')
-          result.should include('"skin":"alternate"')
+          result.should include('theme: "simple"')
+          result.should include('skin: "alternate"')
         end
         
         it "raises an error when given an invalid configuration" do

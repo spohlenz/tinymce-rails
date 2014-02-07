@@ -3,7 +3,7 @@ require "active_support/hash_with_indifferent_access"
 module TinyMCE::Rails
   class Configuration
     class Function < String
-      def encode_json(encoder)
+      def to_javascript
         self
       end
     end
@@ -44,6 +44,20 @@ module TinyMCE::Rails
       result["language"] ||= self.class.default_language
       
       result
+    end
+    
+    def to_javascript
+      pairs = options_for_tinymce.inject([]) do |result, (k, v)|
+        if v.respond_to?(:to_javascript)
+          v = v.to_javascript
+        elsif v.respond_to?(:to_json)
+          v = v.to_json
+        end
+        
+        result << [k, v].join(": ")
+      end
+      
+      "{\n#{pairs.join(",\n")}\n}"
     end
     
     def merge(options)
