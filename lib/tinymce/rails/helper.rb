@@ -21,11 +21,11 @@ module TinyMCE::Rails
     
     # Returns the JavaScript code required to initialize TinyMCE.
     def tinymce_javascript(config=:default, options={})
-      "tinyMCE.init(#{tinymce_configuration(config, options).to_json});".html_safe
+      "tinyMCE.init(#{tinymce_configuration(config, options).to_javascript});".html_safe
     end
     
-    # Returns the TinyMCE configuration as a hash.
-    # It should be converted to JSON (via #to_json) for use within JavaScript.
+    # Returns the TinyMCE configuration object.
+    # It should be converted to JavaScript (via #to_javascript) for use within JavaScript.
     def tinymce_configuration(config=:default, options={})
       options, config = config, :default if config.is_a?(Hash)
       options.stringify_keys!
@@ -36,7 +36,7 @@ module TinyMCE::Rails
         base_configuration = base_configuration.fetch(config)
       end
       
-      base_configuration.merge(options).options_for_tinymce
+      base_configuration.merge(options)
     end
     
     # Includes TinyMCE javascript assets via a script tag.
