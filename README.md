@@ -116,6 +116,16 @@ Language Packs
 See the [tinymce-rails-langs](https://github.com/spohlenz/tinymce-rails-langs) gem for additional language packs for TinyMCE. The `tinymce` helper will use the current locale as the language if available, falling back to English if the core language files are missing.
 
 
+Asset Compilation
+-----------------
+
+If you are including TinyMCE via `application.js` or using the `tinymce_assets` helper, the TinyMCE assets will be automatically precompiled when you run `rake assets:precompile`.
+
+However if you wish to include `tinymce-jquery.js` independently, you will need to add it to the precompile list in `config/environments/production.rb`:
+
+    config.assets.precompile << "tinymce-jquery.js"
+
+
 Custom Plugins & Skins
 ----------------------
 
