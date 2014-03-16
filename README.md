@@ -107,6 +107,16 @@ Using the `tinymce` helper and global configuration file is entirely optional. T
     </script>
 
 
+Asset Compilation
+-----------------
+
+If you are including TinyMCE via `application.js` or using the `tinymce_assets` helper, the TinyMCE assets will be automatically precompiled when you run `rake assets:precompile`.
+
+However if you wish to include `tinymce-jquery.js` independently, you will need to add it to the precompile list in `config/environments/production.rb`:
+
+    config.assets.precompile << "tinymce-jquery.js"
+
+
 Custom Plugins & Skins
 ----------------------
 
