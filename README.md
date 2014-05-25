@@ -15,33 +15,39 @@ Instructions
 
 **1. Add `tinymce-rails` to your Gemfile**
 
-    gem 'tinymce-rails'
+```ruby
+gem 'tinymce-rails'
+```
 
 Be sure to add to the global group, not the `assets` group. Then run `bundle install`.
 
 
 **2. Create a `config/tinymce.yml` file with your global configuration options:**
 
-    toolbar1: styleselect | bold italic | link image | undo redo
-    toolbar2: table | fullscreen
-    plugins:
-      - table
-      - fullscreen
-      
+```yml
+toolbar1: styleselect | bold italic | link image | undo redo
+toolbar2: table | fullscreen
+plugins:
+  - table
+  - fullscreen
+```
+
 The Rails server no longer needs to be restarted when this file is updated in development mode.
 
 To define multiple configuration sets, follow this syntax (a default configuration must be specified):
 
-    default:
-      plugins:
-        - image
-        - link
-    
-    alternate:
-      selector: textarea.table-editor
-      toolbar: styleselect | bold italic | link image | undo redo | table
-      plugins:
-        - table
+```yml
+default:
+  plugins:
+    - image
+    - link
+
+alternate:
+  selector: textarea.table-editor
+  toolbar: styleselect | bold italic | link image | undo redo | table
+  plugins:
+    - table
+```
 
 See the [TinyMCE 4 Documentation](http://www.tinymce.com/wiki.php/Configuration) for a full list of configuration options.
 
@@ -52,39 +58,55 @@ Use *one* of the following options to include TinyMCE assets.
 
 (1) Add to your application.js:
 
-    //= require tinymce
+```js
+//= require tinymce
+```
 
 or (2) with jQuery integration:
 
-    //= require tinymce-jquery
+```js
+//= require tinymce-jquery
+```
 
 (3) The TinyMCE assets can be included on a per-page basis using the `tinymce_assets` helper:
 
-    <%= tinymce_assets %>
-    #=> <script type="text/javascript" src="/assets/tinymce.js">
+```erb
+<%= tinymce_assets %>
+#=> <script type="text/javascript" src="/assets/tinymce.js">
+```
 
 
 **4. Initialize TinyMCE**
 
 For each textarea that you want to use with TinyMCE, add the "tinymce" class and ensure it has a unique ID:
 
-    <%= text_area_tag :content, "", :class => "tinymce", :rows => 40, :cols => 120 %>
-    
+```erb
+<%= text_area_tag :content, "", :class => "tinymce", :rows => 40, :cols => 120 %>
+```
+ 
 or if you are using Rails' form builders:
 
-    <%= f.text_area :content, :class => "tinymce", :rows => 40, :cols => 120 %>
+```erb
+<%= f.text_area :content, :class => "tinymce", :rows => 40, :cols => 120 %>
+```
 
 Then invoke the `tinymce` helper to initialize TinyMCE:
 
-    <%= tinymce %>
+```erb
+<%= tinymce %>
+```
 
 Custom options can be passed to `tinymce` to override the global options specified in `config/tinymce.yml`:
 
-    <%= tinymce :theme => "simple", :language => "de", :plugins => ["wordcount", "paste"] %>
+```erb
+<%= tinymce :theme => "simple", :language => "de", :plugins => ["wordcount", "paste"] %>
+```
 
 Alternate configurations defined in 'config/tinymce.yml' can be used with:
 
-    <%= tinymce :alternate %>
+```erb
+<%= tinymce :alternate %>
+```
 
 
 Language Packs
@@ -98,13 +120,15 @@ Manual Initialization
 
 Using the `tinymce` helper and global configuration file is entirely optional. The `tinyMCE.init` function can be invoked manually if desired.
 
-    <%= text_area_tag :editor, "", :rows => 40, :cols => 120 %>
+```erb
+<%= text_area_tag :editor, "", :rows => 40, :cols => 120 %>
 
-    <script type="text/javascript">
-      tinyMCE.init({
-        selector: 'textarea.editor'
-      });
-    </script>
+<script type="text/javascript">
+  tinyMCE.init({
+    selector: 'textarea.editor'
+  });
+</script>
+```
 
 
 Asset Compilation
@@ -114,7 +138,9 @@ If you are including TinyMCE via `application.js` or using the `tinymce_assets` 
 
 However if you wish to include `tinymce-jquery.js` independently, you will need to add it to the precompile list in `config/environments/production.rb`:
 
-    config.assets.precompile << "tinymce-jquery.js"
+```ruby
+config.assets.precompile << "tinymce-jquery.js"
+```
 
 
 Custom Plugins & Skins
