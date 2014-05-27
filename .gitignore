@@ -4,3 +4,4 @@ Gemfile.lock
 sandbox/log
 sandbox/tmp
 sandbox/public/assets
+.redcar
