@@ -16,6 +16,11 @@ module TinyMCE::Rails
         Rails.application.config.stub(:relative_url_root).and_return "/prefix"
         TinyMCE::Rails::Engine.default_base.should eq "/prefix/assets/tinymce"
       end
+      
+      it "includes the asset host if provided" do
+        Rails.application.config.action_controller.stub(:asset_host).and_return "http://assets.example.com"
+        TinyMCE::Rails::Engine.default_base.should eq "http://assets.example.com/assets/tinymce"
+      end
     end
   end
 end

@@ -20,7 +20,10 @@ module TinyMCE::Rails
     end
 
     def self.default_base
-      File.join(relative_url_root || "", Rails.application.config.assets.prefix || "/", "tinymce")
+      File.join(Rails.application.config.action_controller.asset_host || "",
+                relative_url_root || "",
+                Rails.application.config.assets.prefix || "/",
+                "tinymce")
     end
     
     def self.relative_url_root
