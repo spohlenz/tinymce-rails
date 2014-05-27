@@ -5,9 +5,9 @@ The `tinymce-rails` gem integrates the [TinyMCE](http://www.tinymce.com/) editor
 
 This gem is compatible with Rails 3.1.1 and higher (including Rails 4).
 
-Support for TinyMCE 4 is currently available in the [tinymce-4 branch](https://github.com/spohlenz/tinymce-rails/tree/tinymce-4). For the time being, parallel versions of TinyMCE (3.5.x and 4.x) will be maintained. However TinyMCE 4 will eventually be promoted to the master branch.
+This is the branch for TinyMCE 3.5.x. For TinyMCE 4, please see the [master branch](https://github.com/spohlenz/tinymce-rails).
 
-[![Build Status](https://travis-ci.org/spohlenz/tinymce-rails.png?branch=master)](https://travis-ci.org/spohlenz/tinymce-rails)
+[![Build Status](https://travis-ci.org/spohlenz/tinymce-rails.png?branch=tinymce-3)](https://travis-ci.org/spohlenz/tinymce-rails)
 
 
 Instructions
