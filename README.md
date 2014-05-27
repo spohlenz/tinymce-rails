@@ -25,8 +25,9 @@ Be sure to add to the global group, not the `assets` group. Then run `bundle ins
 **2. Create a `config/tinymce.yml` file with your global configuration options:**
 
 ```yml
-toolbar1: styleselect | bold italic | link image | undo redo
-toolbar2: table | fullscreen
+toolbar:
+  - styleselect | bold italic | link image | undo redo
+  - table | fullscreen
 plugins:
   - table
   - fullscreen

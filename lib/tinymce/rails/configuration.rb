@@ -14,6 +14,32 @@ module TinyMCE::Rails
       }
     end
     
+    COMMA = ",".freeze
+    SPACE = " ".freeze
+    SEMICOLON = ";".freeze
+    
+    OPTION_SEPARATORS = {
+      "plugins"                       => COMMA,
+      "custom_elements"               => COMMA,
+      "entities"                      => COMMA,
+      "extended_valid_elements"       => COMMA,
+      "font_formats"                  => SEMICOLON,
+      "fontsize_formats"              => COMMA,
+      "invalid_elements"              => COMMA,
+      "block_formats"                 => SEMICOLON,
+      "valid_children"                => COMMA,
+      "valid_elements"                => COMMA,
+      "body_id"                       => COMMA,
+      "body_class"                    => COMMA,
+      "content_css"                   => COMMA,
+      "tabfocus_elements"             => COMMA,
+      "table_clone_elements"          => SPACE,
+      "paste_word_valid_elements"     => COMMA,
+      "paste_webkit_styles"           => SPACE,
+      "paste_retain_style_properties" => SPACE,
+      "spellchecker_languages"        => COMMA
+    }
+    
     attr_reader :options
     
     def initialize(options)
@@ -30,8 +56,8 @@ module TinyMCE::Rails
       result = {}
       
       options.each do |key, value|
-        if value.is_a?(Array) && value.all? { |v| v.is_a?(String) }
-          result[key] = value.join(",")
+        if OPTION_SEPARATORS[key] && value.is_a?(Array)
+          result[key] = value.join(OPTION_SEPARATORS[key])
         elsif value.to_s.starts_with?("function(")
           result[key] = Function.new(value)
         else

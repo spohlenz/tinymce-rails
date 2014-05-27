@@ -30,9 +30,24 @@ module TinyMCE::Rails
         config.options_for_tinymce["mode"].should eq("textareas")
       end
       
-      it "combines arrays of strings into a single comma-separated string" do
+      it "returns arrays without predefined separators as normal" do
+        config = Configuration.new("toolbar" => ["styleselect", "bold italic"])
+        config.options_for_tinymce["toolbar"].should eq(["styleselect", "bold italic"])
+      end
+      
+      it "combines arrays of plugins into a single comma-separated string" do
         config = Configuration.new("plugins" => %w(paste table fullscreen))
         config.options_for_tinymce["plugins"].should eq("paste,table,fullscreen")
+      end
+      
+      it "returns string of plugins as normal" do
+        config = Configuration.new("plugins" => "paste,table,fullscreen")
+        config.options_for_tinymce["plugins"].should eq("paste,table,fullscreen")
+      end
+      
+      it "combines arrays of font_formats into a single semicolon-separated string" do
+        config = Configuration.new("font_formats" => ["Andale Mono=andale mono,times", "Comic Sans MS=comic sans ms,sans-serif"])
+        config.options_for_tinymce["font_formats"].should eq("Andale Mono=andale mono,times;Comic Sans MS=comic sans ms,sans-serif")
       end
       
       it "works with integer values" do
