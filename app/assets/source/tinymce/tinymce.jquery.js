@@ -1,4 +1,4 @@
-// 4.0.26 (2014-05-06)
+// 4.0.28 (2014-05-27)
 
 /**
  * Compiled inline version. (Library mode)
@@ -146,9 +146,14 @@ define("tinymce/html/Styles", [], function() {
 			urlOrStrRegExp = /(?:url(?:(?:\(\s*\"([^\"]+)\"\s*\))|(?:\(\s*\'([^\']+)\'\s*\))|(?:\(\s*([^)\s]+)\s*\))))|(?:\'([^\']+)\')|(?:\"([^\"]+)\")/gi,
 			styleRegExp = /\s*([^:]+):\s*([^;]+);?/g,
 			trimRightRegExp = /\s+$/,
-			undef, i, encodingLookup = {}, encodingItems, invisibleChar = '\uFEFF';
+			undef, i, encodingLookup = {}, encodingItems, validStyles, invalidStyles, invisibleChar = '\uFEFF';
 
 		settings = settings || {};
+
+		if (schema) {
+			validStyles = schema.getValidStyles();
+			invalidStyles = schema.getInvalidStyles();
+		}
 
 		encodingItems = ('\\" \\\' \\; \\: ; : ' + invisibleChar).split(' ');
 		for (i = 0; i < encodingItems.length; i++) {
@@ -407,16 +412,16 @@ define("tinymce/html/Styles", [], function() {
 			 *
 			 * @method serialize
 			 * @param {Object} styles Object to serialize as string for example: {border: '1px solid red'}
-			 * @param {String} element_name Optional element name, if specified only the styles that matches the schema will be serialized.
+			 * @param {String} elementName Optional element name, if specified only the styles that matches the schema will be serialized.
 			 * @return {String} String representation of the style object for example: border: 1px solid red.
 			 */
-			serialize: function(styles, element_name) {
+			serialize: function(styles, elementName) {
 				var css = '', name, value;
 
 				function serializeStyles(name) {
 					var styleList, i, l, value;
 
-					styleList = schema.styles[name];
+					styleList = validStyles[name];
 					if (styleList) {
 						for (i = 0, l = styleList.length; i < l; i++) {
 							name = styleList[i];
@@ -429,18 +434,36 @@ define("tinymce/html/Styles", [], function() {
 					}
 				}
 
+				function isValid(name, elementName) {
+					var styleMap;
+
+					styleMap = invalidStyles['*'];
+					if (styleMap && styleMap[name]) {
+						return false;
+					}
+
+					styleMap = invalidStyles[elementName];
+					if (styleMap && styleMap[name]) {
+						return false;
+					}
+
+					return true;
+				}
+
 				// Serialize styles according to schema
-				if (element_name && schema && schema.styles) {
+				if (elementName && validStyles) {
 					// Serialize global styles and element specific styles
 					serializeStyles('*');
-					serializeStyles(element_name);
+					serializeStyles(elementName);
 				} else {
 					// Output the styles in the order they are inside the object
 					for (name in styles) {
 						value = styles[name];
 
 						if (value !== undef && value.length > 0) {
-							css += (css.length > 0 ? ' ' : '') + name + ': ' + value + ';';
+							if (!invalidStyles || isValid(name, elementName)) {
+								css += (css.length > 0 ? ' ' : '') + name + ': ' + value + ';';
+							}
 						}
 					}
 				}
@@ -466,6 +489,11 @@ define("tinymce/html/Styles", [], function() {
 /*jshint loopfunc:true*/
 /*eslint no-loop-func:0 */
 
+/**
+ * This class wraps the browsers native event logic with more convenient methods.
+ *
+ * @class tinymce.dom.EventUtils
+ */
 define("tinymce/dom/EventUtils", [], function() {
 	"use strict";
 
@@ -3274,7 +3302,9 @@ define("tinymce/dom/DOMUtils", [
 				selectorVal = selector;
 
 				if (selector === '*') {
-					selector = function(node) {return node.nodeType == 1;};
+					selector = function(node) {
+						return node.nodeType == 1;
+					};
 				} else {
 					selector = function(node) {
 						return self.is(node, selectorVal);
@@ -3591,7 +3621,7 @@ define("tinymce/dom/DOMUtils", [
 						});
 
 						// Default px suffix on these
-						if (typeof(value) === 'number' && !numericCssMap[name]) {
+						if (((typeof(value) === 'number') || /^[\-0-9\.]+$/.test(value)) && !numericCssMap[name]) {
 							value += 'px';
 						}
 
@@ -6352,7 +6382,8 @@ define("tinymce/html/Schema", [
 		if (type != "html5-strict") {
 			addAttrs("script", "language xml:space");
 			addAttrs("style", "xml:space");
-			addAttrs("object", "declare classid codebase codetype archive standby align border hspace vspace");
+			addAttrs("object", "declare classid code codebase codetype archive standby align border hspace vspace");
+			addAttrs("embed", "align name hspace vspace");
 			addAttrs("param", "valuetype type");
 			addAttrs("a", "charset name rev shape coords");
 			addAttrs("br", "clear");
@@ -6421,6 +6452,27 @@ define("tinymce/html/Schema", [
 		return schema;
 	}
 
+	function compileElementMap(value, mode) {
+		var styles;
+
+		if (value) {
+			styles = {};
+
+			if (typeof value == 'string') {
+				value = {
+					'*': value
+				};
+			}
+
+			// Convert styles into a rule list
+			each(value, function(value, key) {
+				styles[key] = mode == 'map' ? makeMap(value, /[, ]/) : explode(value, /[, ]/);
+			});
+		}
+
+		return styles;
+	}
+
 	/**
 	 * Constructs a new Schema instance.
 	 *
@@ -6429,9 +6481,10 @@ define("tinymce/html/Schema", [
 	 * @param {Object} settings Name/value settings object.
 	 */
 	return function(settings) {
-		var self = this, elements = {}, children = {}, patternElements = [], validStyles, schemaItems;
-		var whiteSpaceElementsMap, selfClosingElementsMap, shortEndedElementsMap, boolAttrMap;
-		var blockElementsMap, nonEmptyElementsMap, textBlockElementsMap, customElementsMap = {}, specialElements = {};
+		var self = this, elements = {}, children = {}, patternElements = [], validStyles, invalidStyles, schemaItems;
+		var whiteSpaceElementsMap, selfClosingElementsMap, shortEndedElementsMap, boolAttrMap, validClasses;
+		var blockElementsMap, nonEmptyElementsMap, textBlockElementsMap, textInlineElementsMap;
+		var customElementsMap = {}, specialElements = {};
 
 		// Creates an lookup table map object for the specified option or the default value
 		function createLookupTable(option, default_value, extendWith) {
@@ -6463,15 +6516,9 @@ define("tinymce/html/Schema", [
 			settings.valid_elements = '*[*]';
 		}
 
-		// Build styles list
-		if (settings.valid_styles) {
-			validStyles = {};
-
-			// Convert styles into a rule list
-			each(settings.valid_styles, function(value, key) {
-				validStyles[key] = explode(value);
-			});
-		}
+		validStyles = compileElementMap(settings.valid_styles);
+		invalidStyles = compileElementMap(settings.invalid_styles, 'map');
+		validClasses = compileElementMap(settings.valid_classes, 'map');
 
 		// Setup map objects
 		whiteSpaceElementsMap = createLookupTable('whitespace_elements', 'pre script noscript style textarea video audio iframe object');
@@ -6486,6 +6533,8 @@ define("tinymce/html/Schema", [
 		blockElementsMap = createLookupTable('block_elements', 'hr table tbody thead tfoot ' +
 						'th tr td li ol ul caption dl dt dd noscript menu isindex option ' +
 						'datalist select optgroup', textBlockElementsMap);
+		textInlineElementsMap = createLookupTable('text_inline_elements', 'span strong b em i font strike u var cite ' +
+										'dfn code mark q sup sub samp');
 
 		each((settings.special || 'script noscript style textarea').split(' '), function(name) {
 			specialElements[name] = new RegExp('<\/' + name + '[^>]*>','gi');
@@ -6842,10 +6891,32 @@ define("tinymce/html/Schema", [
 		/**
 		 * Name/value map object with valid styles for each element.
 		 *
-		 * @field styles
+		 * @method getValidStyles
 		 * @type Object
 		 */
-		self.styles = validStyles;
+		self.getValidStyles = function() {
+			return validStyles;
+		};
+
+		/**
+		 * Name/value map object with valid styles for each element.
+		 *
+		 * @method getInvalidStyles
+		 * @type Object
+		 */
+		self.getInvalidStyles = function() {
+			return invalidStyles;
+		};
+
+		/**
+		 * Name/value map object with valid classes for each element.
+		 *
+		 * @method getValidClasses
+		 * @type Object
+		 */
+		self.getValidClasses = function() {
+			return validClasses;
+		};
 
 		/**
 		 * Returns a map with boolean attributes.
@@ -6875,6 +6946,16 @@ define("tinymce/html/Schema", [
 		 */
 		self.getTextBlockElements = function() {
 			return textBlockElementsMap;
+		};
+
+		/**
+		 * Returns a map of inline text format nodes for example strong/span or ins.
+		 *
+		 * @method getTextInlineElements
+		 * @return {Object} Name/value lookup map for text format elements.
+		 */
+		self.getTextInlineElements = function() {
+			return textInlineElementsMap;
 		};
 
 		/**
@@ -7105,6 +7186,36 @@ define("tinymce/html/SaxParser", [
 	"tinymce/util/Tools"
 ], function(Schema, Entities, Tools) {
 	var each = Tools.each;
+
+	/**
+	 * Returns the index of the end tag for a specific start tag. This can be
+	 * used to skip all children of a parent element from being processed.
+	 */
+	function skipUntilEndTag(schema, html, startIndex) {
+		var count = 1, matches, tokenRegExp, shortEndedElements;
+
+		shortEndedElements = schema.getShortEndedElements();
+		tokenRegExp = /<([!?\/])?([A-Za-z0-9\-\:\.]+)((?:\s+[^"\'>]+(?:(?:"[^"]*")|(?:\'[^\']*\')|[^>]*))*|\/|\s+)>/g;
+		tokenRegExp.lastIndex = startIndex;
+
+		while ((matches = tokenRegExp.exec(html))) {
+			if (matches[1] === '/') { // End element
+				count--;
+			} else if (!matches[1]) { // Start element
+				if (matches[2] in shortEndedElements) {
+					continue;
+				}
+
+				count++;
+			}
+
+			if (count === 0) {
+				break;
+			}
+		}
+
+		return tokenRegExp.lastIndex;
+	}
 
 	/**
 	 * Constructs a new SaxParser instance.
@@ -7387,7 +7498,13 @@ define("tinymce/html/SaxParser", [
 							}
 
 							// Invalidate element if it's marked as bogus
-							if (attrList.map['data-mce-bogus']) {
+							if ((attr = attrList.map['data-mce-bogus'])) {
+								if (attr === 'all') {
+									index = skipUntilEndTag(schema, html, tokenRegExp.lastIndex);
+									tokenRegExp.lastIndex = index;
+									continue;
+								}
+
 								isValidElement = false;
 							}
 						}
@@ -8050,7 +8167,7 @@ define("tinymce/html/DomParser", [
 									// Leave nodes that have a name like <a name="name">
 									if (!node.attributes.map.name && !node.attributes.map.id) {
 										tempNode = node.parent;
-										node.empty().remove();
+										node.unwrap();
 										node = tempNode;
 										return;
 									}
@@ -8226,6 +8343,48 @@ define("tinymce/html/DomParser", [
 							sibling = prevSibling;
 						} while (sibling);
 					}
+				}
+			});
+		}
+
+		if (settings.validate && schema.getValidClasses()) {
+			self.addAttributeFilter('class', function(nodes) {
+				var i = nodes.length, node, classList, ci, className, classValue;
+				var validClasses = schema.getValidClasses(), validClassesMap, valid;
+
+				while (i--) {
+					node = nodes[i];
+					classList = node.attr('class').split(' ');
+					classValue = '';
+
+					for (ci = 0; ci < classList.length; ci++) {
+						className = classList[ci];
+						valid = false;
+
+						validClassesMap = validClasses['*'];
+						if (validClassesMap && validClassesMap[className]) {
+							valid = true;
+						}
+
+						validClassesMap = validClasses[node.name];
+						if (!valid && validClassesMap && !validClassesMap[className]) {
+							valid = true;
+						}
+
+						if (valid) {
+							if (classValue) {
+								classValue += ' ';
+							}
+
+							classValue += className;
+						}
+					}
+
+					if (!classValue.length) {
+						classValue = null;
+					}
+
+					node.attr('class', classValue);
 				}
 			});
 		}
@@ -8711,15 +8870,6 @@ define("tinymce/dom/Serializer", [
 			}
 		});
 
-		// Remove expando attributes
-		htmlParser.addAttributeFilter('data-mce-expando', function(nodes, name) {
-			var i = nodes.length;
-
-			while (i--) {
-				nodes[i].attr(name, null);
-			}
-		});
-
 		htmlParser.addNodeFilter('noscript', function(nodes) {
 			var i = nodes.length, node;
 
@@ -8734,7 +8884,7 @@ define("tinymce/dom/Serializer", [
 
 		// Force script into CDATA sections and remove the mce- prefix also add comments around styles
 		htmlParser.addNodeFilter('script,style', function(nodes, name) {
-			var i = nodes.length, node, value;
+			var i = nodes.length, node, value, type;
 
 			function trim(value) {
 				/*jshint maxlen:255 */
@@ -8750,9 +8900,12 @@ define("tinymce/dom/Serializer", [
 				value = node.firstChild ? node.firstChild.value : '';
 
 				if (name === "script") {
-					// Remove mce- prefix from script elements and remove default text/javascript mime type (HTML5)
-					var type = (node.attr('type') || 'text/javascript').replace(/^mce\-/, '');
-					node.attr('type', type === 'text/javascript' ? null : type);
+					// Remove mce- prefix from script elements and remove default type since the user specified
+					// a script element without type attribute
+					type = node.attr('type');
+					if (type) {
+						node.attr('type', type == 'mce-no/type' ? null : type.replace(/^mce\-/, ''));
+					}
 
 					if (value.length > 0) {
 						node.firstChild.value = '// <![CDATA[\n' + trim(value) + '\n// ]]>';
@@ -8819,13 +8972,19 @@ define("tinymce/dom/Serializer", [
 		}
 
 		// Remove internal data attributes
-		htmlParser.addAttributeFilter('data-mce-src,data-mce-href,data-mce-style,data-mce-selected', function(nodes, name) {
-			var i = nodes.length;
+		htmlParser.addAttributeFilter(
+			'data-mce-src,data-mce-href,data-mce-style,' +
+			'data-mce-selected,data-mce-expando,' +
+			'data-mce-type,data-mce-resize',
 
-			while (i--) {
-				nodes[i].attr(name, null);
+			function(nodes, name) {
+				var i = nodes.length;
+
+				while (i--) {
+					nodes[i].attr(name, null);
+				}
 			}
-		});
+		);
 
 		// Return public methods
 		return {
@@ -9161,15 +9320,17 @@ define("tinymce/dom/TridentSelection", [], function() {
 
 					// Find the text node and offset
 					while (sibling) {
-						nodeValue = sibling.nodeValue;
-						textNodeOffset += nodeValue.length;
+						if (sibling.nodeType == 3) {
+							nodeValue = sibling.nodeValue;
+							textNodeOffset += nodeValue.length;
 
-						// We are at or passed the position we where looking for
-						if (textNodeOffset >= offset) {
-							container = sibling;
-							textNodeOffset -= offset;
-							textNodeOffset = nodeValue.length - textNodeOffset;
-							break;
+							// We are at or passed the position we where looking for
+							if (textNodeOffset >= offset) {
+								container = sibling;
+								textNodeOffset -= offset;
+								textNodeOffset = nodeValue.length - textNodeOffset;
+								break;
+							}
 						}
 
 						sibling = sibling.nextSibling;
@@ -9194,13 +9355,15 @@ define("tinymce/dom/TridentSelection", [], function() {
 					}
 
 					while (sibling) {
-						textNodeOffset += sibling.nodeValue.length;
+						if (sibling.nodeType == 3) {
+							textNodeOffset += sibling.nodeValue.length;
 
-						// We are at or passed the position we where looking for
-						if (textNodeOffset >= offset) {
-							container = sibling;
-							textNodeOffset -= offset;
-							break;
+							// We are at or passed the position we where looking for
+							if (textNodeOffset >= offset) {
+								container = sibling;
+								textNodeOffset -= offset;
+								break;
+							}
 						}
 
 						sibling = sibling.previousSibling;
@@ -9533,8 +9696,8 @@ define("tinymce/util/VK", [
 		},
 
 		metaKeyPressed: function(e) {
-			// Check if ctrl or meta key is pressed also check if alt is false for Polish users
-			return (Env.mac ? e.metaKey : e.ctrlKey) && !e.altKey;
+			// Check if ctrl or meta key is pressed. Edge case for AltGr on Windows where it produces ctrlKey+altKey states
+			return (Env.mac ? e.metaKey : e.ctrlKey && !e.altKey);
 		}
 	};
 });
@@ -10066,7 +10229,7 @@ define("tinymce/dom/ControlSelection", [
 // Included from: js/tinymce/classes/dom/RangeUtils.js
 
 /**
- * Range.js
+ * RangeUtils.js
  *
  * Copyright, Moxiecode Systems AB
  * Released under LGPL License.
@@ -10076,7 +10239,7 @@ define("tinymce/dom/ControlSelection", [
  */
 
 /**
- * RangeUtils
+ * This class contains a few utility methods for ranges.
  *
  * @class tinymce.dom.RangeUtils
  * @private
@@ -10086,6 +10249,20 @@ define("tinymce/dom/RangeUtils", [
 	"tinymce/dom/TreeWalker"
 ], function(Tools, TreeWalker) {
 	var each = Tools.each;
+
+	function getEndChild(container, index) {
+		var childNodes = container.childNodes;
+
+		index--;
+		
+		if (index > childNodes.length - 1) {
+			index = childNodes.length - 1;
+		} else if (index < 0) {
+			index = 0;
+		}
+
+		return childNodes[index] || container;
+	}
 
 	function RangeUtils(dom) {
 		/**
@@ -10199,7 +10376,7 @@ define("tinymce/dom/RangeUtils", [
 
 			// If index based end position then resolve it
 			if (endContainer.nodeType == 1 && endContainer.hasChildNodes()) {
-				endContainer = endContainer.childNodes[Math.min(endOffset - 1, endContainer.childNodes.length - 1)];
+				endContainer = getEndChild(endContainer, endOffset);
 			}
 
 			// Same container
@@ -10546,6 +10723,398 @@ define("tinymce/dom/RangeUtils", [
 	return RangeUtils;
 });
 
+// Included from: js/tinymce/classes/dom/BookmarkManager.js
+
+/**
+ * BookmarkManager.js
+ *
+ * Copyright, Moxiecode Systems AB
+ * Released under LGPL License.
+ *
+ * License: http://www.tinymce.com/license
+ * Contributing: http://www.tinymce.com/contributing
+ */
+
+/**
+ * This class handles selection bookmarks.
+ *
+ * @class tinymce.dom.BookmarkManager
+ */
+define("tinymce/dom/BookmarkManager", [
+	"tinymce/Env",
+	"tinymce/util/Tools"
+], function(Env, Tools) {
+	/**
+	 * Constructs a new BookmarkManager instance for a specific selection instance.
+	 *
+	 * @constructor
+	 * @method BookmarkManager
+	 * @param {tinymce.dom.Selection} selection Selection instance to handle bookmarks for.
+	 */
+	function BookmarkManager(selection) {
+		var dom = selection.dom;
+
+		/**
+		 * Returns a bookmark location for the current selection. This bookmark object
+		 * can then be used to restore the selection after some content modification to the document.
+		 *
+		 * @method getBookmark
+		 * @param {Number} type Optional state if the bookmark should be simple or not. Default is complex.
+		 * @param {Boolean} normalized Optional state that enables you to get a position that it would be after normalization.
+		 * @return {Object} Bookmark object, use moveToBookmark with this object to restore the selection.
+		 * @example
+		 * // Stores a bookmark of the current selection
+		 * var bm = tinymce.activeEditor.selection.getBookmark();
+		 *
+		 * tinymce.activeEditor.setContent(tinymce.activeEditor.getContent() + 'Some new content');
+		 *
+		 * // Restore the selection bookmark
+		 * tinymce.activeEditor.selection.moveToBookmark(bm);
+		 */
+		this.getBookmark = function(type, normalized) {
+			var rng, rng2, id, collapsed, name, element, chr = '&#xFEFF;', styles;
+
+			function findIndex(name, element) {
+				var index = 0;
+
+				Tools.each(dom.select(name), function(node, i) {
+					if (node == element) {
+						index = i;
+					}
+				});
+
+				return index;
+			}
+
+			function normalizeTableCellSelection(rng) {
+				function moveEndPoint(start) {
+					var container, offset, childNodes, prefix = start ? 'start' : 'end';
+
+					container = rng[prefix + 'Container'];
+					offset = rng[prefix + 'Offset'];
+
+					if (container.nodeType == 1 && container.nodeName == "TR") {
+						childNodes = container.childNodes;
+						container = childNodes[Math.min(start ? offset : offset - 1, childNodes.length - 1)];
+						if (container) {
+							offset = start ? 0 : container.childNodes.length;
+							rng['set' + (start ? 'Start' : 'End')](container, offset);
+						}
+					}
+				}
+
+				moveEndPoint(true);
+				moveEndPoint();
+
+				return rng;
+			}
+
+			function getLocation() {
+				var rng = selection.getRng(true), root = dom.getRoot(), bookmark = {};
+
+				function getPoint(rng, start) {
+					var container = rng[start ? 'startContainer' : 'endContainer'],
+						offset = rng[start ? 'startOffset' : 'endOffset'], point = [], node, childNodes, after = 0;
+
+					if (container.nodeType == 3) {
+						if (normalized) {
+							for (node = container.previousSibling; node && node.nodeType == 3; node = node.previousSibling) {
+								offset += node.nodeValue.length;
+							}
+						}
+
+						point.push(offset);
+					} else {
+						childNodes = container.childNodes;
+
+						if (offset >= childNodes.length && childNodes.length) {
+							after = 1;
+							offset = Math.max(0, childNodes.length - 1);
+						}
+
+						point.push(dom.nodeIndex(childNodes[offset], normalized) + after);
+					}
+
+					for (; container && container != root; container = container.parentNode) {
+						point.push(dom.nodeIndex(container, normalized));
+					}
+
+					return point;
+				}
+
+				bookmark.start = getPoint(rng, true);
+
+				if (!selection.isCollapsed()) {
+					bookmark.end = getPoint(rng);
+				}
+
+				return bookmark;
+			}
+
+			if (type == 2) {
+				element = selection.getNode();
+				name = element ? element.nodeName : null;
+
+				if (name == 'IMG') {
+					return {name: name, index: findIndex(name, element)};
+				}
+
+				if (selection.tridentSel) {
+					return selection.tridentSel.getBookmark(type);
+				}
+
+				return getLocation();
+			}
+
+			// Handle simple range
+			if (type) {
+				return {rng: selection.getRng()};
+			}
+
+			rng = selection.getRng();
+			id = dom.uniqueId();
+			collapsed = selection.isCollapsed();
+			styles = 'overflow:hidden;line-height:0px';
+
+			// Explorer method
+			if (rng.duplicate || rng.item) {
+				// Text selection
+				if (!rng.item) {
+					rng2 = rng.duplicate();
+
+					try {
+						// Insert start marker
+						rng.collapse();
+						rng.pasteHTML('<span data-mce-type="bookmark" id="' + id + '_start" style="' + styles + '">' + chr + '</span>');
+
+						// Insert end marker
+						if (!collapsed) {
+							rng2.collapse(false);
+
+							// Detect the empty space after block elements in IE and move the
+							// end back one character <p></p>] becomes <p>]</p>
+							rng.moveToElementText(rng2.parentElement());
+							if (rng.compareEndPoints('StartToEnd', rng2) === 0) {
+								rng2.move('character', -1);
+							}
+
+							rng2.pasteHTML('<span data-mce-type="bookmark" id="' + id + '_end" style="' + styles + '">' + chr + '</span>');
+						}
+					} catch (ex) {
+						// IE might throw unspecified error so lets ignore it
+						return null;
+					}
+				} else {
+					// Control selection
+					element = rng.item(0);
+					name = element.nodeName;
+
+					return {name: name, index: findIndex(name, element)};
+				}
+			} else {
+				element = selection.getNode();
+				name = element.nodeName;
+				if (name == 'IMG') {
+					return {name: name, index: findIndex(name, element)};
+				}
+
+				// W3C method
+				rng2 = normalizeTableCellSelection(rng.cloneRange());
+
+				// Insert end marker
+				if (!collapsed) {
+					rng2.collapse(false);
+					rng2.insertNode(dom.create('span', {'data-mce-type': "bookmark", id: id + '_end', style: styles}, chr));
+				}
+
+				rng = normalizeTableCellSelection(rng);
+				rng.collapse(true);
+				rng.insertNode(dom.create('span', {'data-mce-type': "bookmark", id: id + '_start', style: styles}, chr));
+			}
+
+			selection.moveToBookmark({id: id, keep: 1});
+
+			return {id: id};
+		};
+
+		/**
+		 * Restores the selection to the specified bookmark.
+		 *
+		 * @method moveToBookmark
+		 * @param {Object} bookmark Bookmark to restore selection from.
+		 * @return {Boolean} true/false if it was successful or not.
+		 * @example
+		 * // Stores a bookmark of the current selection
+		 * var bm = tinymce.activeEditor.selection.getBookmark();
+		 *
+		 * tinymce.activeEditor.setContent(tinymce.activeEditor.getContent() + 'Some new content');
+		 *
+		 * // Restore the selection bookmark
+		 * tinymce.activeEditor.selection.moveToBookmark(bm);
+		 */
+		this.moveToBookmark = function(bookmark) {
+			var rng, root, startContainer, endContainer, startOffset, endOffset;
+
+			function setEndPoint(start) {
+				var point = bookmark[start ? 'start' : 'end'], i, node, offset, children;
+
+				if (point) {
+					offset = point[0];
+
+					// Find container node
+					for (node = root, i = point.length - 1; i >= 1; i--) {
+						children = node.childNodes;
+
+						if (point[i] > children.length - 1) {
+							return;
+						}
+
+						node = children[point[i]];
+					}
+
+					// Move text offset to best suitable location
+					if (node.nodeType === 3) {
+						offset = Math.min(point[0], node.nodeValue.length);
+					}
+
+					// Move element offset to best suitable location
+					if (node.nodeType === 1) {
+						offset = Math.min(point[0], node.childNodes.length);
+					}
+
+					// Set offset within container node
+					if (start) {
+						rng.setStart(node, offset);
+					} else {
+						rng.setEnd(node, offset);
+					}
+				}
+
+				return true;
+			}
+
+			function restoreEndPoint(suffix) {
+				var marker = dom.get(bookmark.id + '_' + suffix), node, idx, next, prev, keep = bookmark.keep;
+
+				if (marker) {
+					node = marker.parentNode;
+
+					if (suffix == 'start') {
+						if (!keep) {
+							idx = dom.nodeIndex(marker);
+						} else {
+							node = marker.firstChild;
+							idx = 1;
+						}
+
+						startContainer = endContainer = node;
+						startOffset = endOffset = idx;
+					} else {
+						if (!keep) {
+							idx = dom.nodeIndex(marker);
+						} else {
+							node = marker.firstChild;
+							idx = 1;
+						}
+
+						endContainer = node;
+						endOffset = idx;
+					}
+
+					if (!keep) {
+						prev = marker.previousSibling;
+						next = marker.nextSibling;
+
+						// Remove all marker text nodes
+						Tools.each(Tools.grep(marker.childNodes), function(node) {
+							if (node.nodeType == 3) {
+								node.nodeValue = node.nodeValue.replace(/\uFEFF/g, '');
+							}
+						});
+
+						// Remove marker but keep children if for example contents where inserted into the marker
+						// Also remove duplicated instances of the marker for example by a
+						// split operation or by WebKit auto split on paste feature
+						while ((marker = dom.get(bookmark.id + '_' + suffix))) {
+							dom.remove(marker, 1);
+						}
+
+						// If siblings are text nodes then merge them unless it's Opera since it some how removes the node
+						// and we are sniffing since adding a lot of detection code for a browser with 3% of the market
+						// isn't worth the effort. Sorry, Opera but it's just a fact
+						if (prev && next && prev.nodeType == next.nodeType && prev.nodeType == 3 && !Env.opera) {
+							idx = prev.nodeValue.length;
+							prev.appendData(next.nodeValue);
+							dom.remove(next);
+
+							if (suffix == 'start') {
+								startContainer = endContainer = prev;
+								startOffset = endOffset = idx;
+							} else {
+								endContainer = prev;
+								endOffset = idx;
+							}
+						}
+					}
+				}
+			}
+
+			function addBogus(node) {
+				// Adds a bogus BR element for empty block elements
+				if (dom.isBlock(node) && !node.innerHTML && !Env.ie) {
+					node.innerHTML = '<br data-mce-bogus="1" />';
+				}
+
+				return node;
+			}
+
+			if (bookmark) {
+				if (bookmark.start) {
+					rng = dom.createRng();
+					root = dom.getRoot();
+
+					if (selection.tridentSel) {
+						return selection.tridentSel.moveToBookmark(bookmark);
+					}
+
+					if (setEndPoint(true) && setEndPoint()) {
+						selection.setRng(rng);
+					}
+				} else if (bookmark.id) {
+					// Restore start/end points
+					restoreEndPoint('start');
+					restoreEndPoint('end');
+
+					if (startContainer) {
+						rng = dom.createRng();
+						rng.setStart(addBogus(startContainer), startOffset);
+						rng.setEnd(addBogus(endContainer), endOffset);
+						selection.setRng(rng);
+					}
+				} else if (bookmark.name) {
+					selection.select(dom.select(bookmark.name)[bookmark.index]);
+				} else if (bookmark.rng) {
+					selection.setRng(bookmark.rng);
+				}
+			}
+		};
+	}
+
+	/**
+	 * Returns true/false if the specified node is a bookmark node or not.
+	 *
+	 * @static
+	 * @method isBookmarkNode
+	 * @param {DOMNode} node DOM Node to check if it's a bookmark node or not.
+	 * @return {Boolean} true/false if the node is a bookmark node or not.
+	 */
+	BookmarkManager.isBookmarkNode = function(node) {
+		return node && node.tagName === 'SPAN' && node.getAttribute('data-mce-type') === 'bookmark';
+	};
+
+	return BookmarkManager;
+});
+
 // Included from: js/tinymce/classes/dom/Selection.js
 
 /**
@@ -10572,11 +11141,12 @@ define("tinymce/dom/Selection", [
 	"tinymce/dom/TridentSelection",
 	"tinymce/dom/ControlSelection",
 	"tinymce/dom/RangeUtils",
+	"tinymce/dom/BookmarkManager",
 	"tinymce/Env",
 	"tinymce/util/Tools"
-], function(TreeWalker, TridentSelection, ControlSelection, RangeUtils, Env, Tools) {
-	var each = Tools.each, grep = Tools.grep, trim = Tools.trim;
-	var isIE = Env.ie, isOpera = Env.opera;
+], function(TreeWalker, TridentSelection, ControlSelection, RangeUtils, BookmarkManager, Env, Tools) {
+	var each = Tools.each, trim = Tools.trim;
+	var isIE = Env.ie;
 
 	/**
 	 * Constructs a new selection instance.
@@ -10594,7 +11164,7 @@ define("tinymce/dom/Selection", [
 		self.win = win;
 		self.serializer = serializer;
 		self.editor = editor;
-
+		self.bookmarkManager = new BookmarkManager(self);
 		self.controlSelection = new ControlSelection(self, editor);
 
 		// No W3C Range support
@@ -10894,169 +11464,7 @@ define("tinymce/dom/Selection", [
 		 * tinymce.activeEditor.selection.moveToBookmark(bm);
 		 */
 		getBookmark: function(type, normalized) {
-			var self = this, dom = self.dom, rng, rng2, id, collapsed, name, element, chr = '&#xFEFF;', styles;
-
-			function findIndex(name, element) {
-				var index = 0;
-
-				each(dom.select(name), function(node, i) {
-					if (node == element) {
-						index = i;
-					}
-				});
-
-				return index;
-			}
-
-			function normalizeTableCellSelection(rng) {
-				function moveEndPoint(start) {
-					var container, offset, childNodes, prefix = start ? 'start' : 'end';
-
-					container = rng[prefix + 'Container'];
-					offset = rng[prefix + 'Offset'];
-
-					if (container.nodeType == 1 && container.nodeName == "TR") {
-						childNodes = container.childNodes;
-						container = childNodes[Math.min(start ? offset : offset - 1, childNodes.length - 1)];
-						if (container) {
-							offset = start ? 0 : container.childNodes.length;
-							rng['set' + (start ? 'Start' : 'End')](container, offset);
-						}
-					}
-				}
-
-				moveEndPoint(true);
-				moveEndPoint();
-
-				return rng;
-			}
-
-			function getLocation() {
-				var rng = self.getRng(true), root = dom.getRoot(), bookmark = {};
-
-				function getPoint(rng, start) {
-					var container = rng[start ? 'startContainer' : 'endContainer'],
-						offset = rng[start ? 'startOffset' : 'endOffset'], point = [], node, childNodes, after = 0;
-
-					if (container.nodeType == 3) {
-						if (normalized) {
-							for (node = container.previousSibling; node && node.nodeType == 3; node = node.previousSibling) {
-								offset += node.nodeValue.length;
-							}
-						}
-
-						point.push(offset);
-					} else {
-						childNodes = container.childNodes;
-
-						if (offset >= childNodes.length && childNodes.length) {
-							after = 1;
-							offset = Math.max(0, childNodes.length - 1);
-						}
-
-						point.push(self.dom.nodeIndex(childNodes[offset], normalized) + after);
-					}
-
-					for (; container && container != root; container = container.parentNode) {
-						point.push(self.dom.nodeIndex(container, normalized));
-					}
-
-					return point;
-				}
-
-				bookmark.start = getPoint(rng, true);
-
-				if (!self.isCollapsed()) {
-					bookmark.end = getPoint(rng);
-				}
-
-				return bookmark;
-			}
-
-			if (type == 2) {
-				element = self.getNode();
-				name = element ? element.nodeName : null;
-
-				if (name == 'IMG') {
-					return {name: name, index: findIndex(name, element)};
-				}
-
-				if (self.tridentSel) {
-					return self.tridentSel.getBookmark(type);
-				}
-
-				return getLocation();
-			}
-
-			// Handle simple range
-			if (type) {
-				return {rng: self.getRng()};
-			}
-
-			rng = self.getRng();
-			id = dom.uniqueId();
-			collapsed = self.isCollapsed();
-			styles = 'overflow:hidden;line-height:0px';
-
-			// Explorer method
-			if (rng.duplicate || rng.item) {
-				// Text selection
-				if (!rng.item) {
-					rng2 = rng.duplicate();
-
-					try {
-						// Insert start marker
-						rng.collapse();
-						rng.pasteHTML('<span data-mce-type="bookmark" id="' + id + '_start" style="' + styles + '">' + chr + '</span>');
-
-						// Insert end marker
-						if (!collapsed) {
-							rng2.collapse(false);
-
-							// Detect the empty space after block elements in IE and move the
-							// end back one character <p></p>] becomes <p>]</p>
-							rng.moveToElementText(rng2.parentElement());
-							if (rng.compareEndPoints('StartToEnd', rng2) === 0) {
-								rng2.move('character', -1);
-							}
-
-							rng2.pasteHTML('<span data-mce-type="bookmark" id="' + id + '_end" style="' + styles + '">' + chr + '</span>');
-						}
-					} catch (ex) {
-						// IE might throw unspecified error so lets ignore it
-						return null;
-					}
-				} else {
-					// Control selection
-					element = rng.item(0);
-					name = element.nodeName;
-
-					return {name: name, index: findIndex(name, element)};
-				}
-			} else {
-				element = self.getNode();
-				name = element.nodeName;
-				if (name == 'IMG') {
-					return {name: name, index: findIndex(name, element)};
-				}
-
-				// W3C method
-				rng2 = normalizeTableCellSelection(rng.cloneRange());
-
-				// Insert end marker
-				if (!collapsed) {
-					rng2.collapse(false);
-					rng2.insertNode(dom.create('span', {'data-mce-type': "bookmark", id: id + '_end', style: styles}, chr));
-				}
-
-				rng = normalizeTableCellSelection(rng);
-				rng.collapse(true);
-				rng.insertNode(dom.create('span', {'data-mce-type': "bookmark", id: id + '_start', style: styles}, chr));
-			}
-
-			self.moveToBookmark({id: id, keep: 1});
-
-			return {id: id};
+			return this.bookmarkManager.getBookmark(type, normalized);
 		},
 
 		/**
@@ -11075,150 +11483,7 @@ define("tinymce/dom/Selection", [
 		 * tinymce.activeEditor.selection.moveToBookmark(bm);
 		 */
 		moveToBookmark: function(bookmark) {
-			var self = this, dom = self.dom, rng, root, startContainer, endContainer, startOffset, endOffset;
-
-			function setEndPoint(start) {
-				var point = bookmark[start ? 'start' : 'end'], i, node, offset, children;
-
-				if (point) {
-					offset = point[0];
-
-					// Find container node
-					for (node = root, i = point.length - 1; i >= 1; i--) {
-						children = node.childNodes;
-
-						if (point[i] > children.length - 1) {
-							return;
-						}
-
-						node = children[point[i]];
-					}
-
-					// Move text offset to best suitable location
-					if (node.nodeType === 3) {
-						offset = Math.min(point[0], node.nodeValue.length);
-					}
-
-					// Move element offset to best suitable location
-					if (node.nodeType === 1) {
-						offset = Math.min(point[0], node.childNodes.length);
-					}
-
-					// Set offset within container node
-					if (start) {
-						rng.setStart(node, offset);
-					} else {
-						rng.setEnd(node, offset);
-					}
-				}
-
-				return true;
-			}
-
-			function restoreEndPoint(suffix) {
-				var marker = dom.get(bookmark.id + '_' + suffix), node, idx, next, prev, keep = bookmark.keep;
-
-				if (marker) {
-					node = marker.parentNode;
-
-					if (suffix == 'start') {
-						if (!keep) {
-							idx = dom.nodeIndex(marker);
-						} else {
-							node = marker.firstChild;
-							idx = 1;
-						}
-
-						startContainer = endContainer = node;
-						startOffset = endOffset = idx;
-					} else {
-						if (!keep) {
-							idx = dom.nodeIndex(marker);
-						} else {
-							node = marker.firstChild;
-							idx = 1;
-						}
-
-						endContainer = node;
-						endOffset = idx;
-					}
-
-					if (!keep) {
-						prev = marker.previousSibling;
-						next = marker.nextSibling;
-
-						// Remove all marker text nodes
-						each(grep(marker.childNodes), function(node) {
-							if (node.nodeType == 3) {
-								node.nodeValue = node.nodeValue.replace(/\uFEFF/g, '');
-							}
-						});
-
-						// Remove marker but keep children if for example contents where inserted into the marker
-						// Also remove duplicated instances of the marker for example by a
-						// split operation or by WebKit auto split on paste feature
-						while ((marker = dom.get(bookmark.id + '_' + suffix))) {
-							dom.remove(marker, 1);
-						}
-
-						// If siblings are text nodes then merge them unless it's Opera since it some how removes the node
-						// and we are sniffing since adding a lot of detection code for a browser with 3% of the market
-						// isn't worth the effort. Sorry, Opera but it's just a fact
-						if (prev && next && prev.nodeType == next.nodeType && prev.nodeType == 3 && !isOpera) {
-							idx = prev.nodeValue.length;
-							prev.appendData(next.nodeValue);
-							dom.remove(next);
-
-							if (suffix == 'start') {
-								startContainer = endContainer = prev;
-								startOffset = endOffset = idx;
-							} else {
-								endContainer = prev;
-								endOffset = idx;
-							}
-						}
-					}
-				}
-			}
-
-			function addBogus(node) {
-				// Adds a bogus BR element for empty block elements
-				if (dom.isBlock(node) && !node.innerHTML && !isIE) {
-					node.innerHTML = '<br data-mce-bogus="1" />';
-				}
-
-				return node;
-			}
-
-			if (bookmark) {
-				if (bookmark.start) {
-					rng = dom.createRng();
-					root = dom.getRoot();
-
-					if (self.tridentSel) {
-						return self.tridentSel.moveToBookmark(bookmark);
-					}
-
-					if (setEndPoint(true) && setEndPoint()) {
-						self.setRng(rng);
-					}
-				} else if (bookmark.id) {
-					// Restore start/end points
-					restoreEndPoint('start');
-					restoreEndPoint('end');
-
-					if (startContainer) {
-						rng = dom.createRng();
-						rng.setStart(addBogus(startContainer), startOffset);
-						rng.setEnd(addBogus(endContainer), endOffset);
-						self.setRng(rng);
-					}
-				} else if (bookmark.name) {
-					self.select(dom.select(bookmark.name)[bookmark.index]);
-				} else if (bookmark.rng) {
-					self.setRng(bookmark.rng);
-				}
-			}
+			return this.bookmarkManager.moveToBookmark(bookmark);
 		},
 
 		/**
@@ -11808,6 +12073,126 @@ define("tinymce/dom/Selection", [
 	return Selection;
 });
 
+// Included from: js/tinymce/classes/dom/ElementUtils.js
+
+/**
+ * ElementUtils.js
+ *
+ * Copyright, Moxiecode Systems AB
+ * Released under LGPL License.
+ *
+ * License: http://www.tinymce.com/license
+ * Contributing: http://www.tinymce.com/contributing
+ */
+
+/**
+ * Utility class for various element specific functions.
+ *
+ * @private
+ */
+define("tinymce/dom/ElementUtils", [
+	"tinymce/dom/BookmarkManager",
+	"tinymce/util/Tools"
+], function(BookmarkManager, Tools) {
+	var each = Tools.each;
+
+	function ElementUtils(dom) {
+		/**
+		 * Compares two nodes and checks if it's attributes and styles matches.
+		 * This doesn't compare classes as items since their order is significant.
+		 *
+		 * @method compare
+		 * @param {Node} node1 First node to compare with.
+		 * @param {Node} node2 Second node to compare with.
+		 * @return {boolean} True/false if the nodes are the same or not.
+		 */
+		this.compare = function(node1, node2) {
+			// Not the same name
+			if (node1.nodeName != node2.nodeName) {
+				return false;
+			}
+
+			/**
+			 * Returns all the nodes attributes excluding internal ones, styles and classes.
+			 *
+			 * @private
+			 * @param {Node} node Node to get attributes from.
+			 * @return {Object} Name/value object with attributes and attribute values.
+			 */
+			function getAttribs(node) {
+				var attribs = {};
+
+				each(dom.getAttribs(node), function(attr) {
+					var name = attr.nodeName.toLowerCase();
+
+					// Don't compare internal attributes or style
+					if (name.indexOf('_') !== 0 && name !== 'style' && name !== 'data-mce-style') {
+						attribs[name] = dom.getAttrib(node, name);
+					}
+				});
+
+				return attribs;
+			}
+
+			/**
+			 * Compares two objects checks if it's key + value exists in the other one.
+			 *
+			 * @private
+			 * @param {Object} obj1 First object to compare.
+			 * @param {Object} obj2 Second object to compare.
+			 * @return {boolean} True/false if the objects matches or not.
+			 */
+			function compareObjects(obj1, obj2) {
+				var value, name;
+
+				for (name in obj1) {
+					// Obj1 has item obj2 doesn't have
+					if (obj1.hasOwnProperty(name)) {
+						value = obj2[name];
+
+						// Obj2 doesn't have obj1 item
+						if (typeof value == "undefined") {
+							return false;
+						}
+
+						// Obj2 item has a different value
+						if (obj1[name] != value) {
+							return false;
+						}
+
+						// Delete similar value
+						delete obj2[name];
+					}
+				}
+
+				// Check if obj 2 has something obj 1 doesn't have
+				for (name in obj2) {
+					// Obj2 has item obj1 doesn't have
+					if (obj2.hasOwnProperty(name)) {
+						return false;
+					}
+				}
+
+				return true;
+			}
+
+			// Attribs are not the same
+			if (!compareObjects(getAttribs(node1), getAttribs(node2))) {
+				return false;
+			}
+
+			// Styles are not the same
+			if (!compareObjects(dom.parseStyle(dom.getAttrib(node1, 'style')), dom.parseStyle(dom.getAttrib(node2, 'style')))) {
+				return false;
+			}
+
+			return !BookmarkManager.isBookmarkNode(node1) && !BookmarkManager.isBookmarkNode(node2);
+		};
+	}
+
+	return ElementUtils;
+});
+
 // Included from: js/tinymce/classes/fmt/Preview.js
 
 /**
@@ -11991,9 +12376,11 @@ define("tinymce/fmt/Preview", [
 define("tinymce/Formatter", [
 	"tinymce/dom/TreeWalker",
 	"tinymce/dom/RangeUtils",
+	"tinymce/dom/BookmarkManager",
+	"tinymce/dom/ElementUtils",
 	"tinymce/util/Tools",
 	"tinymce/fmt/Preview"
-], function(TreeWalker, RangeUtils, Tools, Preview) {
+], function(TreeWalker, RangeUtils, BookmarkManager, ElementUtils, Tools, Preview) {
 	/**
 	 * Constructs a new formatter instance.
 	 *
@@ -12017,7 +12404,8 @@ define("tinymce/Formatter", [
 			undef,
 			getContentEditable = dom.getContentEditable,
 			disableCaretContainer,
-			markCaretContainersBogus;
+			markCaretContainersBogus,
+			isBookmarkNode = BookmarkManager.isBookmarkNode;
 
 		var each = Tools.each,
 			grep = Tools.grep,
@@ -12042,7 +12430,6 @@ define("tinymce/Formatter", [
 
 		function defaultFormats() {
 			register({
-				
 				valigntop: [
 					{selector: 'td,th', styles: {'verticalAlign': 'top'}}
 				],
@@ -12333,7 +12720,7 @@ define("tinymce/Formatter", [
 
 				// get the index of the bookmarks
 				each(node.childNodes, function(n, index) {
-					if (n.nodeName === "SPAN" && dom.getAttrib(n, "data-mce-type") == "bookmark") {
+					if (isBookmarkNode(n)) {
 						if (n.id == bookmark.id + "_start") {
 							startIndex = index;
 						} else if (n.id == bookmark.id + "_end") {
@@ -13910,17 +14297,6 @@ define("tinymce/Formatter", [
 		}
 
 		/**
-		 * Checks if the specified node is a bookmark node or not.
-		 *
-		 * @private
-		 * @param {Node} node Node to check if it's a bookmark node or not.
-		 * @return {Boolean} true/false if the node is a bookmark node.
-		 */
-		function isBookmarkNode(node) {
-			return node && node.nodeType == 1 && node.getAttribute('data-mce-type') == 'bookmark';
-		}
-
-		/**
 		 * Merges the next/previous sibling element if they match.
 		 *
 		 * @private
@@ -13929,99 +14305,7 @@ define("tinymce/Formatter", [
 		 * @return {Node} Next node if we didn't merge and prev node if we did.
 		 */
 		function mergeSiblings(prev, next) {
-			var sibling, tmpSibling;
-
-			/**
-			 * Compares two nodes and checks if it's attributes and styles matches.
-			 * This doesn't compare classes as items since their order is significant.
-			 *
-			 * @private
-			 * @param {Node} node1 First node to compare with.
-			 * @param {Node} node2 Second node to compare with.
-			 * @return {boolean} True/false if the nodes are the same or not.
-			 */
-			function compareElements(node1, node2) {
-				// Not the same name
-				if (node1.nodeName != node2.nodeName) {
-					return FALSE;
-				}
-
-				/**
-				 * Returns all the nodes attributes excluding internal ones, styles and classes.
-				 *
-				 * @private
-				 * @param {Node} node Node to get attributes from.
-				 * @return {Object} Name/value object with attributes and attribute values.
-				 */
-				function getAttribs(node) {
-					var attribs = {};
-
-					each(dom.getAttribs(node), function(attr) {
-						var name = attr.nodeName.toLowerCase();
-
-						// Don't compare internal attributes or style
-						if (name.indexOf('_') !== 0 && name !== 'style' && name !== 'data-mce-style') {
-							attribs[name] = dom.getAttrib(node, name);
-						}
-					});
-
-					return attribs;
-				}
-
-				/**
-				 * Compares two objects checks if it's key + value exists in the other one.
-				 *
-				 * @private
-				 * @param {Object} obj1 First object to compare.
-				 * @param {Object} obj2 Second object to compare.
-				 * @return {boolean} True/false if the objects matches or not.
-				 */
-				function compareObjects(obj1, obj2) {
-					var value, name;
-
-					for (name in obj1) {
-						// Obj1 has item obj2 doesn't have
-						if (obj1.hasOwnProperty(name)) {
-							value = obj2[name];
-
-							// Obj2 doesn't have obj1 item
-							if (value === undef) {
-								return FALSE;
-							}
-
-							// Obj2 item has a different value
-							if (obj1[name] != value) {
-								return FALSE;
-							}
-
-							// Delete similar value
-							delete obj2[name];
-						}
-					}
-
-					// Check if obj 2 has something obj 1 doesn't have
-					for (name in obj2) {
-						// Obj2 has item obj1 doesn't have
-						if (obj2.hasOwnProperty(name)) {
-							return FALSE;
-						}
-					}
-
-					return TRUE;
-				}
-
-				// Attribs are not the same
-				if (!compareObjects(getAttribs(node1), getAttribs(node2))) {
-					return FALSE;
-				}
-
-				// Styles are not the same
-				if (!compareObjects(dom.parseStyle(dom.getAttrib(node1, 'style')), dom.parseStyle(dom.getAttrib(node2, 'style')))) {
-					return FALSE;
-				}
-
-				return !isBookmarkNode(node1) && !isBookmarkNode(node2);
-			}
+			var sibling, tmpSibling, elementUtils = new ElementUtils(dom);
 
 			function findElementSibling(node, sibling_name) {
 				for (sibling = node; sibling; sibling = sibling[sibling_name]) {
@@ -14044,7 +14328,7 @@ define("tinymce/Formatter", [
 				next = findElementSibling(next, 'nextSibling');
 
 				// Compare next and previous nodes
-				if (compareElements(prev, next)) {
+				if (elementUtils.compare(prev, next)) {
 					// Append nodes between
 					for (sibling = prev.nextSibling; sibling && sibling != next;) {
 						tmpSibling = sibling;
@@ -14247,7 +14531,7 @@ define("tinymce/Formatter", [
 				node = container;
 
 				if (container.nodeType == 3) {
-					if (offset != container.nodeValue.length || container.nodeValue === INVISIBLE_CHAR) {
+					if (offset != container.nodeValue.length) {
 						hasContentAfter = true;
 					}
 
@@ -14829,6 +15113,10 @@ define("tinymce/EnterKey", [
 			function trimInlineElementsOnLeftSideOfBlock(block) {
 				var node = block, firstChilds = [], i;
 
+				if (!node) {
+					return;
+				}
+
 				// Find inner most first child ex: <p><i><b>*</b></i></p>
 				while ((node = node.firstChild)) {
 					if (dom.isBlock(node)) {
@@ -14869,6 +15157,10 @@ define("tinymce/EnterKey", [
 					}
 				}
 
+				if (!root) {
+					return;
+				}
+
 				// Old IE versions doesn't properly render blocks with br elements in them
 				// For example <p><br></p> wont be rendered correctly in a contentEditable area
 				// until you remove the br producing <p></p>
@@ -14878,15 +15170,22 @@ define("tinymce/EnterKey", [
 					}
 				}
 
-				if (root.nodeName == 'LI') {
+				if (/^(LI|DT|DD)$/.test(root.nodeName)) {
 					var firstChild = firstNonWhiteSpaceNodeSibling(root.firstChild);
 
-					if (firstChild && /^(UL|OL)$/.test(firstChild.nodeName)) {
+					if (firstChild && /^(UL|OL|DL)$/.test(firstChild.nodeName)) {
 						root.insertBefore(dom.doc.createTextNode('\u00a0'), root.firstChild);
 					}
 				}
 
 				rng = dom.createRng();
+
+				// Normalize whitespace to remove empty text nodes. Fix for: #6904
+				// Gecko will be able to place the caret in empty text nodes but it won't render propery
+				// Older IE versions will sometimes crash so for now ignore all IE versions
+				if (!Env.ie) {
+					root.normalize();
+				}
 
 				if (root.hasChildNodes()) {
 					walker = new TreeWalker(root, root);
@@ -14951,7 +15250,7 @@ define("tinymce/EnterKey", [
 			// Creates a new block element by cloning the current one or creating a new one if the name is specified
 			// This function will also copy any text formatting from the parent block and add it to the new one
 			function createNewBlock(name) {
-				var node = container, block, clonedNode, caretNode;
+				var node = container, block, clonedNode, caretNode, textInlineElements = schema.getTextInlineElements();
 
 				if (name || parentBlockName == "TABLE") {
 					block = dom.create(name || newBlockName);
@@ -14965,7 +15264,7 @@ define("tinymce/EnterKey", [
 				// Clone any parent styles
 				if (settings.keep_styles !== false) {
 					do {
-						if (/^(SPAN|STRONG|B|EM|I|FONT|STRIKE|U|VAR|CITE|DFN|CODE|MARK|Q|SUP|SUB|SAMP)$/.test(node.nodeName)) {
+						if (textInlineElements[node.nodeName]) {
 							// Never clone a caret containers
 							if (node.id == '_mce_caret') {
 								continue;
@@ -15126,7 +15425,7 @@ define("tinymce/EnterKey", [
 				function getContainerBlock() {
 					var containerBlockParent = containerBlock.parentNode;
 
-					if (containerBlockParent.nodeName == 'LI') {
+					if (/^(LI|DT|DD)$/.test(containerBlockParent.nodeName)) {
 						return containerBlockParent;
 					}
 
@@ -15356,8 +15655,8 @@ define("tinymce/EnterKey", [
 				parentBlockName = containerBlockName;
 			}
 
-			// Handle enter in LI
-			if (parentBlockName == 'LI') {
+			// Handle enter in list item
+			if (/^(LI|DT|DD)$/.test(parentBlockName)) {
 				if (!newBlockName && shiftKey) {
 					insertBr();
 					return;
@@ -15602,8 +15901,9 @@ define("tinymce/ForceBlocks", [], function() {
 define("tinymce/EditorCommands", [
 	"tinymce/html/Serializer",
 	"tinymce/Env",
-	"tinymce/util/Tools"
-], function(Serializer, Env, Tools) {
+	"tinymce/util/Tools",
+	"tinymce/dom/ElementUtils"
+], function(Serializer, Env, Tools, ElementUtils) {
 	// Added for compression purposes
 	var each = Tools.each, extend = Tools.extend;
 	var map = Tools.map, inArray = Tools.inArray, explode = Tools.explode;
@@ -15898,7 +16198,8 @@ define("tinymce/EditorCommands", [
 
 			mceInsertContent: function(command, ui, value) {
 				var parser, serializer, parentNode, rootNode, fragment, args;
-				var marker, rng, node, node2, bookmarkHtml;
+				var marker, rng, node, node2, bookmarkHtml, merge;
+				var textInlineElements = editor.schema.getTextInlineElements();
 
 				function trimOrPaddLeftRight(html) {
 					var rng, container, offset;
@@ -15926,6 +16227,37 @@ define("tinymce/EditorCommands", [
 					}
 
 					return html;
+				}
+
+				function markInlineFormatElements(fragment) {
+					if (merge) {
+						for (node = fragment.firstChild; node; node = node.walk(true)) {
+							if (textInlineElements[node.name]) {
+								node.attr('data-mce-new', "true");
+							}
+						}
+					}
+				}
+
+				function reduceInlineTextElements() {
+					if (merge) {
+						var root = editor.getBody(), elementUtils = new ElementUtils(dom);
+
+						each(dom.select('*[data-mce-new]'), function(node) {
+							node.removeAttribute('data-mce-new');
+
+							for (var testNode = node.parentNode; testNode && testNode != root; testNode = testNode.parentNode) {
+								if (elementUtils.compare(testNode, node)) {
+									dom.remove(node, true);
+								}
+							}
+						});
+					}
+				}
+
+				if (typeof(value) != 'string') {
+					merge = value.merge;
+					value = value.content;
 				}
 
 				// Check for whitespace before/after value
@@ -15974,6 +16306,8 @@ define("tinymce/EditorCommands", [
 				// Parse the fragment within the context of the parent node
 				var parserArgs = {context: parentNode.nodeName.toLowerCase()};
 				fragment = parser.parse(value, parserArgs);
+
+				markInlineFormatElements(fragment);
 
 				// Move the caret to a more suitable location
 				node = fragment.lastChild;
@@ -16040,6 +16374,8 @@ define("tinymce/EditorCommands", [
 						dom.setOuterHTML(parentNode, value);
 					}
 				}
+
+				reduceInlineTextElements();
 
 				marker = dom.get('mce_marker');
 				selection.scrollIntoView(marker);
@@ -16343,11 +16679,9 @@ define("tinymce/util/URI", [
 	function URI(url, settings) {
 		var self = this, baseUri, base_url;
 
-		// Trim whitespace
 		url = trim(url);
-
-		// Default settings
 		settings = self.settings = settings || {};
+		baseUri = settings.base_uri;
 
 		// Strange app protocol that isn't http/https or local anchor
 		// For example: mailto,skype,tel etc.
@@ -16360,7 +16694,7 @@ define("tinymce/util/URI", [
 
 		// Absolute path with no host, fake host and protocol
 		if (url.indexOf('/') === 0 && !isProtocolRelative) {
-			url = (settings.base_uri ? settings.base_uri.protocol || 'http' : 'http') + '://mce_host' + url;
+			url = (baseUri ? baseUri.protocol || 'http' : 'http') + '://mce_host' + url;
 		}
 
 		// Relative path http:// or protocol relative //path
@@ -16369,7 +16703,8 @@ define("tinymce/util/URI", [
 			if (settings.base_uri.protocol === "") {
 				url = '//mce_host' + self.toAbsPath(base_url, url);
 			} else {
-				url = ((settings.base_uri && settings.base_uri.protocol) || 'http') + '://mce_host' + self.toAbsPath(base_url, url);
+				url = /([^#?]*)([#?]?.*)/.exec(url);
+				url = ((baseUri && baseUri.protocol) || 'http') + '://mce_host' + self.toAbsPath(base_url, url[1]) + url[2];
 			}
 		}
 
@@ -16391,7 +16726,6 @@ define("tinymce/util/URI", [
 			self[v] = part;
 		});
 
-		baseUri = settings.base_uri;
 		if (baseUri) {
 			if (!self.protocol) {
 				self.protocol = baseUri.protocol;
@@ -16901,7 +17235,8 @@ define("tinymce/util/EventDispatcher", [
 	var nativeEvents = Tools.makeMap(
 		"focus blur focusin focusout click dblclick mousedown mouseup mousemove mouseover beforepaste paste cut copy selectionchange " +
 		"mouseout mouseenter mouseleave wheel keydown keypress keyup input contextmenu dragstart dragend dragover " +
-		"draggesture dragdrop drop drag submit",
+		"draggesture dragdrop drop drag submit " +
+		"compositionstart compositionend compositionupdate",
 		' '
 	);
 
@@ -17958,9 +18293,11 @@ define("tinymce/ui/DomUtils", [
 ], function(Tools, DOMUtils) {
 	"use strict";
 
+	var count = 0;
+
 	return {
 		id: function() {
-			return DOMUtils.DOM.uniqueId();
+			return 'mceu_' + (count++);
 		},
 
 		createFragment: function(html) {
@@ -21194,8 +21531,116 @@ define("tinymce/ui/FloatPanel", [
 ], function(Panel, Movable, Resizable, DomUtils) {
 	"use strict";
 
-	var documentClickHandler, documentScrollHandler, visiblePanels = [];
+	var documentClickHandler, documentScrollHandler, windowResizeHandler, visiblePanels = [];
 	var zOrder = [], hasModal;
+
+	function bindDocumentClickHandler() {
+		function isChildOf(ctrl, parent) {
+			while (ctrl) {
+				if (ctrl == parent) {
+					return true;
+				}
+
+				ctrl = ctrl.parent();
+			}
+		}
+
+		if (!documentClickHandler) {
+			documentClickHandler = function(e) {
+				// Gecko fires click event and in the wrong order on Mac so lets normalize
+				if (e.button == 2) {
+					return;
+				}
+
+				// Hide any float panel when a click is out side that float panel and the
+				// float panels direct parent for example a click on a menu button
+				var i = visiblePanels.length;
+				while (i--) {
+					var panel = visiblePanels[i], clickCtrl = panel.getParentCtrl(e.target);
+
+					if (panel.settings.autohide) {
+						if (clickCtrl) {
+							if (isChildOf(clickCtrl, panel) || panel.parent() === clickCtrl) {
+								continue;
+							}
+						}
+
+						e = panel.fire('autohide', {target: e.target});
+						if (!e.isDefaultPrevented()) {
+							panel.hide();
+						}
+					}
+				}
+			};
+
+			DomUtils.on(document, 'click', documentClickHandler);
+		}
+	}
+
+	function bindDocumentScrollHandler() {
+		if (!documentScrollHandler) {
+			documentScrollHandler = function() {
+				var i;
+
+				i = visiblePanels.length;
+				while (i--) {
+					repositionPanel(visiblePanels[i]);
+				}
+			};
+
+			DomUtils.on(window, 'scroll', documentScrollHandler);
+		}
+	}
+
+	function bindWindowResizeHandler() {
+		if (!windowResizeHandler) {
+			windowResizeHandler = function() {
+				FloatPanel.hideAll();
+			};
+
+			DomUtils.on(window, 'resize', windowResizeHandler);
+		}
+	}
+
+	/**
+	 * Repositions the panel to the top of page if the panel is outside of the visual viewport. It will
+	 * also reposition all child panels of the current panel.
+	 */
+	function repositionPanel(panel) {
+		var scrollY = DomUtils.getViewPort().y;
+
+		function toggleFixedChildPanels(fixed, deltaY) {
+			var parent;
+
+			for (var i = 0; i < visiblePanels.length; i++) {
+				if (visiblePanels[i] != panel) {
+					parent = visiblePanels[i].parent();
+
+					while (parent && (parent = parent.parent())) {
+						if (parent == panel) {
+							visiblePanels[i].fixed(fixed).moveBy(0, deltaY).repaint();
+						}
+					}
+				}
+			}
+		}
+
+		if (panel.settings.autofix) {
+			if (!panel._fixed) {
+				panel._autoFixY = panel.layoutRect().y;
+
+				if (panel._autoFixY < scrollY) {
+					panel.fixed(true).layoutRect({y: 0}).repaint();
+					toggleFixedChildPanels(true, scrollY - panel._autoFixY);
+				}
+			} else {
+				if (panel._autoFixY > scrollY) {
+					panel.fixed(false).layoutRect({y: panel._autoFixY}).repaint();
+					toggleFixedChildPanels(false, panel._autoFixY - scrollY);
+				}
+			}
+		}
+	}
 
 	var FloatPanel = Panel.extend({
 		Mixins: [Movable, Resizable],
@@ -21238,56 +21683,6 @@ define("tinymce/ui/FloatPanel", [
 				FloatPanel.currentZIndex = zIndex;
 			}
 
-			function isChildOf(ctrl, parent) {
-				while (ctrl) {
-					if (ctrl == parent) {
-						return true;
-					}
-
-					ctrl = ctrl.parent();
-				}
-			}
-
-			/**
-			 * Repositions the panel to the top of page if the panel is outside of the visual viewport. It will
-			 * also reposition all child panels of the current panel.
-			 */
-			function repositionPanel(panel) {
-				var scrollY = DomUtils.getViewPort().y;
-
-				function toggleFixedChildPanels(fixed, deltaY) {
-					var parent;
-
-					for (var i = 0; i < visiblePanels.length; i++) {
-						if (visiblePanels[i] != panel) {
-							parent = visiblePanels[i].parent();
-
-							while (parent && (parent = parent.parent())) {
-								if (parent == panel) {
-									visiblePanels[i].fixed(fixed).moveBy(0, deltaY).repaint();
-								}
-							}
-						}
-					}
-				}
-
-				if (panel.settings.autofix) {
-					if (!panel._fixed) {
-						panel._autoFixY = panel.layoutRect().y;
-
-						if (panel._autoFixY < scrollY) {
-							panel.fixed(true).layoutRect({y: 0}).repaint();
-							toggleFixedChildPanels(true, scrollY - panel._autoFixY);
-						}
-					} else {
-						if (panel._autoFixY > scrollY) {
-							panel.fixed(false).layoutRect({y: panel._autoFixY}).repaint();
-							toggleFixedChildPanels(false, panel._autoFixY - scrollY);
-						}
-					}
-				}
-			}
-
 			self._super(settings);
 			self._eventsRoot = self;
 
@@ -21295,48 +21690,13 @@ define("tinymce/ui/FloatPanel", [
 
 			// Hide floatpanes on click out side the root button
 			if (settings.autohide) {
-				if (!documentClickHandler) {
-					documentClickHandler = function(e) {
-						// Hide any float panel when a click is out side that float panel and the
-						// float panels direct parent for example a click on a menu button
-						var i = visiblePanels.length;
-						while (i--) {
-							var panel = visiblePanels[i], clickCtrl = panel.getParentCtrl(e.target);
-
-							if (panel.settings.autohide) {
-								if (clickCtrl) {
-									if (isChildOf(clickCtrl, panel) || panel.parent() === clickCtrl) {
-										continue;
-									}
-								}
-
-								e = panel.fire('autohide', {target: e.target});
-								if (!e.isDefaultPrevented()) {
-									panel.hide();
-								}
-							}
-						}
-					};
-
-					DomUtils.on(document, 'click', documentClickHandler);
-				}
-
+				bindDocumentClickHandler();
+				bindWindowResizeHandler();
 				visiblePanels.push(self);
 			}
 
 			if (settings.autofix) {
-				if (!documentScrollHandler) {
-					documentScrollHandler = function() {
-						var i;
-
-						i = visiblePanels.length;
-						while (i--) {
-							repositionPanel(visiblePanels[i]);
-						}
-					};
-
-					DomUtils.on(window, 'scroll', documentScrollHandler);
-				}
+				bindDocumentScrollHandler();
 
 				self.on('move', function() {
 					repositionPanel(this);
@@ -21452,7 +21812,8 @@ define("tinymce/ui/FloatPanel", [
 		},
 
 		/**
-		 * Hides all visible the float panels.
+		 * Hide all visible float panels with he autohide setting enabled. This is for
+		 * manually hiding floating menus or panels.
 		 *
 		 * @method hideAll
 		 */
@@ -21495,7 +21856,8 @@ define("tinymce/ui/FloatPanel", [
 	});
 
 	/**
-	 * Hides all visible the float panels.
+	 * Hide all visible float panels with he autohide setting enabled. This is for
+	 * manually hiding floating menus or panels.
 	 *
 	 * @static
 	 * @method hideAll
@@ -23901,8 +24263,13 @@ define("tinymce/Shortcuts", [
 							break;
 
 						default:
-							shortcut.charCode = value.charCodeAt(0);
-							shortcut.keyCode = keyCodeLookup[value] || value.toUpperCase().charCodeAt(0);
+							// Allow numeric keycodes like ctrl+219 for ctrl+[
+							if (/^[0-9]{2,}$/.test(value)) {
+								shortcut.keyCode = parseInt(value, 10);
+							} else {
+								shortcut.charCode = value.charCodeAt(0);
+								shortcut.keyCode = keyCodeLookup[value] || value.toUpperCase().charCodeAt(0);
+							}
 					}
 				});
 
@@ -24709,7 +25076,14 @@ define("tinymce/Editor", [
 					// Add internal attribute if we need to we don't on a refresh of the document
 					if (!node.attributes.map[internalName]) {
 						if (name === "style") {
-							node.attr(internalName, dom.serializeStyle(dom.parseStyle(value), node.name));
+							value = dom.serializeStyle(dom.parseStyle(value), node.name);
+
+							if (!value.length) {
+								value = null;
+							}
+
+							node.attr(internalName, value);
+							node.attr(name, value);
 						} else if (name === "tabindex") {
 							node.attr(internalName, value);
 							node.attr(name, null);
@@ -24726,7 +25100,7 @@ define("tinymce/Editor", [
 
 				while (i--) {
 					node = nodes[i];
-					node.attr('type', 'mce-' + (node.attr('type') || 'text/javascript'));
+					node.attr('type', 'mce-' + (node.attr('type') || 'no/type'));
 				}
 			});
 
@@ -25340,8 +25714,18 @@ define("tinymce/Editor", [
 			}
 
 			// Browser commands
-			self.getDoc().execCommand(cmd, ui, value);
-			self.fire('ExecCommand', {command: cmd, ui: ui, value: value});
+			try {
+				state = self.getDoc().execCommand(cmd, ui, value);
+			} catch (ex) {
+				// Ignore old IE errors
+			}
+
+			if (state) {
+				self.fire('ExecCommand', {command: cmd, ui: ui, value: value});
+				return true;
+			}
+
+			return false;
 		},
 
 		/**
@@ -25363,8 +25747,8 @@ define("tinymce/Editor", [
 			if ((queryItem = self.queryStateCommands[cmd])) {
 				returnVal = queryItem.func.call(queryItem.scope);
 
-				// Fall though on true
-				if (returnVal !== true) {
+				// Fall though on non boolean returns
+				if (returnVal === true || returnVal === false) {
 					return returnVal;
 				}
 			}
@@ -25454,8 +25838,6 @@ define("tinymce/Editor", [
 			var self = this, doc = self.getDoc();
 
 			if (!self.hidden) {
-				self.hidden = true;
-
 				// Fixed bug where IE has a blinking cursor left from the editor
 				if (ie && doc && !self.inline) {
 					doc.execCommand('SelectAll');
@@ -25476,6 +25858,7 @@ define("tinymce/Editor", [
 					DOM.setStyle(self.id, 'display', self.orgDisplay);
 				}
 
+				self.hidden = true;
 				self.fire('hide');
 			}
 		},
@@ -25739,8 +26122,13 @@ define("tinymce/Editor", [
 		 *
 		 * @method insertContent
 		 * @param {String} content Content to insert.
+		 * @param {Object} args Optional args to pass to insert call.
 		 */
-		insertContent: function(content) {
+		insertContent: function(content, args) {
+			if (args) {
+				content = extend({content: content}, args);
+			}
+
 			this.execCommand('mceInsertContent', false, content);
 		},
 
@@ -26495,7 +26883,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion : '0.26',
+		minorVersion : '0.28',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -26503,7 +26891,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2014-05-06',
+		releaseDate: '2014-05-27',
 
 		/**
 		 * Collection of editor instances.
@@ -26539,9 +26927,16 @@ define("tinymce/EditorManager", [
 			var self = this, baseURL, documentBaseURL, suffix = "", preInit, src;
 
 			// Get base URL for the current document
-			documentBaseURL = document.location.href.replace(/[\?#].*$/, '').replace(/[\/\\][^\/]+$/, '');
-			if (!/[\/\\]$/.test(documentBaseURL)) {
-				documentBaseURL += '/';
+			documentBaseURL = document.location.href;
+
+			// Check if the URL is a document based format like: http://site/dir/file
+			// leave other formats like applewebdata://... intact
+			if (/^[^:]+:\/\/[^\/]+\//.test(documentBaseURL)) {
+				documentBaseURL = documentBaseURL.replace(/[\?#].*$/, '').replace(/[\/\\][^\/]+$/, '');
+
+				if (!/[\/\\]$/.test(documentBaseURL)) {
+					documentBaseURL += '/';
+				}
 			}
 
 			// If tinymce is defined and has a base use that or use the old tinyMCEPreInit
@@ -29475,13 +29870,19 @@ define("tinymce/ui/Form", [
 		 * @private
 		 */
 		recalcLabels: function() {
-			var self = this, maxLabelWidth = 0, labels = [], i, labelGap;
+			var self = this, maxLabelWidth = 0, labels = [], i, labelGap, items;
 
 			if (self.settings.labelGapCalc === false) {
 				return;
 			}
 
-			self.items().filter('formitem').each(function(item) {
+			if (self.settings.labelGapCalc == "children") {
+				items = self.find('formitem');
+			} else {
+				items = self.items();
+			}
+
+			items.filter('formitem').each(function(item) {
 				var labelCtrl = item.items()[0], labelWidth = labelCtrl.getEl().clientWidth;
 
 				maxLabelWidth = labelWidth > maxLabelWidth ? labelWidth : maxLabelWidth;
@@ -29622,8 +30023,9 @@ define("tinymce/ui/FieldSet", [
  * @extends tinymce.ui.ComboBox
  */
 define("tinymce/ui/FilePicker", [
-	"tinymce/ui/ComboBox"
-], function(ComboBox) {
+	"tinymce/ui/ComboBox",
+	"tinymce/util/Tools"
+], function(ComboBox, Tools) {
 	"use strict";
 
 	return ComboBox.extend({
@@ -29634,12 +30036,17 @@ define("tinymce/ui/FilePicker", [
 		 * @param {Object} settings Name/value object with settings.
 		 */
 		init: function(settings) {
-			var self = this, editor = tinymce.activeEditor, fileBrowserCallback;
+			var self = this, editor = tinymce.activeEditor, fileBrowserCallback, fileBrowserCallbackTypes;
 
 			settings.spellcheck = false;
 
+			fileBrowserCallbackTypes = editor.settings.file_browser_callback_types;
+			if (fileBrowserCallbackTypes) {
+				fileBrowserCallbackTypes = Tools.makeMap(fileBrowserCallbackTypes, /[, ]/);
+			}
+
 			fileBrowserCallback = editor.settings.file_browser_callback;
-			if (fileBrowserCallback) {
+			if (fileBrowserCallback && (!fileBrowserCallbackTypes || fileBrowserCallbackTypes[settings.filetype])) {
 				settings.icon = 'browse';
 
 				settings.onaction = function() {
@@ -30155,6 +30562,7 @@ define("tinymce/ui/FormatControls", [
 						}
 
 						menuItem.format = formatName;
+						menuItem.cmd = format.cmd;
 					}
 
 					menu.push(menuItem);
@@ -30201,19 +30609,31 @@ define("tinymce/ui/FormatControls", [
 					},
 
 					onPostRender: function() {
-						var self = this, formatName = this.settings.format;
+						var self = this;
 
-						if (formatName) {
-							self.parent().on('show', function() {
+						self.parent().on('show', function() {
+							var formatName, command;
+
+							formatName = self.settings.format;
+							if (formatName) {
 								self.disabled(!editor.formatter.canApply(formatName));
 								self.active(editor.formatter.match(formatName));
-							});
-						}
+							}
+
+							command = self.settings.cmd;
+							if (command) {
+								self.active(editor.queryCommandState(command));
+							}
+						});
 					},
 
 					onclick: function() {
 						if (this.settings.format) {
 							toggleFormat(this.settings.format);
+						}
+
+						if (this.settings.cmd) {
+							editor.execCommand(this.settings.cmd);
 						}
 					}
 				}
@@ -30309,30 +30729,21 @@ define("tinymce/ui/FormatControls", [
 			});
 		});
 
-		function hasUndo() {
-			return editor.undoManager ? editor.undoManager.hasUndo() : false;
-		}
+		function toggleUndoRedoState(type) {
+			return function() {
+				var self = this;
 
-		function hasRedo() {
-			return editor.undoManager ? editor.undoManager.hasRedo() : false;
-		}
+				type = type == 'redo' ? 'hasRedo' : 'hasUndo';
 
-		function toggleUndoState() {
-			var self = this;
+				function checkState() {
+					return editor.undoManager ? editor.undoManager[type]() : false;
+				}
 
-			self.disabled(!hasUndo());
-			editor.on('Undo Redo AddUndo TypingUndo', function() {
-				self.disabled(!hasUndo());
-			});
-		}
-
-		function toggleRedoState() {
-			var self = this;
-
-			self.disabled(!hasRedo());
-			editor.on('Undo Redo AddUndo TypingUndo', function() {
-				self.disabled(!hasRedo());
-			});
+				self.disabled(!checkState());
+				editor.on('Undo Redo AddUndo TypingUndo ClearUndos', function() {
+					self.disabled(!checkState());
+				});
+			};
 		}
 
 		function toggleVisualAidState() {
@@ -30347,13 +30758,13 @@ define("tinymce/ui/FormatControls", [
 
 		editor.addButton('undo', {
 			tooltip: 'Undo',
-			onPostRender: toggleUndoState,
+			onPostRender: toggleUndoRedoState('undo'),
 			cmd: 'undo'
 		});
 
 		editor.addButton('redo', {
 			tooltip: 'Redo',
-			onPostRender: toggleRedoState,
+			onPostRender: toggleUndoRedoState('redo'),
 			cmd: 'redo'
 		});
 
@@ -30368,7 +30779,7 @@ define("tinymce/ui/FormatControls", [
 			text: 'Undo',
 			icon: 'undo',
 			shortcut: 'Ctrl+Z',
-			onPostRender: toggleUndoState,
+			onPostRender: toggleUndoRedoState('undo'),
 			cmd: 'undo'
 		});
 
@@ -30376,7 +30787,7 @@ define("tinymce/ui/FormatControls", [
 			text: 'Redo',
 			icon: 'redo',
 			shortcut: 'Ctrl+Y',
-			onPostRender: toggleRedoState,
+			onPostRender: toggleUndoRedoState('redo'),
 			cmd: 'redo'
 		});
 
@@ -30511,7 +30922,14 @@ define("tinymce/ui/FormatControls", [
 			var fontsize_formats = editor.settings.fontsize_formats || defaultFontsizeFormats;
 
 			each(fontsize_formats.split(' '), function(item) {
-				items.push({text: item, value: item});
+				var text = item, value = item;
+				// Allow text=value font sizes.
+				var values = item.split('=');
+				if (values.length > 1) {
+					text = values[0];
+					value = values[1];
+				}
+				items.push({text: text, value: value});
 			});
 
 			return {
@@ -31353,19 +31771,29 @@ define("tinymce/ui/ListBox", [
 		 * @setting {Array} values Array with values to add to list box.
 		 */
 		init: function(settings) {
-			var self = this, values, i, selected, selectedText, lastItemCtrl;
+			var self = this, values, selected, selectedText, lastItemCtrl;
+
+			function setSelected(menuValues) {
+				// Try to find a selected value
+				for (var i = 0; i < menuValues.length; i++) {
+					selected = menuValues[i].selected || settings.value === menuValues[i].value;
+
+					if (selected) {
+						selectedText = selectedText || menuValues[i].text;
+						self._value = menuValues[i].value;
+						break;
+					}
+
+					// If the value has a submenu, try to find the selected values in that menu
+					if (menuValues[i].menu) {
+						setSelected(menuValues[i].menu);
+					}
+				}
+			}
 
 			self._values = values = settings.values;
 			if (values) {
-				for (i = 0; i < values.length; i++) {
-					selected = values[i].selected || settings.value === values[i].value;
-
-					if (selected) {
-						selectedText = selectedText || values[i].text;
-						self._value = values[i].value;
-						break;
-					}
-				}
+				setSelected(values);
 
 				// Default with first item
 				if (!selected && values.length > 0) {
@@ -31406,7 +31834,7 @@ define("tinymce/ui/ListBox", [
 		 * @return {Boolean/tinymce.ui.ListBox} Value or self if it's a set operation.
 		 */
 		value: function(value) {
-			var self = this, active, selectedText, menu, i;
+			var self = this, active, selectedText, menu;
 
 			function activateByValue(menu, value) {
 				menu.items().each(function(ctrl) {
@@ -31424,20 +31852,28 @@ define("tinymce/ui/ListBox", [
 				});
 			}
 
+			function setActiveValues(menuValues) {
+				for (var i = 0; i < menuValues.length; i++) {
+					active = menuValues[i].value == value;
+
+					if (active) {
+						selectedText = selectedText || menuValues[i].text;
+					}
+
+					menuValues[i].active = active;
+
+					if (menuValues[i].menu) {
+						setActiveValues(menuValues[i].menu);
+					}
+				}
+			}
+
 			if (typeof(value) != "undefined") {
 				if (self.menu) {
 					activateByValue(self.menu, value);
 				} else {
 					menu = self.settings.menu;
-					for (i = 0; i < menu.length; i++) {
-						active = menu[i].value == value;
-
-						if (active) {
-							selectedText = selectedText || menu[i].text;
-						}
-
-						menu[i].active = active;
-					}
+					setActiveValues(menu);
 				}
 
 				self.text(selectedText || this.settings.text);
@@ -31579,12 +32015,16 @@ define("tinymce/ui/MenuItem", [
 
 					menu = self.menu = Factory.create(menu).parent(self).renderTo();
 					menu.reflow();
-					menu.fire('show');
 					menu.on('cancel', function(e) {
 						e.stopPropagation();
 						self.focus();
 						menu.hide();
 					});
+					menu.on('show hide', function(e) {
+						e.control.items().each(function(ctrl) {
+							ctrl.active(ctrl.settings.selected);
+						});
+					}).fire('show');
 
 					menu.on('hide', function(e) {
 						if (e.control === menu) {
@@ -32681,5 +33121,5 @@ define("tinymce/ui/Throbber", [
 	};
 });
 
-expose(["tinymce/dom/Sizzle","tinymce/html/Styles","tinymce/dom/EventUtils","tinymce/dom/TreeWalker","tinymce/util/Tools","tinymce/dom/Range","tinymce/html/Entities","tinymce/Env","tinymce/dom/StyleSheetLoader","tinymce/dom/DOMUtils","tinymce/dom/ScriptLoader","tinymce/AddOnManager","tinymce/html/Node","tinymce/html/Schema","tinymce/html/SaxParser","tinymce/html/DomParser","tinymce/html/Writer","tinymce/html/Serializer","tinymce/dom/Serializer","tinymce/dom/TridentSelection","tinymce/util/VK","tinymce/dom/ControlSelection","tinymce/dom/RangeUtils","tinymce/dom/Selection","tinymce/fmt/Preview","tinymce/Formatter","tinymce/UndoManager","tinymce/EnterKey","tinymce/ForceBlocks","tinymce/EditorCommands","tinymce/util/URI","tinymce/util/Class","tinymce/util/EventDispatcher","tinymce/ui/Selector","tinymce/ui/Collection","tinymce/ui/DomUtils","tinymce/ui/Control","tinymce/ui/Factory","tinymce/ui/KeyboardNavigation","tinymce/ui/Container","tinymce/ui/DragHelper","tinymce/ui/Scrollable","tinymce/ui/Panel","tinymce/ui/Movable","tinymce/ui/Resizable","tinymce/ui/FloatPanel","tinymce/ui/Window","tinymce/ui/MessageBox","tinymce/WindowManager","tinymce/util/Quirks","tinymce/util/Observable","tinymce/EditorObservable","tinymce/Shortcuts","tinymce/Editor","tinymce/util/I18n","tinymce/FocusManager","tinymce/EditorManager","tinymce/LegacyInput","tinymce/util/XHR","tinymce/util/JSON","tinymce/util/JSONRequest","tinymce/util/JSONP","tinymce/util/LocalStorage","tinymce/Compat","tinymce/ui/Layout","tinymce/ui/AbsoluteLayout","tinymce/ui/Tooltip","tinymce/ui/Widget","tinymce/ui/Button","tinymce/ui/ButtonGroup","tinymce/ui/Checkbox","tinymce/ui/PanelButton","tinymce/ui/ColorButton","tinymce/ui/ComboBox","tinymce/ui/Path","tinymce/ui/ElementPath","tinymce/ui/FormItem","tinymce/ui/Form","tinymce/ui/FieldSet","tinymce/ui/FilePicker","tinymce/ui/FitLayout","tinymce/ui/FlexLayout","tinymce/ui/FlowLayout","tinymce/ui/FormatControls","tinymce/ui/GridLayout","tinymce/ui/Iframe","tinymce/ui/Label","tinymce/ui/Toolbar","tinymce/ui/MenuBar","tinymce/ui/MenuButton","tinymce/ui/ListBox","tinymce/ui/MenuItem","tinymce/ui/Menu","tinymce/ui/Radio","tinymce/ui/ResizeHandle","tinymce/ui/Spacer","tinymce/ui/SplitButton","tinymce/ui/StackLayout","tinymce/ui/TabPanel","tinymce/ui/TextBox","tinymce/ui/Throbber"]);
+expose(["tinymce/dom/Sizzle","tinymce/html/Styles","tinymce/dom/EventUtils","tinymce/dom/TreeWalker","tinymce/util/Tools","tinymce/dom/Range","tinymce/html/Entities","tinymce/Env","tinymce/dom/DOMUtils","tinymce/dom/ScriptLoader","tinymce/AddOnManager","tinymce/html/Node","tinymce/html/Schema","tinymce/html/SaxParser","tinymce/html/DomParser","tinymce/html/Writer","tinymce/html/Serializer","tinymce/dom/Serializer","tinymce/dom/TridentSelection","tinymce/util/VK","tinymce/dom/ControlSelection","tinymce/dom/BookmarkManager","tinymce/dom/Selection","tinymce/dom/ElementUtils","tinymce/Formatter","tinymce/UndoManager","tinymce/EnterKey","tinymce/ForceBlocks","tinymce/EditorCommands","tinymce/util/URI","tinymce/util/Class","tinymce/util/EventDispatcher","tinymce/ui/Selector","tinymce/ui/Collection","tinymce/ui/DomUtils","tinymce/ui/Control","tinymce/ui/Factory","tinymce/ui/KeyboardNavigation","tinymce/ui/Container","tinymce/ui/DragHelper","tinymce/ui/Scrollable","tinymce/ui/Panel","tinymce/ui/Movable","tinymce/ui/Resizable","tinymce/ui/FloatPanel","tinymce/ui/Window","tinymce/ui/MessageBox","tinymce/WindowManager","tinymce/util/Quirks","tinymce/util/Observable","tinymce/EditorObservable","tinymce/Shortcuts","tinymce/Editor","tinymce/util/I18n","tinymce/FocusManager","tinymce/EditorManager","tinymce/LegacyInput","tinymce/util/XHR","tinymce/util/JSON","tinymce/util/JSONRequest","tinymce/util/JSONP","tinymce/util/LocalStorage","tinymce/Compat","tinymce/ui/Layout","tinymce/ui/AbsoluteLayout","tinymce/ui/Tooltip","tinymce/ui/Widget","tinymce/ui/Button","tinymce/ui/ButtonGroup","tinymce/ui/Checkbox","tinymce/ui/PanelButton","tinymce/ui/ColorButton","tinymce/ui/ComboBox","tinymce/ui/Path","tinymce/ui/ElementPath","tinymce/ui/FormItem","tinymce/ui/Form","tinymce/ui/FieldSet","tinymce/ui/FilePicker","tinymce/ui/FitLayout","tinymce/ui/FlexLayout","tinymce/ui/FlowLayout","tinymce/ui/FormatControls","tinymce/ui/GridLayout","tinymce/ui/Iframe","tinymce/ui/Label","tinymce/ui/Toolbar","tinymce/ui/MenuBar","tinymce/ui/MenuButton","tinymce/ui/ListBox","tinymce/ui/MenuItem","tinymce/ui/Menu","tinymce/ui/Radio","tinymce/ui/ResizeHandle","tinymce/ui/Spacer","tinymce/ui/SplitButton","tinymce/ui/StackLayout","tinymce/ui/TabPanel","tinymce/ui/TextBox","tinymce/ui/Throbber"]);
 })(this);
