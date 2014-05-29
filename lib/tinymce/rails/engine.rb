@@ -1,7 +1,7 @@
 module TinyMCE::Rails
   class Engine < ::Rails::Engine
     config.tinymce = ActiveSupport::OrderedOptions.new
-    
+
     # Set an explicit base path for TinyMCE assets (usually defaults to /assets/tinymce)
     config.tinymce.base = nil
 
@@ -20,20 +20,25 @@ module TinyMCE::Rails
     end
 
     def self.default_base
-      File.join(Rails.application.config.action_controller.asset_host || "",
-                relative_url_root || "",
+      File.join(asset_host || "", relative_url_root || "",
                 Rails.application.config.assets.prefix || "/",
                 "tinymce")
     end
-    
+
     def self.relative_url_root
       config = Rails.application.config
-      
+
       if config.respond_to?(:relative_url_root)
         config.relative_url_root
       else
         # Fallback for Rails 3.1
         config.action_controller.relative_url_root
+      end
+    end
+
+    def self.asset_host
+      unless Rails.application.config.action_controller.asset_host.respond_to?(:call)
+        Rails.application.config.action_controller.asset_host
       end
     end
   end
