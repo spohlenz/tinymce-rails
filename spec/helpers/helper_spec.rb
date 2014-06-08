@@ -13,7 +13,7 @@ module TinyMCE::Rails
     
     describe "#tinymce_assets" do
       it "returns a TinyMCE javascript tag" do
-        tinymce_assets.should have_selector("script[src='/assets/tinymce.js']")
+        tinymce_assets.should have_selector("script[src='/assets/tinymce.js']", :visible => false)
       end
     end
     
@@ -29,7 +29,7 @@ module TinyMCE::Rails
         
         it "initializes TinyMCE using global configuration" do
           result = tinymce
-          result.should have_selector("script")
+          result.should have_selector("script", :visible => false)
           result.should include('tinyMCE.init({')
           result.should include('theme: "advanced"')
           result.should include('plugins: "paste,table,fullscreen"')
