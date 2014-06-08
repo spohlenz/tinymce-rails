@@ -16,25 +16,21 @@ module TinyMCE::Rails
         Rails.application.config.stub(:relative_url_root).and_return "/prefix"
         TinyMCE::Rails::Engine.default_base.should eq "/prefix/assets/tinymce"
       end
-
-      context "asset_host" do
-
-        context "Asset host as a string" do
-          it "includes the asset host if provided" do
-            Rails.application.config.action_controller.stub(:asset_host).and_return "http://assets.example.com"
-            TinyMCE::Rails::Engine.default_base.should eq "http://assets.example.com/assets/tinymce"
-          end
-        end
-
-        context "Asset host as a proc or object that respond to call" do
-          it "should not use the asset_host because precompile don't know about the request" do
-            Rails.application.config.action_controller.stub(:asset_host).and_return ->(request) { "http://assets.example.com" }
-            TinyMCE::Rails::Engine.default_base.should eq "/assets/tinymce"
-          end
-        end
-
+      
+      it "includes the asset host if it is a string" do
+        Rails.application.config.action_controller.stub(:asset_host).and_return "http://assets.example.com"
+        TinyMCE::Rails::Engine.default_base.should eq "http://assets.example.com/assets/tinymce"
       end
-
+      
+      it "interpolates the asset host if it is a string containing %d" do
+        Rails.application.config.action_controller.stub(:asset_host).and_return "http://assets%d.example.com"
+        TinyMCE::Rails::Engine.default_base.should eq "http://assets0.example.com/assets/tinymce"
+      end
+      
+      it "does not include the asset host if it is a callable" do
+        Rails.application.config.action_controller.stub(:asset_host).and_return ->(request) { "http://assets.example.com" }
+        TinyMCE::Rails::Engine.default_base.should eq "/assets/tinymce"
+      end
     end
   end
 end

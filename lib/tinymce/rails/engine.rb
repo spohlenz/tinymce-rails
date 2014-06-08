@@ -37,8 +37,17 @@ module TinyMCE::Rails
     end
 
     def self.asset_host
-      unless Rails.application.config.action_controller.asset_host.respond_to?(:call)
-        Rails.application.config.action_controller.asset_host
+      host = Rails.application.config.action_controller.asset_host
+      
+      if host.respond_to?(:call)
+        # Callable asset hosts cannot be supported during
+        # precompilation as there is no request object
+        nil
+      elsif host =~ /%d/
+        # Load all TinyMCE assets from the first asset host
+        host % 0
+      else
+        host
       end
     end
   end
