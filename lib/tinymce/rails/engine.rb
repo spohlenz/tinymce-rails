@@ -45,9 +45,18 @@ module TinyMCE::Rails
         nil
       elsif host =~ /%d/
         # Load all TinyMCE assets from the first asset host
-        host % 0
+        normalize_host(host % 0)
       else
+        normalize_host(host)
+      end
+    end
+    
+    def self.normalize_host(host)
+      if host =~ /^https?:\/\//
         host
+      else
+        # Use a protocol-relative URL if not otherwise specified
+        "//#{host}"
       end
     end
   end

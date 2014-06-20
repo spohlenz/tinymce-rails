@@ -31,6 +31,16 @@ module TinyMCE::Rails
         Rails.application.config.action_controller.stub(:asset_host).and_return ->(request) { "http://assets.example.com" }
         TinyMCE::Rails::Engine.default_base.should eq "/assets/tinymce"
       end
+      
+      it "uses a protocol relative address if asset host does not include a protocol" do
+        Rails.application.config.action_controller.stub(:asset_host).and_return "assets.example.com"
+        TinyMCE::Rails::Engine.default_base.should eq "//assets.example.com/assets/tinymce"
+      end
+      
+      it "interpolates and uses a protocol relative address if asset host includes %d and no protocol" do
+        Rails.application.config.action_controller.stub(:asset_host).and_return "assets%d.example.com"
+        TinyMCE::Rails::Engine.default_base.should eq "//assets0.example.com/assets/tinymce"
+      end
     end
   end
 end
