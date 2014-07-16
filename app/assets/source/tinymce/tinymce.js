@@ -1,4 +1,4 @@
-// 4.1.0 (2014-06-18)
+// 4.1.2 (2014-07-15)
 
 /**
  * Compiled inline version. (Library mode)
@@ -662,24 +662,31 @@ define("tinymce/dom/EventUtils", [], function() {
  */
 
 /*jshint bitwise:false, expr:true, noempty:false, sub:true, eqnull:true, latedef:false, maxlen:255 */
-/*eslint dot-notation:0, no-empty:0, no-cond-assign:0, no-unused-expressions:0, new-cap:0, no-nested-ternary:0, func-style:0, no-bitwise:0, max-len:0, brace-style:0 */
+/*eslint dot-notation:0, no-empty:0, no-cond-assign:0, no-unused-expressions:0, new-cap:0 */
+/*eslint no-nested-ternary:0, func-style:0, no-bitwise:0, max-len:0, brace-style:0, no-return-assign:0 */
 
-/*
- * Sizzle CSS Selector Engine
- *  Copyright, The Dojo Foundation
- *  Released under the MIT, BSD, and GPL Licenses.
- *  More information: http://sizzlejs.com/
+/**
+ * Sizzle CSS Selector Engine v@VERSION
+ * http://sizzlejs.com/
+ *
+ * Copyright 2008, 2014 jQuery Foundation, Inc. and other contributors
+ * Released under the MIT license
+ * http://jquery.org/license
+ *
+ * Date: @DATE
  */
 define("tinymce/dom/Sizzle", [], function() {
 var i,
-	cachedruns,
+	support,
 	Expr,
 	getText,
 	isXML,
+	tokenize,
 	compile,
+	select,
 	outermostContext,
-	recompare,
 	sortInput,
+	hasDuplicate,
 
 	// Local document vars
 	setDocument,
@@ -694,20 +701,24 @@ var i,
 	// Instance-specific data
 	expando = "sizzle" + -(new Date()),
 	preferredDoc = window.document,
-	support = {},
 	dirruns = 0,
 	done = 0,
 	classCache = createCache(),
 	tokenCache = createCache(),
 	compilerCache = createCache(),
-	hasDuplicate = false,
-	sortOrder = function() { return 0; },
+	sortOrder = function( a, b ) {
+		if ( a === b ) {
+			hasDuplicate = true;
+		}
+		return 0;
+	},
 
 	// General-purpose constants
 	strundefined = typeof undefined,
 	MAX_NEGATIVE = 1 << 31,
 
-	// Array methods
+	// Instance methods
+	hasOwn = ({}).hasOwnProperty,
 	arr = [],
 	pop = arr.pop,
 	push_native = arr.push,
@@ -725,78 +736,83 @@ var i,
 		return -1;
 	},
 
+	booleans = "checked|selected|async|autofocus|autoplay|controls|defer|disabled|hidden|ismap|loop|multiple|open|readonly|required|scoped",
 
 	// Regular expressions
 
-	// Whitespace characters http://www.w3.org/TR/css3-selectors/#whitespace
+	// http://www.w3.org/TR/css3-selectors/#whitespace
 	whitespace = "[\\x20\\t\\r\\n\\f]",
-	// http://www.w3.org/TR/css3-syntax/#characters
-	characterEncoding = "(?:\\\\.|[\\w-]|[^\\x00-\\xa0])+",
 
-	// Loosely modeled on CSS identifier characters
-	// An unquoted value should be a CSS identifier http://www.w3.org/TR/css3-selectors/#attribute-selectors
-	// Proper syntax: http://www.w3.org/TR/CSS21/syndata.html#value-def-identifier
-	identifier = characterEncoding.replace( "w", "w#" ),
+	// http://www.w3.org/TR/CSS21/syndata.html#value-def-identifier
+	identifier = "(?:\\\\.|[\\w-]|[^\\x00-\\xa0])+",
 
-	// Acceptable operators http://www.w3.org/TR/selectors/#attribute-selectors
-	operators = "([*^$|!~]?=)",
-	attributes = "\\[" + whitespace + "*(" + characterEncoding + ")" + whitespace +
-		"*(?:" + operators + whitespace + "*(?:(['\"])((?:\\\\.|[^\\\\])*?)\\3|(" + identifier + ")|)|)" + whitespace + "*\\]",
+	// Attribute selectors: http://www.w3.org/TR/selectors/#attribute-selectors
+	attributes = "\\[" + whitespace + "*(" + identifier + ")(?:" + whitespace +
+		// Operator (capture 2)
+		"*([*^$|!~]?=)" + whitespace +
+		// "Attribute values must be CSS identifiers [capture 5] or strings [capture 3 or capture 4]"
+		"*(?:'((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\"|(" + identifier + "))|)" + whitespace +
+		"*\\]",
 
-	// Prefer arguments quoted,
-	//   then not containing pseudos/brackets,
-	//   then attribute selectors/non-parenthetical expressions,
-	//   then anything else
-	// These preferences are here to reduce the number of selectors
-	//   needing tokenize in the PSEUDO preFilter
-	pseudos = ":(" + characterEncoding + ")(?:\\(((['\"])((?:\\\\.|[^\\\\])*?)\\3|((?:\\\\.|[^\\\\()[\\]]|" + attributes.replace( 3, 8 ) + ")*)|.*)\\)|)",
+	pseudos = ":(" + identifier + ")(?:\\((" +
+		// To reduce the number of selectors needing tokenize in the preFilter, prefer arguments:
+		// 1. quoted (capture 3; capture 4 or capture 5)
+		"('((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\")|" +
+		// 2. simple (capture 6)
+		"((?:\\\\.|[^\\\\()[\\]]|" + attributes + ")*)|" +
+		// 3. anything else (capture 2)
+		".*" +
+		")\\)|)",
 
 	// Leading and non-escaped trailing whitespace, capturing some non-whitespace characters preceding the latter
 	rtrim = new RegExp( "^" + whitespace + "+|((?:^|[^\\\\])(?:\\\\.)*)" + whitespace + "+$", "g" ),
 
 	rcomma = new RegExp( "^" + whitespace + "*," + whitespace + "*" ),
-	rcombinators = new RegExp( "^" + whitespace + "*([\\x20\\t\\r\\n\\f>+~])" + whitespace + "*" ),
+	rcombinators = new RegExp( "^" + whitespace + "*([>+~]|" + whitespace + ")" + whitespace + "*" ),
+
+	rattributeQuotes = new RegExp( "=" + whitespace + "*([^\\]'\"]*?)" + whitespace + "*\\]", "g" ),
+
 	rpseudo = new RegExp( pseudos ),
 	ridentifier = new RegExp( "^" + identifier + "$" ),
 
 	matchExpr = {
-		"ID": new RegExp( "^#(" + characterEncoding + ")" ),
-		"CLASS": new RegExp( "^\\.(" + characterEncoding + ")" ),
-		"NAME": new RegExp( "^\\[name=['\"]?(" + characterEncoding + ")['\"]?\\]" ),
-		"TAG": new RegExp( "^(" + characterEncoding.replace( "w", "w*" ) + ")" ),
+		"ID": new RegExp( "^#(" + identifier + ")" ),
+		"CLASS": new RegExp( "^\\.(" + identifier + ")" ),
+		"TAG": new RegExp( "^(" + identifier + "|[*])" ),
 		"ATTR": new RegExp( "^" + attributes ),
 		"PSEUDO": new RegExp( "^" + pseudos ),
 		"CHILD": new RegExp( "^:(only|first|last|nth|nth-last)-(child|of-type)(?:\\(" + whitespace +
 			"*(even|odd|(([+-]|)(\\d*)n|)" + whitespace + "*(?:([+-]|)" + whitespace +
 			"*(\\d+)|))" + whitespace + "*\\)|)", "i" ),
+		"bool": new RegExp( "^(?:" + booleans + ")$", "i" ),
 		// For use in libraries implementing .is()
 		// We use this for POS matching in `select`
 		"needsContext": new RegExp( "^" + whitespace + "*[>+~]|:(even|odd|eq|gt|lt|nth|first|last)(?:\\(" +
 			whitespace + "*((?:-\\d)?\\d*)" + whitespace + "*\\)|)(?=[^-]|$)", "i" )
 	},
 
-	rsibling = /[\x20\t\r\n\f]*[+~]/,
-
-	rnative = /^[^{]+\{\s*\[native code/,
-
-	// Easily-parseable/retrievable ID or TAG or CLASS selectors
-	rquickExpr = /^(?:#([\w\-]+)|(\w+)|\.([\w\-]+))$/,
-
 	rinputs = /^(?:input|select|textarea|button)$/i,
 	rheader = /^h\d$/i,
 
+	rnative = /^[^{]+\{\s*\[native \w/,
+
+	// Easily-parseable/retrievable ID or TAG or CLASS selectors
+	rquickExpr = /^(?:#([\w-]+)|(\w+)|\.([\w-]+))$/,
+
+	rsibling = /[+~]/,
 	rescape = /'|\\/g,
-	rattributeQuotes = /\=[\x20\t\r\n\f]*([^'"\]]*)[\x20\t\r\n\f]*\]/g,
 
 	// CSS escapes http://www.w3.org/TR/CSS21/syndata.html#escaped-characters
-	runescape = /\\([\da-fA-F]{1,6}[\x20\t\r\n\f]?|.)/g,
-	funescape = function( _, escaped ) {
+	runescape = new RegExp( "\\\\([\\da-f]{1,6}" + whitespace + "?|(" + whitespace + ")|.)", "ig" ),
+	funescape = function( _, escaped, escapedWhitespace ) {
 		var high = "0x" + escaped - 0x10000;
 		// NaN means non-codepoint
-		return high !== high ?
+		// Support: Firefox<24
+		// Workaround erroneous numeric interpretation of +"0x"
+		return high !== high || escapedWhitespace ?
 			escaped :
-			// BMP codepoint
 			high < 0 ?
+				// BMP codepoint
 				String.fromCharCode( high + 0x10000 ) :
 				// Supplemental Plane codepoint (surrogate pair)
 				String.fromCharCode( high >> 10 | 0xD800, high & 0x3FF | 0xDC00 );
@@ -831,63 +847,6 @@ try {
 	};
 }
 
-/**
- * For feature detection
- * @param {Function} fn The function to test for native support
- */
-function isNative( fn ) {
-	return rnative.test( fn + "" );
-}
-
-/**
- * Create key-value caches of limited size
- * @returns {Function(string, Object)} Returns the Object data after storing it on itself with
- *	property name the (space-suffixed) string and (if the cache is larger than Expr.cacheLength)
- *	deleting the oldest entry
- */
-function createCache() {
-	var cache,
-		keys = [];
-
-	cache = function( key, value ) {
-		// Use (key + " ") to avoid collision with native prototype properties (see Issue #157)
-		if ( keys.push( key += " " ) > Expr.cacheLength ) {
-			// Only keep the most recent entries
-			delete cache[ keys.shift() ];
-		}
-		cache[ key ] = value;
-		return value;
-	};
-
-	return cache;
-}
-
-/**
- * Mark a function for special use by Sizzle
- * @param {Function} fn The function to mark
- */
-function markFunction( fn ) {
-	fn[ expando ] = true;
-	return fn;
-}
-
-/**
- * Support testing using an element
- * @param {Function} fn Passed the created div and expects a boolean result
- */
-function assert( fn ) {
-	var div = document.createElement("div");
-
-	try {
-		return !!fn( div );
-	} catch (e) {
-		return false;
-	} finally {
-		// release memory in IE
-		div = null;
-	}
-}
-
 function Sizzle( selector, context, results, seed ) {
 	var match, elem, m, nodeType,
 		// QSA vars
@@ -917,7 +876,7 @@ function Sizzle( selector, context, results, seed ) {
 				if ( nodeType === 9 ) {
 					elem = context.getElementById( m );
 					// Check parentNode to catch when Blackberry 4.6 returns
-					// nodes that are no longer in the document #6963
+					// nodes that are no longer in the document (jQuery #6963)
 					if ( elem && elem.parentNode ) {
 						// Handle the case where IE, Opera, and Webkit return items
 						// by name instead of ID
@@ -943,16 +902,15 @@ function Sizzle( selector, context, results, seed ) {
 				return results;
 
 			// Speed-up: Sizzle(".CLASS")
-			} else if ( (m = match[3]) && support.getElementsByClassName && context.getElementsByClassName ) {
+			} else if ( (m = match[3]) && support.getElementsByClassName ) {
 				push.apply( results, context.getElementsByClassName( m ) );
 				return results;
 			}
 		}
 
 		// QSA path
-		if ( support.qsa && !rbuggyQSA.test(selector) ) {
-			old = true;
-			nid = expando;
+		if ( support.qsa && (!rbuggyQSA || !rbuggyQSA.test( selector )) ) {
+			nid = old = expando;
 			newContext = context;
 			newSelector = nodeType === 9 && selector;
 
@@ -974,7 +932,7 @@ function Sizzle( selector, context, results, seed ) {
 				while ( i-- ) {
 					groups[i] = nid + toSelector( groups[i] );
 				}
-				newContext = rsibling.test( selector ) && context.parentNode || context;
+				newContext = rsibling.test( selector ) && testContext( context.parentNode ) || context;
 				newSelector = groups.join(",");
 			}
 
@@ -999,8 +957,158 @@ function Sizzle( selector, context, results, seed ) {
 }
 
 /**
- * Detect xml
+ * Create key-value caches of limited size
+ * @returns {Function(string, Object)} Returns the Object data after storing it on itself with
+ *	property name the (space-suffixed) string and (if the cache is larger than Expr.cacheLength)
+ *	deleting the oldest entry
+ */
+function createCache() {
+	var keys = [];
+
+	function cache( key, value ) {
+		// Use (key + " ") to avoid collision with native prototype properties (see Issue #157)
+		if ( keys.push( key + " " ) > Expr.cacheLength ) {
+			// Only keep the most recent entries
+			delete cache[ keys.shift() ];
+		}
+		return (cache[ key + " " ] = value);
+	}
+	return cache;
+}
+
+/**
+ * Mark a function for special use by Sizzle
+ * @param {Function} fn The function to mark
+ */
+function markFunction( fn ) {
+	fn[ expando ] = true;
+	return fn;
+}
+
+/**
+ * Support testing using an element
+ * @param {Function} fn Passed the created div and expects a boolean result
+ */
+function assert( fn ) {
+	var div = document.createElement("div");
+
+	try {
+		return !!fn( div );
+	} catch (e) {
+		return false;
+	} finally {
+		// Remove from its parent by default
+		if ( div.parentNode ) {
+			div.parentNode.removeChild( div );
+		}
+		// release memory in IE
+		div = null;
+	}
+}
+
+/**
+ * Adds the same handler for all of the specified attrs
+ * @param {String} attrs Pipe-separated list of attributes
+ * @param {Function} handler The method that will be applied
+ */
+function addHandle( attrs, handler ) {
+	var arr = attrs.split("|"),
+		i = attrs.length;
+
+	while ( i-- ) {
+		Expr.attrHandle[ arr[i] ] = handler;
+	}
+}
+
+/**
+ * Checks document order of two siblings
+ * @param {Element} a
+ * @param {Element} b
+ * @returns {Number} Returns less than 0 if a precedes b, greater than 0 if a follows b
+ */
+function siblingCheck( a, b ) {
+	var cur = b && a,
+		diff = cur && a.nodeType === 1 && b.nodeType === 1 &&
+			( ~b.sourceIndex || MAX_NEGATIVE ) -
+			( ~a.sourceIndex || MAX_NEGATIVE );
+
+	// Use IE sourceIndex if available on both nodes
+	if ( diff ) {
+		return diff;
+	}
+
+	// Check if b follows a
+	if ( cur ) {
+		while ( (cur = cur.nextSibling) ) {
+			if ( cur === b ) {
+				return -1;
+			}
+		}
+	}
+
+	return a ? 1 : -1;
+}
+
+/**
+ * Returns a function to use in pseudos for input types
+ * @param {String} type
+ */
+function createInputPseudo( type ) {
+	return function( elem ) {
+		var name = elem.nodeName.toLowerCase();
+		return name === "input" && elem.type === type;
+	};
+}
+
+/**
+ * Returns a function to use in pseudos for buttons
+ * @param {String} type
+ */
+function createButtonPseudo( type ) {
+	return function( elem ) {
+		var name = elem.nodeName.toLowerCase();
+		return (name === "input" || name === "button") && elem.type === type;
+	};
+}
+
+/**
+ * Returns a function to use in pseudos for positionals
+ * @param {Function} fn
+ */
+function createPositionalPseudo( fn ) {
+	return markFunction(function( argument ) {
+		argument = +argument;
+		return markFunction(function( seed, matches ) {
+			var j,
+				matchIndexes = fn( [], seed.length, argument ),
+				i = matchIndexes.length;
+
+			// Match elements found at the specified indexes
+			while ( i-- ) {
+				if ( seed[ (j = matchIndexes[i]) ] ) {
+					seed[j] = !(matches[j] = seed[j]);
+				}
+			}
+		});
+	});
+}
+
+/**
+ * Checks a node for validity as a Sizzle context
+ * @param {Element|Object=} context
+ * @returns {Element|Object|Boolean} The input node if acceptable, otherwise a falsy value
+ */
+function testContext( context ) {
+	return context && typeof context.getElementsByTagName !== strundefined && context;
+}
+
+// Expose support vars for convenience
+support = Sizzle.support = {};
+
+/**
+ * Detects XML nodes
  * @param {Element|Object} elem An element or a document
+ * @returns {Boolean} True iff elem is a non-HTML XML node
  */
 isXML = Sizzle.isXML = function( elem ) {
 	// documentElement is verified for cases where it doesn't yet exist
@@ -1015,7 +1123,9 @@ isXML = Sizzle.isXML = function( elem ) {
  * @returns {Object} Returns the current document
  */
 setDocument = Sizzle.setDocument = function( node ) {
-	var doc = node ? node.ownerDocument || node : preferredDoc;
+	var hasCompare,
+		doc = node ? node.ownerDocument || node : preferredDoc,
+		parent = doc.defaultView;
 
 	// If no document and documentElement is available, return
 	if ( doc === document || doc.nodeType !== 9 || !doc.documentElement ) {
@@ -1029,90 +1139,62 @@ setDocument = Sizzle.setDocument = function( node ) {
 	// Support tests
 	documentIsHTML = !isXML( doc );
 
+	// Support: IE>8
+	// If iframe document is assigned to "document" variable and if iframe has been reloaded,
+	// IE will throw "permission denied" error when accessing "document" variable, see jQuery #13936
+	// IE6-8 do not support the defaultView property so parent will be undefined
+	if ( parent && parent !== parent.top ) {
+		// IE11 does not have attachEvent, so all must suffer
+		if ( parent.addEventListener ) {
+			parent.addEventListener( "unload", function() {
+				setDocument();
+			}, false );
+		} else if ( parent.attachEvent ) {
+			parent.attachEvent( "onunload", function() {
+				setDocument();
+			});
+		}
+	}
+
+	/* Attributes
+	---------------------------------------------------------------------- */
+
+	// Support: IE<8
+	// Verify that getAttribute really returns attributes and not properties (excepting IE8 booleans)
+	support.attributes = assert(function( div ) {
+		div.className = "i";
+		return !div.getAttribute("className");
+	});
+
+	/* getElement(s)By*
+	---------------------------------------------------------------------- */
+
 	// Check if getElementsByTagName("*") returns only elements
 	support.getElementsByTagName = assert(function( div ) {
 		div.appendChild( doc.createComment("") );
 		return !div.getElementsByTagName("*").length;
 	});
 
-	// Check if attributes should be retrieved by attribute nodes
-	support.attributes = assert(function( div ) {
-		div.innerHTML = "<select></select>";
-		var type = typeof div.lastChild.getAttribute("multiple");
-		// IE8 returns a string for some attributes even when not present
-		return type !== "boolean" && type !== "string";
+	// Support: IE<9
+	support.getElementsByClassName = rnative.test( doc.getElementsByClassName );
+
+	// Support: IE<10
+	// Check if getElementById returns elements by name
+	// The broken getElementById methods don't pick up programatically-set names,
+	// so use a roundabout getElementsByName test
+	support.getById = assert(function( div ) {
+		docElem.appendChild( div ).id = expando;
+		return !doc.getElementsByName || !doc.getElementsByName( expando ).length;
 	});
-
-	// Check if getElementsByClassName can be trusted
-	support.getElementsByClassName = assert(function( div ) {
-		// Opera can't find a second classname (in 9.6)
-		div.innerHTML = "<div class='hidden e'></div><div class='hidden'></div>";
-		if ( !div.getElementsByClassName || !div.getElementsByClassName("e").length ) {
-			return false;
-		}
-
-		// Safari 3.2 caches class attributes and doesn't catch changes
-		div.lastChild.className = "e";
-		return div.getElementsByClassName("e").length === 2;
-	});
-
-	// Check if getElementsByName privileges form controls or returns elements by ID
-	// If so, assume (for broader support) that getElementById returns elements by name
-	support.getByName = assert(function( div ) {
-		// Inject content
-		div.id = expando + 0;
-		// Support: Windows 8 Native Apps
-		// Assigning innerHTML with "name" attributes throws uncatchable exceptions
-		// http://msdn.microsoft.com/en-us/library/ie/hh465388.aspx
-		div.appendChild( document.createElement("a") ).setAttribute( "name", expando );
-		div.appendChild( document.createElement("i") ).setAttribute( "name", expando );
-		docElem.appendChild( div );
-
-		// Test
-		var pass = doc.getElementsByName &&
-			// buggy browsers will return fewer than the correct 2
-			doc.getElementsByName( expando ).length === 2 +
-			// buggy browsers will return more than the correct 0
-			doc.getElementsByName( expando + 0 ).length;
-
-		// Cleanup
-		docElem.removeChild( div );
-
-		return pass;
-	});
-
-	// Support: Webkit<537.32
-	// Detached nodes confoundingly follow *each other*
-	support.sortDetached = assert(function( div1 ) {
-		return div1.compareDocumentPosition &&
-			// Should return 1, but Webkit returns 4 (following)
-			(div1.compareDocumentPosition( document.createElement("div") ) & 1);
-	});
-
-	// IE6/7 return modified attributes
-	Expr.attrHandle = assert(function( div ) {
-		div.innerHTML = "<a href='#'></a>";
-		return div.firstChild && typeof div.firstChild.getAttribute !== strundefined &&
-			div.firstChild.getAttribute("href") === "#";
-	}) ?
-		{} :
-		{
-			"href": function( elem ) {
-				return elem.getAttribute( "href", 2 );
-			},
-			"type": function( elem ) {
-				return elem.getAttribute("type");
-			}
-		};
 
 	// ID find and filter
-	if ( support.getByName ) {
+	if ( support.getById ) {
 		Expr.find["ID"] = function( id, context ) {
 			if ( typeof context.getElementById !== strundefined && documentIsHTML ) {
 				var m = context.getElementById( id );
 				// Check parentNode to catch when Blackberry 4.6 returns
 				// nodes that are no longer in the document #6963
-				return m && m.parentNode ? [m] : [];
+				return m && m.parentNode ? [ m ] : [];
 			}
 		};
 		Expr.filter["ID"] = function( id ) {
@@ -1122,17 +1204,10 @@ setDocument = Sizzle.setDocument = function( node ) {
 			};
 		};
 	} else {
-		Expr.find["ID"] = function( id, context ) {
-			if ( typeof context.getElementById !== strundefined && documentIsHTML ) {
-				var m = context.getElementById( id );
+		// Support: IE6/7
+		// getElementById is not reliable as a find shortcut
+		delete Expr.find["ID"];
 
-				return m ?
-					m.id === id || typeof m.getAttributeNode !== strundefined && m.getAttributeNode("id").value === id ?
-						[m] :
-						undefined :
-					[];
-			}
-		};
 		Expr.filter["ID"] =  function( id ) {
 			var attrId = id.replace( runescape, funescape );
 			return function( elem ) {
@@ -1168,31 +1243,29 @@ setDocument = Sizzle.setDocument = function( node ) {
 			return results;
 		};
 
-	// Name
-	Expr.find["NAME"] = support.getByName && function( tag, context ) {
-		if ( typeof context.getElementsByName !== strundefined ) {
-			return context.getElementsByName( name );
-		}
-	};
-
 	// Class
 	Expr.find["CLASS"] = support.getElementsByClassName && function( className, context ) {
-		if ( typeof context.getElementsByClassName !== strundefined && documentIsHTML ) {
+		if ( documentIsHTML ) {
 			return context.getElementsByClassName( className );
 		}
 	};
+
+	/* QSA/matchesSelector
+	---------------------------------------------------------------------- */
 
 	// QSA and matchesSelector support
 
 	// matchesSelector(:active) reports false when true (IE9/Opera 11.5)
 	rbuggyMatches = [];
 
-	// qSa(:focus) reports false when true (Chrome 21),
-	// no need to also add to buggyMatches since matches checks buggyQSA
-	// A support test would require too much code (would include document ready)
-	rbuggyQSA = [ ":focus" ];
+	// qSa(:focus) reports false when true (Chrome 21)
+	// We allow this because of a bug in IE8/9 that throws an error
+	// whenever `document.activeElement` is accessed on an iframe
+	// So, we allow :focus to pass through QSA all the time to avoid the IE error
+	// See http://bugs.jquery.com/ticket/13378
+	rbuggyQSA = [];
 
-	if ( (support.qsa = isNative(doc.querySelectorAll)) ) {
+	if ( (support.qsa = rnative.test( doc.querySelectorAll )) ) {
 		// Build QSA regex
 		// Regex strategy adopted from Diego Perini
 		assert(function( div ) {
@@ -1201,11 +1274,20 @@ setDocument = Sizzle.setDocument = function( node ) {
 			// setting a boolean content attribute,
 			// since its presence should be enough
 			// http://bugs.jquery.com/ticket/12359
-			div.innerHTML = "<select><option selected=''></option></select>";
+			div.innerHTML = "<select msallowcapture=''><option selected=''></option></select>";
 
-			// IE8 - Some boolean attributes are not treated correctly
+			// Support: IE8, Opera 11-12.16
+			// Nothing should be selected when empty strings follow ^= or $= or *=
+			// The test attribute must be unknown in Opera but "safe" for WinRT
+			// http://msdn.microsoft.com/en-us/library/ie/hh465388.aspx#attribute_section
+			if ( div.querySelectorAll("[msallowcapture^='']").length ) {
+				rbuggyQSA.push( "[*^$]=" + whitespace + "*(?:''|\"\")" );
+			}
+
+			// Support: IE8
+			// Boolean attributes and "value" are not treated correctly
 			if ( !div.querySelectorAll("[selected]").length ) {
-				rbuggyQSA.push( "\\[" + whitespace + "*(?:checked|disabled|ismap|multiple|readonly|selected|value)" );
+				rbuggyQSA.push( "\\[" + whitespace + "*(?:value|" + booleans + ")" );
 			}
 
 			// Webkit/Opera - :checked should return selected option elements
@@ -1217,12 +1299,16 @@ setDocument = Sizzle.setDocument = function( node ) {
 		});
 
 		assert(function( div ) {
+			// Support: Windows 8 Native Apps
+			// The type and name attributes are restricted during .innerHTML assignment
+			var input = doc.createElement("input");
+			input.setAttribute( "type", "hidden" );
+			div.appendChild( input ).setAttribute( "name", "D" );
 
-			// Opera 10-12/IE8 - ^= $= *= and empty values
-			// Should not select anything
-			div.innerHTML = "<input type='hidden' i=''/>";
-			if ( div.querySelectorAll("[i^='']").length ) {
-				rbuggyQSA.push( "[*^$]=" + whitespace + "*(?:\"\"|'')" );
+			// Support: IE8
+			// Enforce case-sensitivity of name attribute
+			if ( div.querySelectorAll("[name=d]").length ) {
+				rbuggyQSA.push( "name" + whitespace + "*[*^$|!~]?=" );
 			}
 
 			// FF 3.5 - :enabled/:disabled and hidden elements (hidden elements are still enabled)
@@ -1237,9 +1323,9 @@ setDocument = Sizzle.setDocument = function( node ) {
 		});
 	}
 
-	if ( (support.matchesSelector = isNative( (matches = docElem.matchesSelector ||
-		docElem.mozMatchesSelector ||
+	if ( (support.matchesSelector = rnative.test( (matches = docElem.matches ||
 		docElem.webkitMatchesSelector ||
+		docElem.mozMatchesSelector ||
 		docElem.oMatchesSelector ||
 		docElem.msMatchesSelector) )) ) {
 
@@ -1255,13 +1341,17 @@ setDocument = Sizzle.setDocument = function( node ) {
 		});
 	}
 
-	rbuggyQSA = new RegExp( rbuggyQSA.join("|") );
+	rbuggyQSA = rbuggyQSA.length && new RegExp( rbuggyQSA.join("|") );
 	rbuggyMatches = rbuggyMatches.length && new RegExp( rbuggyMatches.join("|") );
 
+	/* Contains
+	---------------------------------------------------------------------- */
+	hasCompare = rnative.test( docElem.compareDocumentPosition );
+
 	// Element contains another
-	// Purposefully does not implement inclusive descendant
+	// Purposefully does not implement inclusive descendent
 	// As in, an element does not contain itself
-	contains = isNative(docElem.contains) || docElem.compareDocumentPosition ?
+	contains = hasCompare || rnative.test( docElem.contains ) ?
 		function( a, b ) {
 			var adown = a.nodeType === 9 ? a.documentElement : a,
 				bup = b && b.parentNode;
@@ -1282,8 +1372,11 @@ setDocument = Sizzle.setDocument = function( node ) {
 			return false;
 		};
 
+	/* Sorting
+	---------------------------------------------------------------------- */
+
 	// Document order sorting
-	sortOrder = docElem.compareDocumentPosition ?
+	sortOrder = hasCompare ?
 	function( a, b ) {
 
 		// Flag for duplicate removal
@@ -1292,34 +1385,46 @@ setDocument = Sizzle.setDocument = function( node ) {
 			return 0;
 		}
 
-		var compare = b.compareDocumentPosition && a.compareDocumentPosition && a.compareDocumentPosition( b );
-
+		// Sort on method existence if only one input has compareDocumentPosition
+		var compare = !a.compareDocumentPosition - !b.compareDocumentPosition;
 		if ( compare ) {
-			// Disconnected nodes
-			if ( compare & 1 ||
-				(recompare && b.compareDocumentPosition( a ) === compare) ) {
-
-				// Choose the first element that is related to our preferred document
-				if ( a === doc || contains(preferredDoc, a) ) {
-					return -1;
-				}
-				if ( b === doc || contains(preferredDoc, b) ) {
-					return 1;
-				}
-
-				// Maintain original order
-				return sortInput ?
-					( indexOf.call( sortInput, a ) - indexOf.call( sortInput, b ) ) :
-					0;
-			}
-
-			return compare & 4 ? -1 : 1;
+			return compare;
 		}
 
-		// Not directly comparable, sort on existence of method
-		return a.compareDocumentPosition ? -1 : 1;
+		// Calculate position if both inputs belong to the same document
+		compare = ( a.ownerDocument || a ) === ( b.ownerDocument || b ) ?
+			a.compareDocumentPosition( b ) :
+
+			// Otherwise we know they are disconnected
+			1;
+
+		// Disconnected nodes
+		if ( compare & 1 ||
+			(!support.sortDetached && b.compareDocumentPosition( a ) === compare) ) {
+
+			// Choose the first element that is related to our preferred document
+			if ( a === doc || a.ownerDocument === preferredDoc && contains(preferredDoc, a) ) {
+				return -1;
+			}
+			if ( b === doc || b.ownerDocument === preferredDoc && contains(preferredDoc, b) ) {
+				return 1;
+			}
+
+			// Maintain original order
+			return sortInput ?
+				( indexOf.call( sortInput, a ) - indexOf.call( sortInput, b ) ) :
+				0;
+		}
+
+		return compare & 4 ? -1 : 1;
 	} :
 	function( a, b ) {
+		// Exit early if the nodes are identical
+		if ( a === b ) {
+			hasDuplicate = true;
+			return 0;
+		}
+
 		var cur,
 			i = 0,
 			aup = a.parentNode,
@@ -1327,17 +1432,14 @@ setDocument = Sizzle.setDocument = function( node ) {
 			ap = [ a ],
 			bp = [ b ];
 
-		// Exit early if the nodes are identical
-		if ( a === b ) {
-			hasDuplicate = true;
-			return 0;
-
 		// Parentless nodes are either documents or disconnected
-		} else if ( !aup || !bup ) {
+		if ( !aup || !bup ) {
 			return a === doc ? -1 :
 				b === doc ? 1 :
 				aup ? -1 :
 				bup ? 1 :
+				sortInput ?
+				( indexOf.call( sortInput, a ) - indexOf.call( sortInput, b ) ) :
 				0;
 
 		// If the nodes are siblings, we can do a quick check
@@ -1370,7 +1472,7 @@ setDocument = Sizzle.setDocument = function( node ) {
 			0;
 	};
 
-	return document;
+	return doc;
 };
 
 Sizzle.matches = function( expr, elements ) {
@@ -1386,8 +1488,10 @@ Sizzle.matchesSelector = function( elem, expr ) {
 	// Make sure that attribute selectors are quoted
 	expr = expr.replace( rattributeQuotes, "='$1']" );
 
-	// rbuggyQSA always contains :focus, so no need for an existence check
-	if ( support.matchesSelector && documentIsHTML && (!rbuggyMatches || !rbuggyMatches.test(expr)) && !rbuggyQSA.test(expr) ) {
+	if ( support.matchesSelector && documentIsHTML &&
+		( !rbuggyMatches || !rbuggyMatches.test( expr ) ) &&
+		( !rbuggyQSA     || !rbuggyQSA.test( expr ) ) ) {
+
 		try {
 			var ret = matches.call( elem, expr );
 
@@ -1401,7 +1505,7 @@ Sizzle.matchesSelector = function( elem, expr ) {
 		} catch(e) {}
 	}
 
-	return Sizzle( expr, document, null, [elem] ).length > 0;
+	return Sizzle( expr, document, null, [ elem ] ).length > 0;
 };
 
 Sizzle.contains = function( context, elem ) {
@@ -1413,32 +1517,34 @@ Sizzle.contains = function( context, elem ) {
 };
 
 Sizzle.attr = function( elem, name ) {
-	var val;
-
 	// Set document vars if needed
 	if ( ( elem.ownerDocument || elem ) !== document ) {
 		setDocument( elem );
 	}
 
-	if ( documentIsHTML ) {
-		name = name.toLowerCase();
-	}
-	if ( (val = Expr.attrHandle[ name ]) ) {
-		return val( elem );
-	}
-	if ( !documentIsHTML || support.attributes ) {
-		return elem.getAttribute( name );
-	}
-	return ( (val = elem.getAttributeNode( name )) || elem.getAttribute( name ) ) && elem[ name ] === true ?
-		name :
-		val && val.specified ? val.value : null;
+	var fn = Expr.attrHandle[ name.toLowerCase() ],
+		// Don't get fooled by Object.prototype properties (jQuery #13807)
+		val = fn && hasOwn.call( Expr.attrHandle, name.toLowerCase() ) ?
+			fn( elem, name, !documentIsHTML ) :
+			undefined;
+
+	return val !== undefined ?
+		val :
+		support.attributes || !documentIsHTML ?
+			elem.getAttribute( name ) :
+			(val = elem.getAttributeNode(name)) && val.specified ?
+				val.value :
+				null;
 };
 
 Sizzle.error = function( msg ) {
 	throw new Error( "Syntax error, unrecognized expression: " + msg );
 };
 
-// Document sorting and removing duplicates
+/**
+ * Document sorting and removing duplicates
+ * @param {ArrayLike} results
+ */
 Sizzle.uniqueSort = function( results ) {
 	var elem,
 		duplicates = [],
@@ -1447,8 +1553,6 @@ Sizzle.uniqueSort = function( results ) {
 
 	// Unless we *know* we can detect duplicates, assume their presence
 	hasDuplicate = !support.detectDuplicates;
-	// Compensate for sort limitations
-	recompare = !support.sortDetached;
 	sortInput = !support.sortStable && results.slice( 0 );
 	results.sort( sortOrder );
 
@@ -1463,70 +1567,12 @@ Sizzle.uniqueSort = function( results ) {
 		}
 	}
 
+	// Clear input after sorting to release objects
+	// See https://github.com/jquery/sizzle/pull/225
+	sortInput = null;
+
 	return results;
 };
-
-/**
- * Checks document order of two siblings
- * @param {Element} a
- * @param {Element} b
- * @returns Returns -1 if a precedes b, 1 if a follows b
- */
-function siblingCheck( a, b ) {
-	var cur = b && a,
-		diff = cur && ( ~b.sourceIndex || MAX_NEGATIVE ) - ( ~a.sourceIndex || MAX_NEGATIVE );
-
-	// Use IE sourceIndex if available on both nodes
-	if ( diff ) {
-		return diff;
-	}
-
-	// Check if b follows a
-	if ( cur ) {
-		while ( (cur = cur.nextSibling) ) {
-			if ( cur === b ) {
-				return -1;
-			}
-		}
-	}
-
-	return a ? 1 : -1;
-}
-
-// Returns a function to use in pseudos for input types
-function createInputPseudo( type ) {
-	return function( elem ) {
-		var name = elem.nodeName.toLowerCase();
-		return name === "input" && elem.type === type;
-	};
-}
-
-// Returns a function to use in pseudos for buttons
-function createButtonPseudo( type ) {
-	return function( elem ) {
-		var name = elem.nodeName.toLowerCase();
-		return (name === "input" || name === "button") && elem.type === type;
-	};
-}
-
-// Returns a function to use in pseudos for positionals
-function createPositionalPseudo( fn ) {
-	return markFunction(function( argument ) {
-		argument = +argument;
-		return markFunction(function( seed, matches ) {
-			var j,
-				matchIndexes = fn( [], seed.length, argument ),
-				i = matchIndexes.length;
-
-			// Match elements found at the specified indexes
-			while ( i-- ) {
-				if ( seed[ (j = matchIndexes[i]) ] ) {
-					seed[j] = !(matches[j] = seed[j]);
-				}
-			}
-		});
-	});
-}
 
 /**
  * Utility function for retrieving the text value of an array of DOM nodes
@@ -1540,13 +1586,13 @@ getText = Sizzle.getText = function( elem ) {
 
 	if ( !nodeType ) {
 		// If no nodeType, this is expected to be an array
-		for ( ; (node = elem[i]); i++ ) {
+		while ( (node = elem[i++]) ) {
 			// Do not traverse comment nodes
 			ret += getText( node );
 		}
 	} else if ( nodeType === 1 || nodeType === 9 || nodeType === 11 ) {
 		// Use textContent for elements
-		// innerText usage removed for consistency of new lines (see #11153)
+		// innerText usage removed for consistency of new lines (jQuery #11153)
 		if ( typeof elem.textContent === "string" ) {
 			return elem.textContent;
 		} else {
@@ -1572,6 +1618,8 @@ Expr = Sizzle.selectors = {
 
 	match: matchExpr,
 
+	attrHandle: {},
+
 	find: {},
 
 	relative: {
@@ -1586,7 +1634,7 @@ Expr = Sizzle.selectors = {
 			match[1] = match[1].replace( runescape, funescape );
 
 			// Move the given value to match[3] whether quoted or unquoted
-			match[3] = ( match[4] || match[5] || "" ).replace( runescape, funescape );
+			match[3] = ( match[3] || match[4] || match[5] || "" ).replace( runescape, funescape );
 
 			if ( match[2] === "~=" ) {
 				match[3] = " " + match[3] + " ";
@@ -1629,15 +1677,15 @@ Expr = Sizzle.selectors = {
 
 		"PSEUDO": function( match ) {
 			var excess,
-				unquoted = !match[5] && match[2];
+				unquoted = !match[6] && match[2];
 
 			if ( matchExpr["CHILD"].test( match[0] ) ) {
 				return null;
 			}
 
 			// Accept quoted arguments as-is
-			if ( match[4] ) {
-				match[2] = match[4];
+			if ( match[3] ) {
+				match[2] = match[4] || match[5] || "";
 
 			// Strip excess characters from unquoted arguments
 			} else if ( unquoted && rpseudo.test( unquoted ) &&
@@ -1658,15 +1706,13 @@ Expr = Sizzle.selectors = {
 
 	filter: {
 
-		"TAG": function( nodeName ) {
-			if ( nodeName === "*" ) {
-				return function() { return true; };
-			}
-
-			nodeName = nodeName.replace( runescape, funescape ).toLowerCase();
-			return function( elem ) {
-				return elem.nodeName && elem.nodeName.toLowerCase() === nodeName;
-			};
+		"TAG": function( nodeNameSelector ) {
+			var nodeName = nodeNameSelector.replace( runescape, funescape ).toLowerCase();
+			return nodeNameSelector === "*" ?
+				function() { return true; } :
+				function( elem ) {
+					return elem.nodeName && elem.nodeName.toLowerCase() === nodeName;
+				};
 		},
 
 		"CLASS": function( className ) {
@@ -1675,7 +1721,7 @@ Expr = Sizzle.selectors = {
 			return pattern ||
 				(pattern = new RegExp( "(^|" + whitespace + ")" + className + "(" + whitespace + "|$)" )) &&
 				classCache( className, function( elem ) {
-					return pattern.test( elem.className || (typeof elem.getAttribute !== strundefined && elem.getAttribute("class")) || "" );
+					return pattern.test( typeof elem.className === "string" && elem.className || typeof elem.getAttribute !== strundefined && elem.getAttribute("class") || "" );
 				});
 		},
 
@@ -1867,6 +1913,7 @@ Expr = Sizzle.selectors = {
 		}),
 
 		"contains": markFunction(function( text ) {
+			text = text.replace( runescape, funescape );
 			return function( elem ) {
 				return ( elem.textContent || elem.innerText || getText( elem ) ).indexOf( text ) > -1;
 			};
@@ -1943,12 +1990,11 @@ Expr = Sizzle.selectors = {
 		// Contents
 		"empty": function( elem ) {
 			// http://www.w3.org/TR/selectors/#empty-pseudo
-			// :empty is only affected by element nodes and content nodes(including text(3), cdata(4)),
-			//   not comment, processing instructions, or others
-			// Thanks to Diego Perini for the nodeName shortcut
-			//   Greater than "@" means alpha characters (specifically not starting with "#" or "?")
+			// :empty is negated by element (1) or content nodes (text: 3; cdata: 4; entity ref: 5),
+			//   but not by others (comment: 8; processing instruction: 7; etc.)
+			// nodeType < 6 works because attributes (2) do not appear as children
 			for ( elem = elem.firstChild; elem; elem = elem.nextSibling ) {
-				if ( elem.nodeName > "@" || elem.nodeType === 3 || elem.nodeType === 4 ) {
+				if ( elem.nodeType < 6 ) {
 					return false;
 				}
 			}
@@ -1975,11 +2021,12 @@ Expr = Sizzle.selectors = {
 
 		"text": function( elem ) {
 			var attr;
-			// IE6 and 7 will map elem.type to 'text' for new HTML5 types (search, etc)
-			// use getAttribute instead to test this case
 			return elem.nodeName.toLowerCase() === "input" &&
 				elem.type === "text" &&
-				( (attr = elem.getAttribute("type")) == null || attr.toLowerCase() === elem.type );
+
+				// Support: IE<8
+				// New HTML5 attribute values (e.g., "search") appear with elem.type === "text"
+				( (attr = elem.getAttribute("type")) == null || attr.toLowerCase() === "text" );
 		},
 
 		// Position-in-collection
@@ -2029,6 +2076,8 @@ Expr = Sizzle.selectors = {
 	}
 };
 
+Expr.pseudos["nth"] = Expr.pseudos["eq"];
+
 // Add button/input type pseudos
 for ( i in { radio: true, checkbox: true, file: true, password: true, image: true } ) {
 	Expr.pseudos[ i ] = createInputPseudo( i );
@@ -2037,7 +2086,12 @@ for ( i in { submit: true, reset: true } ) {
 	Expr.pseudos[ i ] = createButtonPseudo( i );
 }
 
-function tokenize( selector, parseOnly ) {
+// Easy API for creating new setFilters
+function setFilters() {}
+setFilters.prototype = Expr.filters = Expr.pseudos;
+Expr.setFilters = new setFilters();
+
+tokenize = Sizzle.tokenize = function( selector, parseOnly ) {
 	var matched, match, tokens, type,
 		soFar, groups, preFilters,
 		cached = tokenCache[ selector + " " ];
@@ -2058,7 +2112,7 @@ function tokenize( selector, parseOnly ) {
 				// Don't consume trailing commas as valid
 				soFar = soFar.slice( match[0].length ) || soFar;
 			}
-			groups.push( tokens = [] );
+			groups.push( (tokens = []) );
 		}
 
 		matched = false;
@@ -2066,11 +2120,11 @@ function tokenize( selector, parseOnly ) {
 		// Combinators
 		if ( (match = rcombinators.exec( soFar )) ) {
 			matched = match.shift();
-			tokens.push( {
+			tokens.push({
 				value: matched,
 				// Cast descendant combinators to space
 				type: match[0].replace( rtrim, " " )
-			} );
+			});
 			soFar = soFar.slice( matched.length );
 		}
 
@@ -2079,11 +2133,11 @@ function tokenize( selector, parseOnly ) {
 			if ( (match = matchExpr[ type ].exec( soFar )) && (!preFilters[ type ] ||
 				(match = preFilters[ type ]( match ))) ) {
 				matched = match.shift();
-				tokens.push( {
+				tokens.push({
 					value: matched,
 					type: type,
 					matches: match
-				} );
+				});
 				soFar = soFar.slice( matched.length );
 			}
 		}
@@ -2102,7 +2156,7 @@ function tokenize( selector, parseOnly ) {
 			Sizzle.error( selector ) :
 			// Cache the tokens
 			tokenCache( selector, groups ).slice( 0 );
-}
+};
 
 function toSelector( tokens ) {
 	var i = 0,
@@ -2131,8 +2185,8 @@ function addCombinator( matcher, combinator, base ) {
 
 		// Check against all ancestor/preceding elements
 		function( elem, context, xml ) {
-			var data, cache, outerCache,
-				dirkey = dirruns + " " + doneName;
+			var oldCache, outerCache,
+				newCache = [ dirruns, doneName ];
 
 			// We can't set arbitrary data on XML nodes, so they don't benefit from dir caching
 			if ( xml ) {
@@ -2147,14 +2201,17 @@ function addCombinator( matcher, combinator, base ) {
 				while ( (elem = elem[ dir ]) ) {
 					if ( elem.nodeType === 1 || checkNonElements ) {
 						outerCache = elem[ expando ] || (elem[ expando ] = {});
-						if ( (cache = outerCache[ dir ]) && cache[0] === dirkey ) {
-							if ( (data = cache[1]) === true || data === cachedruns ) {
-								return data === true;
-							}
+						if ( (oldCache = outerCache[ dir ]) &&
+							oldCache[ 0 ] === dirruns && oldCache[ 1 ] === doneName ) {
+
+							// Assign to newCache so results back-propagate to previous elements
+							return (newCache[ 2 ] = oldCache[ 2 ]);
 						} else {
-							cache = outerCache[ dir ] = [ dirkey ];
-							cache[1] = matcher( elem, context, xml ) || cachedruns;
-							if ( cache[1] === true ) {
+							// Reuse newcache so results back-propagate to previous elements
+							outerCache[ dir ] = newCache;
+
+							// A match means we're done; a fail means we have to keep checking
+							if ( (newCache[ 2 ] = matcher( elem, context, xml )) ) {
 								return true;
 							}
 						}
@@ -2176,6 +2233,15 @@ function elementMatcher( matchers ) {
 			return true;
 		} :
 		matchers[0];
+}
+
+function multipleContexts( selector, contexts, results ) {
+	var i = 0,
+		len = contexts.length;
+	for ( ; i < len; i++ ) {
+		Sizzle( selector, contexts[i], results );
+	}
+	return results;
 }
 
 function condense( unmatched, map, filter, context, xml ) {
@@ -2330,7 +2396,10 @@ function matcherFromTokens( tokens ) {
 				}
 				return setMatcher(
 					i > 1 && elementMatcher( matchers ),
-					i > 1 && toSelector( tokens.slice( 0, i - 1 ) ).replace( rtrim, "$1" ),
+					i > 1 && toSelector(
+						// If the preceding token was a descendant combinator, insert an implicit any-element `*`
+						tokens.slice( 0, i - 1 ).concat({ value: tokens[ i - 2 ].type === " " ? "*" : "" })
+					).replace( rtrim, "$1" ),
 					matcher,
 					i < j && matcherFromTokens( tokens.slice( i, j ) ),
 					j < len && matcherFromTokens( (tokens = tokens.slice( j )) ),
@@ -2345,31 +2414,30 @@ function matcherFromTokens( tokens ) {
 }
 
 function matcherFromGroupMatchers( elementMatchers, setMatchers ) {
-	// A counter to specify which element is currently being matched
-	var matcherCachedRuns = 0,
-		bySet = setMatchers.length > 0,
+	var bySet = setMatchers.length > 0,
 		byElement = elementMatchers.length > 0,
-		superMatcher = function( seed, context, xml, results, expandContext ) {
+		superMatcher = function( seed, context, xml, results, outermost ) {
 			var elem, j, matcher,
-				setMatched = [],
 				matchedCount = 0,
 				i = "0",
 				unmatched = seed && [],
-				outermost = expandContext != null,
+				setMatched = [],
 				contextBackup = outermostContext,
-				// We must always have either seed elements or context
-				elems = seed || byElement && Expr.find["TAG"]( "*", expandContext && context.parentNode || context ),
+				// We must always have either seed elements or outermost context
+				elems = seed || byElement && Expr.find["TAG"]( "*", outermost ),
 				// Use integer dirruns iff this is the outermost matcher
-				dirrunsUnique = (dirruns += contextBackup == null ? 1 : Math.random() || 0.1);
+				dirrunsUnique = (dirruns += contextBackup == null ? 1 : Math.random() || 0.1),
+				len = elems.length;
 
 			if ( outermost ) {
 				outermostContext = context !== document && context;
-				cachedruns = matcherCachedRuns;
 			}
 
 			// Add elements passing elementMatchers directly to results
 			// Keep `i` a string if there are no elements so `matchedCount` will be "00" below
-			for ( ; (elem = elems[i]) != null; i++ ) {
+			// Support: IE<9, Safari
+			// Tolerate NodeList properties (IE: "length"; Safari: <number>) matching elements by id
+			for ( ; i !== len && (elem = elems[i]) != null; i++ ) {
 				if ( byElement && elem ) {
 					j = 0;
 					while ( (matcher = elementMatchers[j++]) ) {
@@ -2380,7 +2448,6 @@ function matcherFromGroupMatchers( elementMatchers, setMatchers ) {
 					}
 					if ( outermost ) {
 						dirruns = dirrunsUnique;
-						cachedruns = ++matcherCachedRuns;
 					}
 				}
 
@@ -2445,7 +2512,7 @@ function matcherFromGroupMatchers( elementMatchers, setMatchers ) {
 		superMatcher;
 }
 
-compile = Sizzle.compile = function( selector, group /* Internal Use Only */ ) {
+compile = Sizzle.compile = function( selector, match /* Internal Use Only */ ) {
 	var i,
 		setMatchers = [],
 		elementMatchers = [],
@@ -2453,12 +2520,12 @@ compile = Sizzle.compile = function( selector, group /* Internal Use Only */ ) {
 
 	if ( !cached ) {
 		// Generate a function of recursive functions that can be used to check each element
-		if ( !group ) {
-			group = tokenize( selector );
+		if ( !match ) {
+			match = tokenize( selector );
 		}
-		i = group.length;
+		i = match.length;
 		while ( i-- ) {
-			cached = matcherFromTokens( group[i] );
+			cached = matcherFromTokens( match[i] );
 			if ( cached[ expando ] ) {
 				setMatchers.push( cached );
 			} else {
@@ -2468,111 +2535,154 @@ compile = Sizzle.compile = function( selector, group /* Internal Use Only */ ) {
 
 		// Cache the compiled function
 		cached = compilerCache( selector, matcherFromGroupMatchers( elementMatchers, setMatchers ) );
+
+		// Save selector and tokenization
+		cached.selector = selector;
 	}
 	return cached;
 };
 
-function multipleContexts( selector, contexts, results ) {
-	var i = 0,
-		len = contexts.length;
-	for ( ; i < len; i++ ) {
-		Sizzle( selector, contexts[i], results );
-	}
-	return results;
-}
-
-function select( selector, context, results, seed ) {
+/**
+ * A low-level selection function that works with Sizzle's compiled
+ *  selector functions
+ * @param {String|Function} selector A selector or a pre-compiled
+ *  selector function built with Sizzle.compile
+ * @param {Element} context
+ * @param {Array} [results]
+ * @param {Array} [seed] A set of elements to match against
+ */
+select = Sizzle.select = function( selector, context, results, seed ) {
 	var i, tokens, token, type, find,
-		match = tokenize( selector );
+		compiled = typeof selector === "function" && selector,
+		match = !seed && tokenize( (selector = compiled.selector || selector) );
 
-	if ( !seed ) {
-		// Try to minimize operations if there is only one group
-		if ( match.length === 1 ) {
+	results = results || [];
 
-			// Take a shortcut and set the context if the root selector is an ID
-			tokens = match[0] = match[0].slice( 0 );
-			if ( tokens.length > 2 && (token = tokens[0]).type === "ID" &&
-					context.nodeType === 9 && documentIsHTML &&
-					Expr.relative[ tokens[1].type ] ) {
+	// Try to minimize operations if there is no seed and only one group
+	if ( match.length === 1 ) {
 
-				context = ( Expr.find["ID"]( token.matches[0].replace(runescape, funescape), context ) || [] )[0];
-				if ( !context ) {
-					return results;
-				}
+		// Take a shortcut and set the context if the root selector is an ID
+		tokens = match[0] = match[0].slice( 0 );
+		if ( tokens.length > 2 && (token = tokens[0]).type === "ID" &&
+				support.getById && context.nodeType === 9 && documentIsHTML &&
+				Expr.relative[ tokens[1].type ] ) {
 
-				selector = selector.slice( tokens.shift().value.length );
+			context = ( Expr.find["ID"]( token.matches[0].replace(runescape, funescape), context ) || [] )[0];
+			if ( !context ) {
+				return results;
+
+			// Precompiled matchers will still verify ancestry, so step up a level
+			} else if ( compiled ) {
+				context = context.parentNode;
 			}
 
-			// Fetch a seed set for right-to-left matching
-			i = matchExpr["needsContext"].test( selector ) ? 0 : tokens.length;
-			while ( i-- ) {
-				token = tokens[i];
+			selector = selector.slice( tokens.shift().value.length );
+		}
 
-				// Abort if we hit a combinator
-				if ( Expr.relative[ (type = token.type) ] ) {
-					break;
-				}
-				if ( (find = Expr.find[ type ]) ) {
-					// Search, expanding context for leading sibling combinators
-					if ( (seed = find(
-						token.matches[0].replace( runescape, funescape ),
-						rsibling.test( tokens[0].type ) && context.parentNode || context
-					)) ) {
+		// Fetch a seed set for right-to-left matching
+		i = matchExpr["needsContext"].test( selector ) ? 0 : tokens.length;
+		while ( i-- ) {
+			token = tokens[i];
 
-						// If seed is empty or no tokens remain, we can return early
-						tokens.splice( i, 1 );
-						selector = seed.length && toSelector( tokens );
-						if ( !selector ) {
-							push.apply( results, seed );
-							return results;
-						}
+			// Abort if we hit a combinator
+			if ( Expr.relative[ (type = token.type) ] ) {
+				break;
+			}
+			if ( (find = Expr.find[ type ]) ) {
+				// Search, expanding context for leading sibling combinators
+				if ( (seed = find(
+					token.matches[0].replace( runescape, funescape ),
+					rsibling.test( tokens[0].type ) && testContext( context.parentNode ) || context
+				)) ) {
 
-						break;
+					// If seed is empty or no tokens remain, we can return early
+					tokens.splice( i, 1 );
+					selector = seed.length && toSelector( tokens );
+					if ( !selector ) {
+						push.apply( results, seed );
+						return results;
 					}
+
+					break;
 				}
 			}
 		}
 	}
 
-	// Compile and execute a filtering function
+	// Compile and execute a filtering function if one is not provided
 	// Provide `match` to avoid retokenization if we modified the selector above
-	compile( selector, match )(
+	( compiled || compile( selector, match ) )(
 		seed,
 		context,
 		!documentIsHTML,
 		results,
-		rsibling.test( selector )
+		rsibling.test( selector ) && testContext( context.parentNode ) || context
 	);
 	return results;
-}
+};
 
-// Deprecated
-Expr.pseudos["nth"] = Expr.pseudos["eq"];
+// One-time assignments
 
-// Easy API for creating new setFilters
-function setFilters() {}
-setFilters.prototype = Expr.filters = Expr.pseudos;
-Expr.setFilters = new setFilters();
-
-// Check sort stability
+// Sort stability
 support.sortStable = expando.split("").sort( sortOrder ).join("") === expando;
 
-// Initialize with the default document
+// Support: Chrome 14-35+
+// Always assume duplicates if they aren't passed to the comparison function
+support.detectDuplicates = !!hasDuplicate;
+
+// Initialize against the default document
 setDocument();
 
-// Always assume the presence of duplicates if sort doesn't
-// pass them to our comparison function (as in Google Chrome).
-[0, 0].sort( sortOrder );
-support.detectDuplicates = hasDuplicate;
+// Support: Webkit<537.32 - Safari 6.0.3/Chrome 25 (fixed in Chrome 27)
+// Detached nodes confoundingly follow *each other*
+support.sortDetached = assert(function( div1 ) {
+	// Should return 1, but returns 4 (following)
+	return div1.compareDocumentPosition( document.createElement("div") ) & 1;
+});
 
-/*
-// EXPOSE
-if ( typeof define === "function" && define.amd ) {
-	define(function() { return Sizzle; });
-} else {
-	window.Sizzle = Sizzle;
+// Support: IE<8
+// Prevent attribute/property "interpolation"
+// http://msdn.microsoft.com/en-us/library/ms536429%28VS.85%29.aspx
+if ( !assert(function( div ) {
+	div.innerHTML = "<a href='#'></a>";
+	return div.firstChild.getAttribute("href") === "#" ;
+}) ) {
+	addHandle( "type|href|height|width", function( elem, name, isXML ) {
+		if ( !isXML ) {
+			return elem.getAttribute( name, name.toLowerCase() === "type" ? 1 : 2 );
+		}
+	});
 }
-*/
+
+// Support: IE<9
+// Use defaultValue in place of getAttribute("value")
+if ( !support.attributes || !assert(function( div ) {
+	div.innerHTML = "<input/>";
+	div.firstChild.setAttribute( "value", "" );
+	return div.firstChild.getAttribute( "value" ) === "";
+}) ) {
+	addHandle( "value", function( elem, name, isXML ) {
+		if ( !isXML && elem.nodeName.toLowerCase() === "input" ) {
+			return elem.defaultValue;
+		}
+	});
+}
+
+// Support: IE<9
+// Use getAttributeNode to fetch booleans when getAttribute lies
+if ( !assert(function( div ) {
+	return div.getAttribute("disabled") == null;
+}) ) {
+	addHandle( booleans, function( elem, name, isXML ) {
+		var val;
+		if ( !isXML ) {
+			return elem[ name ] === true ? name.toLowerCase() :
+					(val = elem.getAttributeNode( name )) && val.specified ?
+					val.value :
+				null;
+		}
+	});
+}
 
 // EXPOSE
 return Sizzle;
@@ -2649,10 +2759,13 @@ define("tinymce/util/Tools", [], function() {
 	 * @return {Array} Array object based in input.
 	 */
 	function toArray(obj) {
-		var array = [], i, l;
+		var array = obj, i, l;
 
-		for (i = 0, l = obj.length; i < l; i++) {
-			array[i] = obj[i];
+		if (!isArray(obj)) {
+			array = [];
+			for (i = 0, l = obj.length; i < l; i++) {
+				array[i] = obj[i];
+			}
 		}
 
 		return array;
@@ -3232,9 +3345,6 @@ define("tinymce/Env", [], function() {
  *
  * License: http://www.tinymce.com/license
  * Contributing: http://www.tinymce.com/contributing
- *
- * Some of this logic is based on jQuery code that is released under
- * MIT license that grants us to sublicense it under LGPL.
  */
 
 /**
@@ -3247,7 +3357,6 @@ define("tinymce/Env", [], function() {
  * - Event binding
  *
  * This is not currently implemented:
- * - Offset
  * - Dimension
  * - Ajax
  * - Animation
@@ -3296,8 +3405,10 @@ define("tinymce/dom/DomQuery", [
 		var i;
 
 		if (isString(sourceItem)) {
-			sourceItem = createFragment(sourceItem);
+			sourceItem = createFragment(sourceItem, getElementDocument(targetNodes[0]));
 		} else if (sourceItem.length && !sourceItem.nodeType) {
+			sourceItem = DomQuery.makeArray(sourceItem);
+
 			if (reverse) {
 				for (i = sourceItem.length - 1; i >= 0; i--) {
 					domManipulate(targetNodes, sourceItem[i], callback, reverse);
@@ -3311,9 +3422,11 @@ define("tinymce/dom/DomQuery", [
 			return targetNodes;
 		}
 
-		i = targetNodes.length;
-		while (i--) {
-			callback.call(targetNodes[i], sourceItem.parentNode ? sourceItem : sourceItem);
+		if (sourceItem.nodeType) {
+			i = targetNodes.length;
+			while (i--) {
+				callback.call(targetNodes[i], sourceItem);
+			}
 		}
 
 		return targetNodes;
@@ -3351,62 +3464,11 @@ define("tinymce/dom/DomQuery", [
 		'class': 'className',
 		'readonly': 'readOnly'
 	};
+	var cssFix = {
+		float: 'cssFloat'
+	};
 
-	var attrGetHooks = {}, attrSetHooks = {};
-
-	function appendHooks(target, hooks) {
-		each(hooks, function(key, value) {
-			each(key.split(' '), function() {
-				target[this] = value;
-			});
-		});
-	}
-
-	if (Env.ie && Env.ie <= 7) {
-		appendHooks(attrGetHooks, {
-			maxlength: function(elm, value) {
-				value = elm.maxLength;
-
-				if (value === 0x7fffffff) {
-					return undef;
-				}
-
-				return value;
-			},
-
-			size: function(elm, value) {
-				value = elm.size;
-
-				if (value === 20) {
-					return undef;
-				}
-
-				return value;
-			},
-
-			'class': function(elm) {
-				return elm.className;
-			},
-
-			style: function(elm) {
-				if (elm.style.cssText.length === 0) {
-					return undef;
-				}
-
-				return elm.style.cssText;
-			}
-		});
-
-		appendHooks(attrSetHooks, {
-			'class': function(elm, value) {
-				elm.className = value;
-			},
-
-			style: function(elm, value) {
-				elm.style.cssText = value;
-			}
-		});
-	}
+	var attrHooks = {}, cssHooks = {};
 
 	function DomQuery(selector, context) {
 		/*eslint new-cap:0 */
@@ -3464,6 +3526,30 @@ define("tinymce/dom/DomQuery", [
 		}
 
 		return obj;
+	}
+
+	function grep(array, callback) {
+		var out = [];
+
+		each(array, function(i, item) {
+			if (callback(item, i)) {
+				out.push(item);
+			}
+		});
+
+		return out;
+	}
+
+	function getElementDocument(element) {
+		if (!element) {
+			return doc;
+		}
+
+		if (element.nodeType == 9) {
+			return element;
+		}
+
+		return element.ownerDocument;
 	}
 
 	DomQuery.fn = DomQuery.prototype = {
@@ -3536,14 +3622,18 @@ define("tinymce/dom/DomQuery", [
 
 				if (match) {
 					if (match[1]) {
-						node = createFragment(selector, context).firstChild;
+						node = createFragment(selector, getElementDocument(context)).firstChild;
 
 						while (node) {
 							push.call(self, node);
 							node = node.nextSibling;
 						}
 					} else {
-						node = doc.getElementById(match[2]);
+						node = getElementDocument(context).getElementById(match[2]);
+
+						if (!node) {
+							return self;
+						}
 
 						if (node.id !== match[2]) {
 							return self.find(selector);
@@ -3623,9 +3713,10 @@ define("tinymce/dom/DomQuery", [
 					var hook;
 
 					if (this.nodeType === 1) {
-						hook = attrSetHooks[name];
-						if (hook) {
-							hook(this, value, name);
+						hook = attrHooks[name];
+						if (hook && hook.set) {
+							hook.set(this, value);
+							return;
 						}
 
 						if (value === null) {
@@ -3637,16 +3728,16 @@ define("tinymce/dom/DomQuery", [
 				});
 			} else {
 				if (self[0] && self[0].nodeType === 1) {
+					hook = attrHooks[name];
+					if (hook && hook.get) {
+						return hook.get(self[0], name);
+					}
+
 					if (booleanMap[name]) {
 						return self.prop(name) ? name : undef;
 					}
 
 					value = self[0].getAttribute(name, 2);
-
-					hook = attrGetHooks[name];
-					if (hook) {
-						return hook(self[0], value, name);
-					}
 
 					if (value === null) {
 						value = undef;
@@ -3713,19 +3804,28 @@ define("tinymce/dom/DomQuery", [
 		 * @return {tinymce.dom.DomQuery/String} Current set or the specified style when only the name is specified.
 		 */
 		css: function(name, value) {
-			var self = this;
+			var self = this, elm, hook;
+
+			function camel(name) {
+				return name.replace(/-(\D)/g, function(a, b) {
+					return b.toUpperCase();
+				});
+			}
+
+			function dashed(name) {
+				return name.replace(/[A-Z]/g, function(a) {
+					return '-' + a;
+				});
+			}
 
 			if (typeof name === "object") {
 				each(name, function(name, value) {
 					self.css(name, value);
 				});
 			} else {
-				// Camelcase it, if needed
-				name = name.replace(/-(\D)/g, function(a, b) {
-					return b.toUpperCase();
-				});
-
 				if (isDefined(value)) {
+					name = camel(name);
+
 					// Default px suffix on these
 					if (typeof(value) === 'number' && !numericCssMap[name]) {
 						value += 'px';
@@ -3734,31 +3834,42 @@ define("tinymce/dom/DomQuery", [
 					self.each(function() {
 						var style = this.style;
 
-						// IE specific opacity
-						if (name === "opacity" && this.runtimeStyle && typeof(this.runtimeStyle.opacity) === "undefined") {
-							style.filter = value === '' ? '' : "alpha(opacity=" + (value * 100) + ")";
+						hook = cssHooks[name];
+						if (hook && hook.set) {
+							hook.set(this, value);
+							return;
 						}
 
 						try {
-							style[name] = value;
+							this.style[cssFix[name] || name] = value;
 						} catch (ex) {
 							// Ignore
 						}
+
+						if (value === null || value === '') {
+							if (style.removeProperty) {
+								style.removeProperty(dashed(name));
+							} else {
+								style.removeAttribute(name);
+							}
+						}
 					});
 				} else {
-					if (self.context.defaultView) {
-						// Remove camelcase
-						name = name.replace(/[A-Z]/g, function(a) {
-							return '-' + a;
-						});
+					elm = self[0];
 
+					hook = cssHooks[name];
+					if (hook && hook.get) {
+						return hook.get(elm);
+					}
+
+					if (elm.ownerDocument.defaultView) {
 						try {
-							return self.context.defaultView.getComputedStyle(self[0], null).getPropertyValue(name);
+							return elm.ownerDocument.defaultView.getComputedStyle(elm, null).getPropertyValue(dashed(name));
 						} catch (ex) {
 							return undef;
 						}
-					} else if (self[0].currentStyle) {
-						return self[0].currentStyle[name];
+					} else if (elm.currentStyle) {
+						return elm.currentStyle[camel(name)];
 					}
 				}
 			}
@@ -4010,10 +4121,8 @@ define("tinymce/dom/DomQuery", [
 		 * @return {tinymce.dom.DomQuery} Set with unwrapped nodes.
 		 */
 		unwrap: function() {
-			return this.each(function() {
-				var parentNode = DomQuery(this.parentNode);
-				parentNode.before(parentNode.contents());
-				parentNode.remove();
+			return this.parent().each(function() {
+				DomQuery(this).replaceWith(this.childNodes);
 			});
 		},
 
@@ -4247,10 +4356,16 @@ define("tinymce/dom/DomQuery", [
 		 * Filters the current set with the specified selector.
 		 *
 		 * @method filter
-		 * @param {String} selector Selector to filter elements by.
+		 * @param {String/function} selector Selector to filter elements by.
 		 * @return {tinymce.dom.DomQuery} Set with filtered elements.
 		 */
 		filter: function(selector) {
+			if (typeof selector == 'function') {
+				return DomQuery(grep(this.toArray(), function(item, i) {
+					return selector(i, item);
+				}));
+			}
+
 			return DomQuery(DomQuery.filter(selector, this.toArray()));
 		},
 
@@ -4258,15 +4373,22 @@ define("tinymce/dom/DomQuery", [
 		 * Gets the current node or any partent matching the specified selector.
 		 *
 		 * @method closest
-		 * @param {String} selector Selector to get element by.
+		 * @param {String/Element/tinymce.dom.DomQuery} selector Selector or element to find.
 		 * @return {tinymce.dom.DomQuery} Set with closest elements.
 		 */
 		closest: function(selector) {
 			var result = [];
 
+			if (selector instanceof DomQuery) {
+				selector = selector[0];
+			}
+
 			this.each(function(i, node) {
 				while (node) {
-					if (selector.nodeType && node == selector || DomQuery(node).is(selector)) {
+					if (typeof selector == 'string' && DomQuery(node).is(selector)) {
+						result.push(node);
+						break;
+					} else if (node == selector) {
 						result.push(node);
 						break;
 					}
@@ -4276,6 +4398,40 @@ define("tinymce/dom/DomQuery", [
 			});
 
 			return DomQuery(result);
+		},
+
+		/**
+		 * Returns the offset of the first element in set or sets the top/left css properties of all elements in set.
+		 *
+		 * @method offset
+		 * @param {Object} offset Optional offset object to set on each item.
+		 * @return {Object/tinymce.dom.DomQuery} Returns the first element offset or the current set if you specified an offset.
+		 */
+		offset: function(offset) {
+			var elm, doc, docElm;
+			var x = 0, y = 0, pos;
+
+			if (!offset) {
+				elm = this[0];
+
+				if (elm) {
+					doc = elm.ownerDocument;
+					docElm = doc.documentElement;
+
+					if (elm.getBoundingClientRect) {
+						pos = elm.getBoundingClientRect();
+						x = pos.left + (docElm.scrollLeft || doc.body.scrollLeft) - docElm.clientLeft;
+						y = pos.top + (docElm.scrollTop || doc.body.scrollTop) - docElm.clientTop;
+					}
+				}
+
+				return {
+					left: x,
+					top: y
+				};
+			}
+
+			return this.css(offset);
 		},
 
 		push: push,
@@ -4348,6 +4504,21 @@ define("tinymce/dom/DomQuery", [
 		 */
 		trim: trim,
 
+		/**
+		 * Filters out items from the input array by calling the specified function for each item.
+		 * If the function returns false the item will be excluded if it returns true it will be included.
+		 *
+		 * @static
+		 * @method grep
+		 * @param {Array} array Array of items to loop though.
+		 * @param {function} callback Function to call for each item. Include/exclude depends on it's return value.
+		 * @return {Array} New array with values imported and filtered based in input.
+		 * @example
+		 * // Filter out some items, this will return an array with 4 and 5
+		 * var items = DomQuery.grep([1, 2, 3, 4, 5], function(v) {return v > 3;});
+		 */
+		grep: grep,
+
 		// Sizzle
 		find: Sizzle,
 		expr: Sizzle.selectors,
@@ -4372,7 +4543,21 @@ define("tinymce/dom/DomQuery", [
 	function dir(el, prop, until) {
 		var matched = [], cur = el[prop];
 
-		while (cur && cur.nodeType !== 9 && (until === undefined || cur.nodeType !== 1 || !DomQuery(cur).is(until))) {
+		if (typeof until != 'string' && until instanceof DomQuery) {
+			until = until[0];
+		}
+
+		while (cur && cur.nodeType !== 9) {
+			if (until !== undefined) {
+				if (cur === until) {
+					break;
+				}
+
+				if (typeof until == 'string' && DomQuery(cur).is(until)) {
+					break;
+				}
+			}
+
 			if (cur.nodeType === 1) {
 				matched.push(cur);
 			}
@@ -4386,13 +4571,23 @@ define("tinymce/dom/DomQuery", [
 	function sibling(node, siblingName, nodeType, until) {
 		var result = [];
 
+		if (until instanceof DomQuery) {
+			until = until[0];
+		}
+
 		for (; node; node = node[siblingName]) {
 			if (nodeType && node.nodeType !== nodeType) {
 				continue;
 			}
 
-			if (until && ((until.nodeType && node === until) || (DomQuery(node).is(until)))) {
-				break;
+			if (until !== undefined) {
+				if (node === until) {
+					break;
+				}
+
+				if (typeof until == 'string' && DomQuery(node).is(until)) {
+					break;
+				}
 			}
 
 			result.push(node);
@@ -4437,18 +4632,6 @@ define("tinymce/dom/DomQuery", [
 		},
 
 		/**
-		 * Returns a new collection with the all the parents until the matching selector/element
-		 * of each item in current collection matching the optional selector.
-		 *
-		 * @method parentsUntil
-		 * @param {String/Element} until Until the matching selector or element.
-		 * @return {tinymce.dom.DomQuery} New DomQuery instance with all matching parents.
-		 */
-		parentsUntil: function(node, until) {
-			return dir(node, "parentNode", until);
-		},
-
-		/**
 		 * Returns a new collection with next sibling of each item in current collection matching the optional selector.
 		 *
 		 * @method next
@@ -4468,28 +4651,6 @@ define("tinymce/dom/DomQuery", [
 		 */
 		prev: function(node) {
 			return firstSibling(node, 'previousSibling', 1);
-		},
-
-		/**
-		 * Returns a new collection with all next siblings of each item in current collection matching the optional selector.
-		 *
-		 * @method nextUntil
-		 * @param {String/Element} until Until the matching selector or element.
-		 * @return {tinymce.dom.DomQuery} New DomQuery instance with all matching elements.
-		 */
-		nextUntil: function(node, selector) {
-			return sibling(node, 'nextSibling', 1, selector).slice(1);
-		},
-
-		/**
-		 * Returns a new collection with all previous siblings of each item in current collection matching the optional selector.
-		 *
-		 * @method prevUntil
-		 * @param {String/Element} until Until the matching selector or element.
-		 * @return {tinymce.dom.DomQuery} New DomQuery instance with all matching elements.
-		 */
-		prevUntil: function(node, selector) {
-			return sibling(node, 'previousSibling', 1, selector).slice(1);
 		},
 
 		/**
@@ -4528,16 +4689,88 @@ define("tinymce/dom/DomQuery", [
 				}
 			});
 
-			result = DomQuery.unique(result);
+			// If traversing on multiple elements we might get the same elements twice
+			if (this.length > 1) {
+				result = DomQuery.unique(result);
 
-			if (name.indexOf('parents') === 0 || name === 'prevUntil') {
-				result = result.reverse();
+				if (name.indexOf('parents') === 0) {
+					result = result.reverse();
+				}
 			}
 
 			result = DomQuery(result);
 
-			if (selector && name.indexOf("Until") == -1) {
+			if (selector) {
 				return result.filter(selector);
+			}
+
+			return result;
+		};
+	});
+
+	each({
+		/**
+		 * Returns a new collection with the all the parents until the matching selector/element
+		 * of each item in current collection matching the optional selector.
+		 *
+		 * @method parentsUntil
+		 * @param {String/Element/tinymce.dom.DomQuery} until Until the matching selector or element.
+		 * @return {tinymce.dom.DomQuery} New DomQuery instance with all matching parents.
+		 */
+		parentsUntil: function(node, until) {
+			return dir(node, "parentNode", until);
+		},
+
+		/**
+		 * Returns a new collection with all next siblings of each item in current collection matching the optional selector.
+		 *
+		 * @method nextUntil
+		 * @param {String/Element/tinymce.dom.DomQuery} until Until the matching selector or element.
+		 * @return {tinymce.dom.DomQuery} New DomQuery instance with all matching elements.
+		 */
+		nextUntil: function(node, until) {
+			return sibling(node, 'nextSibling', 1, until).slice(1);
+		},
+
+		/**
+		 * Returns a new collection with all previous siblings of each item in current collection matching the optional selector.
+		 *
+		 * @method prevUntil
+		 * @param {String/Element/tinymce.dom.DomQuery} until Until the matching selector or element.
+		 * @return {tinymce.dom.DomQuery} New DomQuery instance with all matching elements.
+		 */
+		prevUntil: function(node, until) {
+			return sibling(node, 'previousSibling', 1, until).slice(1);
+		}
+	}, function(name, fn) {
+		DomQuery.fn[name] = function(selector, filter) {
+			var self = this, result = [];
+
+			self.each(function() {
+				var nodes = fn.call(result, this, selector, result);
+
+				if (nodes) {
+					if (DomQuery.isArray(nodes)) {
+						result.push.apply(result, nodes);
+					} else {
+						result.push(nodes);
+					}
+				}
+			});
+
+			// If traversing on multiple elements we might get the same elements twice
+			if (this.length > 1) {
+				result = DomQuery.unique(result);
+
+				if (name.indexOf('parents') === 0 || name === 'prevUntil') {
+					result = result.reverse();
+				}
+			}
+
+			result = DomQuery(result);
+
+			if (filter) {
+				return result.filter(filter);
 			}
 
 			return result;
@@ -4562,13 +4795,97 @@ define("tinymce/dom/DomQuery", [
 
 		function jQuerySub(selector, context) {
 			defaults = defaults || callback();
-			return new jQuerySub.fn.init(selector || defaults.element, context || defaults.context);
+
+			if (arguments.length === 0) {
+				selector = defaults.element;
+			}
+
+			if (!context) {
+				context = defaults.context;
+			}
+
+			return new jQuerySub.fn.init(selector, context);
 		}
 
 		DomQuery.extend(jQuerySub, this);
 
 		return jQuerySub;
 	};
+
+	function appendHooks(targetHooks, prop, hooks) {
+		each(hooks, function(name, func) {
+			targetHooks[name] = targetHooks[name] || {};
+			targetHooks[name][prop] = func;
+		});
+	}
+
+	if (Env.ie && Env.ie < 8) {
+		appendHooks(attrHooks, 'get', {
+			maxlength: function(elm) {
+				var value = elm.maxLength;
+
+				if (value === 0x7fffffff) {
+					return undef;
+				}
+
+				return value;
+			},
+
+			size: function(elm) {
+				var value = elm.size;
+
+				if (value === 20) {
+					return undef;
+				}
+
+				return value;
+			},
+
+			'class': function(elm) {
+				return elm.className;
+			},
+
+			style: function(elm) {
+				var value = elm.style.cssText;
+
+				if (value.length === 0) {
+					return undef;
+				}
+
+				return value;
+			}
+		});
+
+		appendHooks(attrHooks, 'set', {
+			'class': function(elm, value) {
+				elm.className = value;
+			},
+
+			style: function(elm, value) {
+				elm.style.cssText = value;
+			}
+		});
+	}
+
+	if (Env.ie && Env.ie < 9) {
+		cssFix.float = 'styleFloat';
+
+		appendHooks(cssHooks, 'set', {
+			opacity: function(elm, value) {
+				var style = elm.style;
+
+				if (value === null || value === '') {
+					style.removeAttribute('filter');
+				} else {
+					style.zoom = 1;
+					style.filter = 'alpha(opacity=' + (value * 100) + ')';
+				}
+			}
+		});
+	}
+
+	DomQuery.attrHooks = attrHooks;
+	DomQuery.cssHooks = cssHooks;
 
 	return DomQuery;
 });
@@ -4955,30 +5272,44 @@ define("tinymce/html/Styles", [], function() {
  * TreeWalker class enables you to walk the DOM in a linear manner.
  *
  * @class tinymce.dom.TreeWalker
+ * @example
+ * var walker = new tinymce.dom.TreeWalker(startNode);
+ *
+ * do {
+ *     console.log(walker.current());
+ * } while (walker.next());
  */
 define("tinymce/dom/TreeWalker", [], function() {
-	return function(start_node, root_node) {
-		var node = start_node;
+	/**
+	 * Constructs a new TreeWalker instance.
+	 *
+	 * @constructor
+	 * @method TreeWalker
+	 * @param {Node} startNode Node to start walking from.
+	 * @param {node} rootNode Optional root node to never walk out of.
+	 */
+	return function(startNode, rootNode) {
+		var node = startNode;
 
-		function findSibling(node, start_name, sibling_name, shallow) {
+		function findSibling(node, startName, siblingName, shallow) {
 			var sibling, parent;
 
 			if (node) {
 				// Walk into nodes if it has a start
-				if (!shallow && node[start_name]) {
-					return node[start_name];
+				if (!shallow && node[startName]) {
+					return node[startName];
 				}
 
 				// Return the sibling if it has one
-				if (node != root_node) {
-					sibling = node[sibling_name];
+				if (node != rootNode) {
+					sibling = node[siblingName];
 					if (sibling) {
 						return sibling;
 					}
 
 					// Walk up the parents to look for siblings
-					for (parent = node.parentNode; parent && parent != root_node; parent = parent.parentNode) {
-						sibling = parent[sibling_name];
+					for (parent = node.parentNode; parent && parent != rootNode; parent = parent.parentNode) {
+						sibling = parent[siblingName];
 						if (sibling) {
 							return sibling;
 						}
@@ -6290,13 +6621,61 @@ define("tinymce/dom/DOMUtils", [
 	"tinymce/Env",
 	"tinymce/util/Tools",
 	"tinymce/dom/StyleSheetLoader"
-], function(Sizzle, DomQuery, Styles, EventUtils, TreeWalker, Range, Entities, Env, Tools, StyleSheetLoader) {
+], function(Sizzle, $, Styles, EventUtils, TreeWalker, Range, Entities, Env, Tools, StyleSheetLoader) {
 	// Shorten names
-	var each = Tools.each, is = Tools.is, grep = Tools.grep, trim = Tools.trim, extend = Tools.extend;
-	var isWebKit = Env.webkit, isIE = Env.ie;
+	var each = Tools.each, is = Tools.is, grep = Tools.grep, trim = Tools.trim;
+	var isIE = Env.ie;
 	var simpleSelectorRe = /^([a-z0-9],?)+$/i;
 	var whiteSpaceRegExp = /^[ \t\r\n]*$/;
-	var numericCssMap = Tools.makeMap('fillOpacity fontWeight lineHeight opacity orphans widows zIndex zoom', ' ');
+
+	function setupAttrHooks(domUtils, settings) {
+		var attrHooks = {}, keepValues = settings.keep_values, keepUrlHook;
+
+		keepUrlHook = {
+			set: function($elm, value, name) {
+				if (settings.url_converter) {
+					value = settings.url_converter.call(settings.url_converter_scope || domUtils, value, name, $elm[0]);
+				}
+
+				$elm.attr('data-mce-' + name, value).attr(name, value);
+			},
+
+			get: function($elm, name) {
+				return $elm.attr('data-mce-' + name) || $elm.attr(name);
+			}
+		};
+
+		attrHooks = {
+			style: {
+				set: function($elm, value) {
+					if (value !== null && typeof value === 'object') {
+						$elm.css(value);
+						return;
+					}
+
+					if (keepValues) {
+						$elm.attr('data-mce-style', value);
+					}
+
+					$elm.attr('style', value);
+				},
+
+				get: function($elm) {
+					var value = $elm.attr('data-mce-style') || $elm.attr('style');
+
+					value = domUtils.serializeStyle(domUtils.parseStyle(value), $elm[0].nodeName);
+
+					return value;
+				}
+			}
+		};
+
+		if (keepValues) {
+			attrHooks.href = attrHooks.src = keepUrlHook;
+		}
+
+		return attrHooks;
+	}
 
 	/**
 	 * Constructs a new DOMUtils instance. Consult the Wiki for more details on settings etc for this class.
@@ -6315,15 +6694,9 @@ define("tinymce/dom/DOMUtils", [
 		self.counter = 0;
 		self.stdMode = !isIE || doc.documentMode >= 8;
 		self.boxModel = !isIE || doc.compatMode == "CSS1Compat" || self.stdMode;
-		self.hasOuterHTML = "outerHTML" in doc.createElement("a");
 		self.styleSheetLoader = new StyleSheetLoader(doc);
-		this.boundEvents = [];
-
-		self.settings = settings = extend({
-			keep_values: false,
-			hex_colors: 1
-		}, settings);
-
+		self.boundEvents = [];
+		self.settings = settings = settings || {};
 		self.schema = settings.schema;
 		self.styles = new Styles({
 			url_converter: settings.url_converter,
@@ -6332,8 +6705,9 @@ define("tinymce/dom/DOMUtils", [
 
 		self.fixDoc(doc);
 		self.events = settings.ownEvents ? new EventUtils(settings.proxy) : EventUtils.Event;
+		self.attrHooks = setupAttrHooks(self, settings);
 		blockElementsMap = settings.schema ? settings.schema.getBlockElements() : {};
-		self.$ = DomQuery.overrideDefaults(function() {
+		self.$ = $.overrideDefaults(function() {
 			return {
 				context: doc,
 				element: self.getRoot()
@@ -6366,21 +6740,15 @@ define("tinymce/dom/DOMUtils", [
 	}
 
 	DOMUtils.prototype = {
-		root: null,
-		props: {
-			"for": "htmlFor",
-			"class": "className",
-			className: "className",
-			checked: "checked",
-			disabled: "disabled",
-			maxlength: "maxLength",
-			readonly: "readOnly",
-			selected: "selected",
-			value: "value",
-			id: "id",
-			name: "name",
-			type: "type"
+		$$: function(elm) {
+			if (typeof elm == 'string') {
+				elm = this.get(elm);
+			}
+
+			return this.$(elm);
 		},
+
+		root: null,
 
 		fixDoc: function(doc) {
 			var settings = this.settings, name;
@@ -6423,19 +6791,7 @@ define("tinymce/dom/DOMUtils", [
 
 				return clone;
 			}
-/*
-			// Setup HTML5 patched document fragment
-			if (!self.frag) {
-				self.frag = doc.createDocumentFragment();
-				self.fixDoc(self.frag);
-			}
 
-			// Make a deep copy by adding it to the document fragment then removing it this removed the :section
-			clone = doc.createElement('div');
-			self.frag.appendChild(clone);
-			clone.innerHTML = node.outerHTML;
-			self.frag.removeChild(clone);
-*/
 			return clone.firstChild;
 		},
 
@@ -6449,7 +6805,7 @@ define("tinymce/dom/DOMUtils", [
 		getRoot: function() {
 			var self = this;
 
-			return self.get(self.settings.root_element) || self.doc.body;
+			return self.settings.root_element || self.doc.body;
 		},
 
 		/**
@@ -6662,8 +7018,8 @@ define("tinymce/dom/DOMUtils", [
 		select: function(selector, scope) {
 			var self = this;
 
-			//Sizzle.selectors.cacheLength = 0;
-			return Sizzle(selector, self.get(scope) || self.get(self.settings.root_element) || self.doc, []);
+			/*eslint new-cap:0 */
+			return Sizzle(selector, self.get(scope) || self.settings.root_element || self.doc, []);
 		},
 
 		/**
@@ -6704,6 +7060,8 @@ define("tinymce/dom/DOMUtils", [
 			}
 
 			var elms = elm.nodeType ? [elm] : elm;
+
+			/*eslint new-cap:0 */
 			return Sizzle(selector, elms[0].ownerDocument || elms[0], null, elms).length > 0;
 		},
 
@@ -6821,7 +7179,7 @@ define("tinymce/dom/DOMUtils", [
 		 *
 		 * @method remove
 		 * @param {String/Element/Array} node ID of element or DOM element object or array containing multiple elements/ids.
-		 * @param {Boolean} keep_children Optional state to keep children or not. If set to true all children will be
+		 * @param {Boolean} keepChildren Optional state to keep children or not. If set to true all children will be
 		 * placed at the location of the removed element.
 		 * @return {Element/Array} HTML DOM element that got removed, or an array of removed elements if multiple input elements
 		 * were passed in.
@@ -6832,27 +7190,26 @@ define("tinymce/dom/DOMUtils", [
 		 * // Removes an element by id in the document
 		 * tinymce.DOM.remove('mydiv');
 		 */
-		remove: function(node, keep_children) {
-			return this.run(node, function(node) {
-				var child, parent = node.parentNode;
+		remove: function(node, keepChildren) {
+			node = this.$$(node);
 
-				if (!parent) {
-					return null;
-				}
+			if (keepChildren) {
+				node.each(function() {
+					var child;
 
-				if (keep_children) {
-					while ((child = node.firstChild)) {
-						// IE 8 will crash if you don't remove completely empty text nodes
-						if (!isIE || child.nodeType !== 3 || child.nodeValue) {
-							parent.insertBefore(child, node);
+					while ((child = this.firstChild)) {
+						if (child.nodeType == 3 && child.data.length === 0) {
+							this.removeChild(child);
 						} else {
-							node.removeChild(child);
+							this.parentNode.insertBefore(child, this);
 						}
 					}
-				}
+				}).remove();
+			} else {
+				node.remove();
+			}
 
-				return parent.removeChild(node);
-			});
+			return node.length > 1 ? node.toArray() : node[0];
 		},
 
 		/**
@@ -6871,50 +7228,11 @@ define("tinymce/dom/DOMUtils", [
 		 * tinymce.DOM.setStyle('mydiv', 'background-color', 'red');
 		 */
 		setStyle: function(elm, name, value) {
-			return this.run(elm, function(elm) {
-				var self = this, style, key;
+			elm = this.$$(elm).css(name, value);
 
-				if (name) {
-					if (typeof(name) === 'string') {
-						style = elm.style;
-
-						// Camelcase it, if needed
-						name = name.replace(/-(\D)/g, function(a, b) {
-							return b.toUpperCase();
-						});
-
-						// Default px suffix on these
-						if (((typeof(value) === 'number') || /^[\-0-9\.]+$/.test(value)) && !numericCssMap[name]) {
-							value += 'px';
-						}
-
-						// IE specific opacity
-						if (name === "opacity" && elm.runtimeStyle && typeof(elm.runtimeStyle.opacity) === "undefined") {
-							style.filter = value === '' ? '' : "alpha(opacity=" + (value * 100) + ")";
-						}
-
-						if (name == "float") {
-							// Old IE vs modern browsers
-							name = "cssFloat" in elm.style ? "cssFloat" : "styleFloat";
-						}
-
-						try {
-							style[name] = value;
-						} catch (ex) {
-							// Ignore IE errors
-						}
-
-						// Force update of the style data
-						if (self.settings.update_styles) {
-							elm.removeAttribute('data-mce-style');
-						}
-					} else {
-						for (key in name) {
-							self.setStyle(elm, key, name[key]);
-						}
-					}
-				}
-			});
+			if (this.settings.update_styles) {
+				elm.attr('data-mce-style', null);
+			}
 		},
 
 		/**
@@ -6927,25 +7245,10 @@ define("tinymce/dom/DOMUtils", [
 		 * @return {String} Current style or computed style value of an element.
 		 */
 		getStyle: function(elm, name, computed) {
-			elm = this.get(elm);
+			elm = this.$$(elm);
 
-			if (!elm) {
-				return;
-			}
-
-			// W3C
-			if (this.doc.defaultView && computed) {
-				// Remove camelcase
-				name = name.replace(/[A-Z]/g, function(a) {
-					return '-' + a;
-				});
-
-				try {
-					return this.doc.defaultView.getComputedStyle(elm, null).getPropertyValue(name);
-				} catch (ex) {
-					// Old safari might fail
-					return null;
-				}
+			if (computed) {
+				return elm.css(name);
 			}
 
 			// Camelcase it, if needed
@@ -6957,12 +7260,7 @@ define("tinymce/dom/DOMUtils", [
 				name = isIE ? 'styleFloat' : 'cssFloat';
 			}
 
-			// IE & Opera
-			if (elm.currentStyle && computed) {
-				return elm.currentStyle[name];
-			}
-
-			return elm.style ? elm.style[name] : undefined;
+			return elm[0] && elm[0].style ? elm[0].style[name] : undefined;
 		},
 
 		/**
@@ -6979,11 +7277,7 @@ define("tinymce/dom/DOMUtils", [
 		 * tinymce.DOM.setStyles('mydiv', {'background-color': 'red', 'color': 'green'});
 		 */
 		setStyles: function(elm, styles) {
-			this.setStyle(elm, styles);
-		},
-
-		css: function(elm, name, value) {
-			this.setStyle(elm, name, value);
+			this.$$(elm).css(styles);
 		},
 
 		/**
@@ -7016,73 +7310,29 @@ define("tinymce/dom/DOMUtils", [
 		 * tinymce.dom.setAttrib('mydiv', 'class', 'myclass');
 		 */
 		setAttrib: function(elm, name, value) {
-			var self = this;
+			var self = this, originalValue, hook, settings = self.settings;
 
-			// What's the point
-			if (!elm || !name) {
-				return;
+			if (value === '') {
+				value = null;
 			}
 
-			return this.run(elm, function(elm) {
-				var settings = self.settings;
-				var originalValue = elm.getAttribute(name);
+			elm = self.$$(elm);
+			originalValue = elm.attr(name);
 
-				if (value !== null) {
-					switch (name) {
-						case "style":
-							if (!is(value, 'string')) {
-								each(value, function(value, name) {
-									self.setStyle(elm, name, value);
-								});
+			hook = self.attrHooks[name];
+			if (hook && hook.set) {
+				hook.set(elm, value, name);
+			} else {
+				elm.attr(name, value);
+			}
 
-								return;
-							}
-
-							// No mce_style for elements with these since they might get resized by the user
-							if (settings.keep_values) {
-								if (value) {
-									elm.setAttribute('data-mce-style', value, 2);
-								} else {
-									elm.removeAttribute('data-mce-style', 2);
-								}
-							}
-
-							elm.style.cssText = value;
-							break;
-
-						case "class":
-							elm.className = value || ''; // Fix IE null bug
-							break;
-
-						case "src":
-						case "href":
-							if (settings.keep_values) {
-								if (settings.url_converter) {
-									value = settings.url_converter.call(settings.url_converter_scope || self, value, name, elm);
-								}
-
-								self.setAttrib(elm, 'data-mce-' + name, value, 2);
-							}
-
-							break;
-
-						case "shape":
-							elm.setAttribute('data-mce-style', value);
-							break;
-					}
-				}
-
-				if (is(value) && value !== null && value.length !== 0) {
-					elm.setAttribute(name, '' + value, 2);
-				} else {
-					elm.removeAttribute(name, 2);
-				}
-
-				// fire onChangeAttrib event for attributes that have changed
-				if (originalValue != value && settings.onSetAttrib) {
-					settings.onSetAttrib({attrElm: elm, attrName: name, attrValue: value});
-				}
-			});
+			if (originalValue != value && settings.onSetAttrib) {
+				settings.onSetAttrib({
+					attrElm: elm,
+					attrName: name,
+					attrValue: value
+				});
+			}
 		},
 
 		/**
@@ -7101,9 +7351,9 @@ define("tinymce/dom/DOMUtils", [
 		setAttribs: function(elm, attrs) {
 			var self = this;
 
-			return this.run(elm, function(elm) {
+			self.$$(elm).each(function(i, node) {
 				each(attrs, function(value, name) {
-					self.setAttrib(elm, name, value);
+					self.setAttrib(node, name, value);
 				});
 			});
 		},
@@ -7118,139 +7368,22 @@ define("tinymce/dom/DOMUtils", [
 		 * @return {String} Attribute value string, default value or null if the attribute wasn't found.
 		 */
 		getAttrib: function(elm, name, defaultVal) {
-			var value, self = this, undef;
+			var self = this, hook, value;
 
-			elm = self.get(elm);
+			elm = self.$$(elm);
 
-			if (!elm || elm.nodeType !== 1) {
-				return defaultVal === undef ? false : defaultVal;
+			hook = self.attrHooks[name];
+			if (hook && hook.get) {
+				value = hook.get(elm, name);
+			} else {
+				value = elm.attr(name);
 			}
 
-			if (!is(defaultVal)) {
-				defaultVal = '';
+			if (typeof value == 'undefined') {
+				value = defaultVal || '';
 			}
 
-			// Try the mce variant for these
-			if (/^(src|href|style|coords|shape)$/.test(name)) {
-				value = elm.getAttribute("data-mce-" + name);
-
-				if (value) {
-					return value;
-				}
-			}
-
-			if (isIE && self.props[name]) {
-				value = elm[self.props[name]];
-				value = value && value.nodeValue ? value.nodeValue : value;
-			}
-
-			if (!value) {
-				value = elm.getAttribute(name, 2);
-			}
-
-			// Check boolean attribs
-			if (/^(checked|compact|declare|defer|disabled|ismap|multiple|nohref|noshade|nowrap|readonly|selected)$/.test(name)) {
-				if (elm[self.props[name]] === true && value === '') {
-					return name;
-				}
-
-				return value ? name : '';
-			}
-
-			// Inner input elements will override attributes on form elements
-			if (elm.nodeName === "FORM" && elm.getAttributeNode(name)) {
-				return elm.getAttributeNode(name).nodeValue;
-			}
-
-			if (name === 'style') {
-				value = value || elm.style.cssText;
-
-				if (value) {
-					value = self.serializeStyle(self.parseStyle(value), elm.nodeName);
-
-					if (self.settings.keep_values) {
-						elm.setAttribute('data-mce-style', value);
-					}
-				}
-			}
-
-			// Remove Apple and WebKit stuff
-			if (isWebKit && name === "class" && value) {
-				value = value.replace(/(apple|webkit)\-[a-z\-]+/gi, '');
-			}
-
-			// Handle IE issues
-			if (isIE) {
-				switch (name) {
-					case 'rowspan':
-					case 'colspan':
-						// IE returns 1 as default value
-						if (value === 1) {
-							value = '';
-						}
-
-						break;
-
-					case 'size':
-						// IE returns +0 as default value for size
-						if (value === '+0' || value === 20 || value === 0) {
-							value = '';
-						}
-
-						break;
-
-					case 'width':
-					case 'height':
-					case 'vspace':
-					case 'checked':
-					case 'disabled':
-					case 'readonly':
-						if (value === 0) {
-							value = '';
-						}
-
-						break;
-
-					case 'hspace':
-						// IE returns -1 as default value
-						if (value === -1) {
-							value = '';
-						}
-
-						break;
-
-					case 'maxlength':
-					case 'tabindex':
-						// IE returns default value
-						if (value === 32768 || value === 2147483647 || value === '32768') {
-							value = '';
-						}
-
-						break;
-
-					case 'multiple':
-					case 'compact':
-					case 'noshade':
-					case 'nowrap':
-						if (value === 65535) {
-							return name;
-						}
-
-						return defaultVal;
-
-					case 'shape':
-						value = value.toLowerCase();
-						break;
-
-					default:
-						// IE has odd anonymous function for event attributes
-						if (name.indexOf('on') === 0 && value) {
-							value = ('' + value).replace(/^function\s+\w+\(\)\s+\{\s+(.*)\s+\}$/, '$1');
-						}
-				}
-			}
-
-			return (value !== undef && value !== null && value !== '') ? '' + value : defaultVal;
+			return value;
 		},
 
 		/**
@@ -7444,22 +7577,7 @@ define("tinymce/dom/DOMUtils", [
 		 * tinymce.DOM.addClass('mydiv', 'myclass');
 		 */
 		addClass: function(elm, cls) {
-			return this.run(elm, function(elm) {
-				var clsVal;
-
-				if (!cls) {
-					return 0;
-				}
-
-				if (this.hasClass(elm, cls)) {
-					return elm.className;
-				}
-
-				clsVal = this.removeClass(elm, cls);
-				elm.className = clsVal = (clsVal !== '' ? (clsVal + ' ') : '') + cls;
-
-				return clsVal;
-			});
+			this.$$(elm).addClass(cls);
 		},
 
 		/**
@@ -7478,32 +7596,7 @@ define("tinymce/dom/DOMUtils", [
 		 * tinymce.DOM.removeClass('mydiv', 'myclass');
 		 */
 		removeClass: function(elm, cls) {
-			var self = this, re;
-
-			return self.run(elm, function(elm) {
-				var val;
-
-				if (self.hasClass(elm, cls)) {
-					if (!re) {
-						re = new RegExp("(^|\\s+)" + cls + "(\\s+|$)", "g");
-					}
-
-					val = elm.className.replace(re, ' ');
-					val = trim(val != ' ' ? val : '');
-
-					elm.className = val;
-
-					// Empty class attr
-					if (!val) {
-						elm.removeAttribute('class');
-						elm.removeAttribute('className');
-					}
-
-					return val;
-				}
-
-				return elm.className;
-			});
+			this.toggleClass(elm, cls, false);
 		},
 
 		/**
@@ -7515,13 +7608,7 @@ define("tinymce/dom/DOMUtils", [
 		 * @return {Boolean} true/false if the specified element has the specified class.
 		 */
 		hasClass: function(elm, cls) {
-			elm = this.get(elm);
-
-			if (!elm || !cls) {
-				return false;
-			}
-
-			return (' ' + elm.className + ' ').indexOf(' ' + cls + ' ') !== -1;
+			return this.$$(elm).hasClass(cls);
 		},
 
 		/**
@@ -7533,15 +7620,11 @@ define("tinymce/dom/DOMUtils", [
 		 * @param {[type]} state Optional state to set.
 		 */
 		toggleClass: function(elm, cls, state) {
-			state = state === undefined ? !this.hasClass(elm, cls) : state;
-
-			if (this.hasClass(elm, cls) !== state) {
-				if (state) {
-					this.addClass(elm, cls);
-				} else {
-					this.removeClass(elm, cls);
+			this.$$(elm).toggleClass(cls, state).each(function() {
+				if (this.className === '') {
+					$(this).attr('class', null);
 				}
-			}
+			});
 		},
 
 		/**
@@ -7551,7 +7634,7 @@ define("tinymce/dom/DOMUtils", [
 		 * @param {String/Element/Array} elm ID of DOM element or DOM element or array with elements or IDs to show.
 		 */
 		show: function(elm) {
-			return this.setStyle(elm, 'display', 'block');
+			this.$$(elm).show();
 		},
 
 		/**
@@ -7564,7 +7647,7 @@ define("tinymce/dom/DOMUtils", [
 		 * tinymce.DOM.hide('myid');
 		 */
 		hide: function(elm) {
-			return this.setStyle(elm, 'display', 'none');
+			this.$$(elm).hide();
 		},
 
 		/**
@@ -7575,9 +7658,7 @@ define("tinymce/dom/DOMUtils", [
 		 * @return {Boolean} true/false if the element is hidden or not.
 		 */
 		isHidden: function(elm) {
-			elm = this.get(elm);
-
-			return !elm || elm.style.display == 'none' || this.getStyle(elm, 'display') == 'none';
+			return this.$$(elm).css('display') == 'none';
 		},
 
 		/**
@@ -7597,7 +7678,7 @@ define("tinymce/dom/DOMUtils", [
 		 * URLs will get converted, hex color values fixed etc. Check processHTML for details.
 		 *
 		 * @method setHTML
-		 * @param {Element/String/Array} e DOM element, element id string or array of elements/ids to set HTML inside of.
+		 * @param {Element/String/Array} elm DOM element, element id string or array of elements/ids to set HTML inside of.
 		 * @param {String} h HTML content to set as inner HTML of the element.
 		 * @example
 		 * // Sets the inner HTML of all paragraphs in the active editor
@@ -7606,44 +7687,35 @@ define("tinymce/dom/DOMUtils", [
 		 * // Sets the inner HTML of an element by id in the document
 		 * tinymce.DOM.setHTML('mydiv', 'some inner html');
 		 */
-		setHTML: function(element, html) {
-			var self = this;
+		setHTML: function(elm, html) {
+			elm = this.$$(elm);
 
-			return self.run(element, function(element) {
-				if (isIE) {
+			if (isIE) {
+				elm.each(function(i, target) {
+					if (target.canHaveHTML === false) {
+						return;
+					}
+
 					// Remove all child nodes, IE keeps empty text nodes in DOM
-					while (element.firstChild) {
-						element.removeChild(element.firstChild);
+					while (target.firstChild) {
+						target.removeChild(target.firstChild);
 					}
 
 					try {
 						// IE will remove comments from the beginning
 						// unless you padd the contents with something
-						element.innerHTML = '<br />' + html;
-						element.removeChild(element.firstChild);
+						target.innerHTML = '<br>' + html;
+						target.removeChild(target.firstChild);
 					} catch (ex) {
-						// IE sometimes produces an unknown runtime error on innerHTML if it's a block element
-						// within a block element for example a div inside a p
-						// This seems to fix this problem
-
-						// Create new div with HTML contents and a BR in front to keep comments
-						var newElement = self.create('div');
-						newElement.innerHTML = '<br />' + html;
-
-						// Add all children from div to target
-						each(grep(newElement.childNodes), function(node, i) {
-							// Skip br element
-							if (i && element.canHaveHTML) {
-								element.appendChild(node);
-							}
-						});
+						// IE sometimes produces an unknown runtime error on innerHTML if it's a div inside a p
+						$('<div>').html('<br>' + html).contents().slice(1).appendTo(target);
 					}
-				} else {
-					element.innerHTML = html;
-				}
 
-				return html;
-			});
+					return html;
+				});
+			} else {
+				elm.html(html);
+			}
 		},
 
 		/**
@@ -7657,22 +7729,8 @@ define("tinymce/dom/DOMUtils", [
 		 * tinymce.activeEditor.getOuterHTML(tinymce.activeEditor.getBody());
 		 */
 		getOuterHTML: function(elm) {
-			var doc, self = this;
-
-			elm = self.get(elm);
-
-			if (!elm) {
-				return null;
-			}
-
-			if (elm.nodeType === 1 && self.hasOuterHTML) {
-				return elm.outerHTML;
-			}
-
-			doc = (elm.ownerDocument || self.doc).createElement("body");
-			doc.appendChild(elm.cloneNode(true));
-
-			return doc.innerHTML;
+			elm = this.get(elm);
+			return elm.nodeType == 1 ? elm.outerHTML : $('<div>').append($(elm).clone()).html();
 		},
 
 		/**
@@ -7689,44 +7747,15 @@ define("tinymce/dom/DOMUtils", [
 		 * // Sets the outer HTML of an element by id in the document
 		 * tinymce.DOM.setOuterHTML('mydiv', '<div>some html</div>');
 		 */
-		setOuterHTML: function(elm, html, doc) {
+		setOuterHTML: function(elm, html) {
 			var self = this;
 
-			return self.run(elm, function(elm) {
-				function set() {
-					var node, tempElm;
-
-					tempElm = doc.createElement("body");
-					tempElm.innerHTML = html;
-
-					node = tempElm.lastChild;
-					while (node) {
-						self.insertAfter(node.cloneNode(true), elm);
-						node = node.previousSibling;
-					}
-
-					self.remove(elm);
-				}
-
-				// Only set HTML on elements
-				if (elm.nodeType == 1) {
-					doc = doc || elm.ownerDocument || self.doc;
-
-					if (isIE) {
-						try {
-							// Try outerHTML for IE it sometimes produces an unknown runtime error
-							if (elm.nodeType == 1 && self.hasOuterHTML) {
-								elm.outerHTML = html;
-							} else {
-								set();
-							}
-						} catch (ex) {
-							// Fix for unknown runtime error
-							set();
-						}
-					} else {
-						set();
-					}
+			self.$$(elm).each(function() {
+				try {
+					this.outerHTML = html;
+				} catch (ex) {
+					// OuterHTML for IE it sometimes produces an "unknown runtime error"
+					self.remove($(this).html(html), true);
 				}
 			});
 		},
@@ -7757,14 +7786,14 @@ define("tinymce/dom/DOMUtils", [
 		 * @param {Element/String/Array} reference_node Reference element, element id or array of elements to insert after.
 		 * @return {Element/Array} Element that got added or an array with elements.
 		 */
-		insertAfter: function(node, reference_node) {
-			reference_node = this.get(reference_node);
+		insertAfter: function(node, referenceNode) {
+			referenceNode = this.get(referenceNode);
 
 			return this.run(node, function(node) {
 				var parent, nextSibling;
 
-				parent = reference_node.parentNode;
-				nextSibling = reference_node.nextSibling;
+				parent = referenceNode.parentNode;
+				nextSibling = referenceNode.nextSibling;
 
 				if (nextSibling) {
 					parent.insertBefore(node, nextSibling);
@@ -7819,8 +7848,8 @@ define("tinymce/dom/DOMUtils", [
 				newElm = self.create(name);
 
 				// Copy attribs to new block
-				each(self.getAttribs(elm), function(attr_node) {
-					self.setAttrib(newElm, attr_node.nodeName, self.getAttrib(elm, attr_node.nodeName));
+				each(self.getAttribs(elm), function(attrNode) {
+					self.setAttrib(newElm, attrNode.nodeName, self.getAttrib(elm, attrNode.nodeName));
 				});
 
 				// Replace block
@@ -8900,6 +8929,637 @@ define("tinymce/AddOnManager", [
  * });
  */
 
+// Included from: js/tinymce/classes/dom/RangeUtils.js
+
+/**
+ * RangeUtils.js
+ *
+ * Copyright, Moxiecode Systems AB
+ * Released under LGPL License.
+ *
+ * License: http://www.tinymce.com/license
+ * Contributing: http://www.tinymce.com/contributing
+ */
+
+/**
+ * This class contains a few utility methods for ranges.
+ *
+ * @class tinymce.dom.RangeUtils
+ * @private
+ */
+define("tinymce/dom/RangeUtils", [
+	"tinymce/util/Tools",
+	"tinymce/dom/TreeWalker"
+], function(Tools, TreeWalker) {
+	var each = Tools.each;
+
+	function getEndChild(container, index) {
+		var childNodes = container.childNodes;
+
+		index--;
+
+		if (index > childNodes.length - 1) {
+			index = childNodes.length - 1;
+		} else if (index < 0) {
+			index = 0;
+		}
+
+		return childNodes[index] || container;
+	}
+
+	function RangeUtils(dom) {
+		/**
+		 * Walks the specified range like object and executes the callback for each sibling collection it finds.
+		 *
+		 * @method walk
+		 * @param {Object} rng Range like object.
+		 * @param {function} callback Callback function to execute for each sibling collection.
+		 */
+		this.walk = function(rng, callback) {
+			var startContainer = rng.startContainer,
+				startOffset = rng.startOffset,
+				endContainer = rng.endContainer,
+				endOffset = rng.endOffset,
+				ancestor, startPoint,
+				endPoint, node, parent, siblings, nodes;
+
+			// Handle table cell selection the table plugin enables
+			// you to fake select table cells and perform formatting actions on them
+			nodes = dom.select('td.mce-item-selected,th.mce-item-selected');
+			if (nodes.length > 0) {
+				each(nodes, function(node) {
+					callback([node]);
+				});
+
+				return;
+			}
+
+			/**
+			 * Excludes start/end text node if they are out side the range
+			 *
+			 * @private
+			 * @param {Array} nodes Nodes to exclude items from.
+			 * @return {Array} Array with nodes excluding the start/end container if needed.
+			 */
+			function exclude(nodes) {
+				var node;
+
+				// First node is excluded
+				node = nodes[0];
+				if (node.nodeType === 3 && node === startContainer && startOffset >= node.nodeValue.length) {
+					nodes.splice(0, 1);
+				}
+
+				// Last node is excluded
+				node = nodes[nodes.length - 1];
+				if (endOffset === 0 && nodes.length > 0 && node === endContainer && node.nodeType === 3) {
+					nodes.splice(nodes.length - 1, 1);
+				}
+
+				return nodes;
+			}
+
+			/**
+			 * Collects siblings
+			 *
+			 * @private
+			 * @param {Node} node Node to collect siblings from.
+			 * @param {String} name Name of the sibling to check for.
+			 * @return {Array} Array of collected siblings.
+			 */
+			function collectSiblings(node, name, end_node) {
+				var siblings = [];
+
+				for (; node && node != end_node; node = node[name]) {
+					siblings.push(node);
+				}
+
+				return siblings;
+			}
+
+			/**
+			 * Find an end point this is the node just before the common ancestor root.
+			 *
+			 * @private
+			 * @param {Node} node Node to start at.
+			 * @param {Node} root Root/ancestor element to stop just before.
+			 * @return {Node} Node just before the root element.
+			 */
+			function findEndPoint(node, root) {
+				do {
+					if (node.parentNode == root) {
+						return node;
+					}
+
+					node = node.parentNode;
+				} while (node);
+			}
+
+			function walkBoundary(start_node, end_node, next) {
+				var siblingName = next ? 'nextSibling' : 'previousSibling';
+
+				for (node = start_node, parent = node.parentNode; node && node != end_node; node = parent) {
+					parent = node.parentNode;
+					siblings = collectSiblings(node == start_node ? node : node[siblingName], siblingName);
+
+					if (siblings.length) {
+						if (!next) {
+							siblings.reverse();
+						}
+
+						callback(exclude(siblings));
+					}
+				}
+			}
+
+			// If index based start position then resolve it
+			if (startContainer.nodeType == 1 && startContainer.hasChildNodes()) {
+				startContainer = startContainer.childNodes[startOffset];
+			}
+
+			// If index based end position then resolve it
+			if (endContainer.nodeType == 1 && endContainer.hasChildNodes()) {
+				endContainer = getEndChild(endContainer, endOffset);
+			}
+
+			// Same container
+			if (startContainer == endContainer) {
+				return callback(exclude([startContainer]));
+			}
+
+			// Find common ancestor and end points
+			ancestor = dom.findCommonAncestor(startContainer, endContainer);
+
+			// Process left side
+			for (node = startContainer; node; node = node.parentNode) {
+				if (node === endContainer) {
+					return walkBoundary(startContainer, ancestor, true);
+				}
+
+				if (node === ancestor) {
+					break;
+				}
+			}
+
+			// Process right side
+			for (node = endContainer; node; node = node.parentNode) {
+				if (node === startContainer) {
+					return walkBoundary(endContainer, ancestor);
+				}
+
+				if (node === ancestor) {
+					break;
+				}
+			}
+
+			// Find start/end point
+			startPoint = findEndPoint(startContainer, ancestor) || startContainer;
+			endPoint = findEndPoint(endContainer, ancestor) || endContainer;
+
+			// Walk left leaf
+			walkBoundary(startContainer, startPoint, true);
+
+			// Walk the middle from start to end point
+			siblings = collectSiblings(
+				startPoint == startContainer ? startPoint : startPoint.nextSibling,
+				'nextSibling',
+				endPoint == endContainer ? endPoint.nextSibling : endPoint
+			);
+
+			if (siblings.length) {
+				callback(exclude(siblings));
+			}
+
+			// Walk right leaf
+			walkBoundary(endContainer, endPoint);
+		};
+
+		/**
+		 * Splits the specified range at it's start/end points.
+		 *
+		 * @private
+		 * @param {Range/RangeObject} rng Range to split.
+		 * @return {Object} Range position object.
+		 */
+		this.split = function(rng) {
+			var startContainer = rng.startContainer,
+				startOffset = rng.startOffset,
+				endContainer = rng.endContainer,
+				endOffset = rng.endOffset;
+
+			function splitText(node, offset) {
+				return node.splitText(offset);
+			}
+
+			// Handle single text node
+			if (startContainer == endContainer && startContainer.nodeType == 3) {
+				if (startOffset > 0 && startOffset < startContainer.nodeValue.length) {
+					endContainer = splitText(startContainer, startOffset);
+					startContainer = endContainer.previousSibling;
+
+					if (endOffset > startOffset) {
+						endOffset = endOffset - startOffset;
+						startContainer = endContainer = splitText(endContainer, endOffset).previousSibling;
+						endOffset = endContainer.nodeValue.length;
+						startOffset = 0;
+					} else {
+						endOffset = 0;
+					}
+				}
+			} else {
+				// Split startContainer text node if needed
+				if (startContainer.nodeType == 3 && startOffset > 0 && startOffset < startContainer.nodeValue.length) {
+					startContainer = splitText(startContainer, startOffset);
+					startOffset = 0;
+				}
+
+				// Split endContainer text node if needed
+				if (endContainer.nodeType == 3 && endOffset > 0 && endOffset < endContainer.nodeValue.length) {
+					endContainer = splitText(endContainer, endOffset).previousSibling;
+					endOffset = endContainer.nodeValue.length;
+				}
+			}
+
+			return {
+				startContainer: startContainer,
+				startOffset: startOffset,
+				endContainer: endContainer,
+				endOffset: endOffset
+			};
+		};
+
+		/**
+		 * Normalizes the specified range by finding the closest best suitable caret location.
+		 *
+		 * @private
+		 * @param {Range} rng Range to normalize.
+		 * @return {Boolean} True/false if the specified range was normalized or not.
+		 */
+		this.normalize = function(rng) {
+			var normalized, collapsed;
+
+			function normalizeEndPoint(start) {
+				var container, offset, walker, body = dom.getRoot(), node, nonEmptyElementsMap;
+				var directionLeft, isAfterNode;
+
+				function hasBrBeforeAfter(node, left) {
+					var walker = new TreeWalker(node, dom.getParent(node.parentNode, dom.isBlock) || body);
+
+					while ((node = walker[left ? 'prev' : 'next']())) {
+						if (node.nodeName === "BR") {
+							return true;
+						}
+					}
+				}
+
+				function isPrevNode(node, name) {
+					return node.previousSibling && node.previousSibling.nodeName == name;
+				}
+
+				// Walks the dom left/right to find a suitable text node to move the endpoint into
+				// It will only walk within the current parent block or body and will stop if it hits a block or a BR/IMG
+				function findTextNodeRelative(left, startNode) {
+					var walker, lastInlineElement, parentBlockContainer;
+
+					startNode = startNode || container;
+					parentBlockContainer = dom.getParent(startNode.parentNode, dom.isBlock) || body;
+
+					// Lean left before the BR element if it's the only BR within a block element. Gecko bug: #6680
+					// This: <p><br>|</p> becomes <p>|<br></p>
+					if (left && startNode.nodeName == 'BR' && isAfterNode && dom.isEmpty(parentBlockContainer)) {
+						container = startNode.parentNode;
+						offset = dom.nodeIndex(startNode);
+						normalized = true;
+						return;
+					}
+
+					// Walk left until we hit a text node we can move to or a block/br/img
+					walker = new TreeWalker(startNode, parentBlockContainer);
+					while ((node = walker[left ? 'prev' : 'next']())) {
+						// Break if we hit a non content editable node
+						if (dom.getContentEditableParent(node) === "false") {
+							return;
+						}
+
+						// Found text node that has a length
+						if (node.nodeType === 3 && node.nodeValue.length > 0) {
+							container = node;
+							offset = left ? node.nodeValue.length : 0;
+							normalized = true;
+							return;
+						}
+
+						// Break if we find a block or a BR/IMG/INPUT etc
+						if (dom.isBlock(node) || nonEmptyElementsMap[node.nodeName.toLowerCase()]) {
+							return;
+						}
+
+						lastInlineElement = node;
+					}
+
+					// Only fetch the last inline element when in caret mode for now
+					if (collapsed && lastInlineElement) {
+						container = lastInlineElement;
+						normalized = true;
+						offset = 0;
+					}
+				}
+
+				container = rng[(start ? 'start' : 'end') + 'Container'];
+				offset = rng[(start ? 'start' : 'end') + 'Offset'];
+				isAfterNode = container.nodeType == 1 && offset === container.childNodes.length;
+				nonEmptyElementsMap = dom.schema.getNonEmptyElements();
+				directionLeft = start;
+
+				if (container.nodeType == 1 && offset > container.childNodes.length - 1) {
+					directionLeft = false;
+				}
+
+				// If the container is a document move it to the body element
+				if (container.nodeType === 9) {
+					container = dom.getRoot();
+					offset = 0;
+				}
+
+				// If the container is body try move it into the closest text node or position
+				if (container === body) {
+					// If start is before/after a image, table etc
+					if (directionLeft) {
+						node = container.childNodes[offset > 0 ? offset - 1 : 0];
+						if (node) {
+							if (nonEmptyElementsMap[node.nodeName] || node.nodeName == "TABLE") {
+								return;
+							}
+						}
+					}
+
+					// Resolve the index
+					if (container.hasChildNodes()) {
+						offset = Math.min(!directionLeft && offset > 0 ? offset - 1 : offset, container.childNodes.length - 1);
+						container = container.childNodes[offset];
+						offset = 0;
+
+						// Don't walk into elements that doesn't have any child nodes like a IMG
+						if (container.hasChildNodes() && !/TABLE/.test(container.nodeName)) {
+							// Walk the DOM to find a text node to place the caret at or a BR
+							node = container;
+							walker = new TreeWalker(container, body);
+
+							do {
+								// Found a text node use that position
+								if (node.nodeType === 3 && node.nodeValue.length > 0) {
+									offset = directionLeft ? 0 : node.nodeValue.length;
+									container = node;
+									normalized = true;
+									break;
+								}
+
+								// Found a BR/IMG element that we can place the caret before
+								if (nonEmptyElementsMap[node.nodeName.toLowerCase()]) {
+									offset = dom.nodeIndex(node);
+									container = node.parentNode;
+
+									// Put caret after image when moving the end point
+									if (node.nodeName ==  "IMG" && !directionLeft) {
+										offset++;
+									}
+
+									normalized = true;
+									break;
+								}
+							} while ((node = (directionLeft ? walker.next() : walker.prev())));
+						}
+					}
+				}
+
+				// Lean the caret to the left if possible
+				if (collapsed) {
+					// So this: <b>x</b><i>|x</i>
+					// Becomes: <b>x|</b><i>x</i>
+					// Seems that only gecko has issues with this
+					if (container.nodeType === 3 && offset === 0) {
+						findTextNodeRelative(true);
+					}
+
+					// Lean left into empty inline elements when the caret is before a BR
+					// So this: <i><b></b><i>|<br></i>
+					// Becomes: <i><b>|</b><i><br></i>
+					// Seems that only gecko has issues with this.
+					// Special edge case for <p><a>x</a>|<br></p> since we don't want <p><a>x|</a><br></p>
+					if (container.nodeType === 1) {
+						node = container.childNodes[offset];
+
+						// Offset is after the containers last child
+						// then use the previous child for normalization
+						if (!node) {
+							node = container.childNodes[offset - 1];
+						}
+
+						if (node && node.nodeName === 'BR' && !isPrevNode(node, 'A') &&
+							!hasBrBeforeAfter(node) && !hasBrBeforeAfter(node, true)) {
+							findTextNodeRelative(true, node);
+						}
+					}
+				}
+
+				// Lean the start of the selection right if possible
+				// So this: x[<b>x]</b>
+				// Becomes: x<b>[x]</b>
+				if (directionLeft && !collapsed && container.nodeType === 3 && offset === container.nodeValue.length) {
+					findTextNodeRelative(false);
+				}
+
+				// Set endpoint if it was normalized
+				if (normalized) {
+					rng['set' + (start ? 'Start' : 'End')](container, offset);
+				}
+			}
+
+			collapsed = rng.collapsed;
+
+			normalizeEndPoint(true);
+
+			if (!collapsed) {
+				normalizeEndPoint();
+			}
+
+			// If it was collapsed then make sure it still is
+			if (normalized && collapsed) {
+				rng.collapse(true);
+			}
+
+			return normalized;
+		};
+	}
+
+	/**
+	 * Compares two ranges and checks if they are equal.
+	 *
+	 * @static
+	 * @method compareRanges
+	 * @param {DOMRange} rng1 First range to compare.
+	 * @param {DOMRange} rng2 First range to compare.
+	 * @return {Boolean} true/false if the ranges are equal.
+	 */
+	RangeUtils.compareRanges = function(rng1, rng2) {
+		if (rng1 && rng2) {
+			// Compare native IE ranges
+			if (rng1.item || rng1.duplicate) {
+				// Both are control ranges and the selected element matches
+				if (rng1.item && rng2.item && rng1.item(0) === rng2.item(0)) {
+					return true;
+				}
+
+				// Both are text ranges and the range matches
+				if (rng1.isEqual && rng2.isEqual && rng2.isEqual(rng1)) {
+					return true;
+				}
+			} else {
+				// Compare w3c ranges
+				return rng1.startContainer == rng2.startContainer && rng1.startOffset == rng2.startOffset;
+			}
+		}
+
+		return false;
+	};
+
+	return RangeUtils;
+});
+
+// Included from: js/tinymce/classes/NodeChange.js
+
+/**
+ * NodeChange.js
+ *
+ * Copyright, Moxiecode Systems AB
+ * Released under LGPL License.
+ *
+ * License: http://www.tinymce.com/license
+ * Contributing: http://www.tinymce.com/contributing
+ */
+
+/**
+ * This class handles the nodechange event dispatching both manual and though selection change events.
+ *
+ * @class tinymce.NodeChange
+ * @private
+ */
+define("tinymce/NodeChange", [
+	"tinymce/dom/RangeUtils"
+], function(RangeUtils) {
+	return function(editor) {
+		var lastRng, lastPath = [];
+
+		/**
+		 * Returns true/false if the current element path has been changed or not.
+		 *
+		 * @private
+		 * @return {Boolean} True if the element path is the same false if it's not.
+		 */
+		function isSameElementPath(startElm) {
+			var i, currentPath;
+
+			currentPath = editor.$(startElm).parentsUntil(editor.getBody()).add(startElm);
+			if (currentPath.length === lastPath.length) {
+				for (i = currentPath.length; i >= 0; i--) {
+					if (currentPath[i] !== lastPath[i]) {
+						break;
+					}
+				}
+
+				if (i === -1) {
+					lastPath = currentPath;
+					return true;
+				}
+			}
+
+			lastPath = currentPath;
+
+			return false;
+		}
+
+		// Gecko doesn't support the "selectionchange" event
+		if (!('onselectionchange' in editor.getDoc())) {
+			editor.on('NodeChange Click MouseUp KeyUp', function(e) {
+				var nativeRng, fakeRng;
+
+				// Since DOM Ranges mutate on modification
+				// of the DOM we need to clone it's contents
+				nativeRng = editor.selection.getRng();
+				fakeRng = {
+					startContainer: nativeRng.startContainer,
+					startOffset: nativeRng.startOffset,
+					endContainer: nativeRng.endContainer,
+					endOffset: nativeRng.endOffset
+				};
+
+				// Always treat nodechange as a selectionchange since applying
+				// formatting to the current range wouldn't update the range but it's parent
+				if (e.type == 'nodechange' || !RangeUtils.compareRanges(fakeRng, lastRng)) {
+					editor.fire('SelectionChange');
+				}
+
+				lastRng = fakeRng;
+			});
+		}
+
+		// IE has a bug where it fires a selectionchange on right click that has a range at the start of the body
+		// When the contextmenu event fires the selection is located at the right location
+		editor.on('contextmenu', function() {
+			editor.fire('SelectionChange');
+		});
+
+		editor.on('SelectionChange', function() {
+			var startElm = editor.selection.getStart();
+
+			// Selection change might fire when focus is lost so check if the start is still within the body
+			if (!isSameElementPath(startElm) && editor.dom.isChildOf(startElm, editor.getBody())) {
+				editor.nodeChanged({selectionChange: true});
+			}
+		});
+
+		/**
+		 * Distpaches out a onNodeChange event to all observers. This method should be called when you
+		 * need to update the UI states or element path etc.
+		 *
+		 * @method nodeChanged
+		 * @param {Object} args Optional args to pass to NodeChange event handlers.
+		 */
+		this.nodeChanged = function(args) {
+			var selection = editor.selection, node, parents, root;
+
+			// Fix for bug #1896577 it seems that this can not be fired while the editor is loading
+			if (editor.initialized && !editor.settings.disable_nodechange && !editor.settings.readonly) {
+				// Get start node
+				root = editor.getBody();
+				node = selection.getStart() || root;
+				node = node.ownerDocument != editor.getDoc() ? editor.getBody() : node;
+
+				// Edge case for <p>|<img></p>
+				if (node.nodeName == 'IMG' && selection.isCollapsed()) {
+					node = node.parentNode;
+				}
+
+				// Get parents and add them to object
+				parents = [];
+				editor.dom.getParent(node, function(node) {
+					if (node === root) {
+						return true;
+					}
+
+					parents.push(node);
+				});
+
+				args = args || {};
+				args.element = node;
+				args.parents = parents;
+
+				editor.fire('NodeChange', args);
+			}
+		};
+	};
+});
+
 // Included from: js/tinymce/classes/html/Node.js
 
 /**
@@ -9812,16 +10472,16 @@ define("tinymce/html/Schema", [
 
 		// Parses the specified valid_elements string and adds to the current rules
 		// This function is a bit hard to read since it's heavily optimized for speed
-		function addValidElements(valid_elements) {
+		function addValidElements(validElements) {
 			var ei, el, ai, al, matches, element, attr, attrData, elementName, attrName, attrType, attributes, attributesOrder,
 				prefix, outputName, globalAttributes, globalAttributesOrder, key, value,
 				elementRuleRegExp = /^([#+\-])?([^\[!\/]+)(?:\/([^\[!]+))?(?:(!?)\[([^\]]+)\])?$/,
 				attrRuleRegExp = /^([!\-])?(\w+::\w+|[^=:<]+)?(?:([=:<])(.*))?$/,
 				hasPatternsRegExp = /[*?+]/;
 
-			if (valid_elements) {
+			if (validElements) {
 				// Split valid elements into an array with rules
-				valid_elements = split(valid_elements, ',');
+				validElements = split(validElements, ',');
 
 				if (elements['@']) {
 					globalAttributes = elements['@'].attributes;
@@ -9829,9 +10489,9 @@ define("tinymce/html/Schema", [
 				}
 
 				// Loop all rules
-				for (ei = 0, el = valid_elements.length; ei < el; ei++) {
+				for (ei = 0, el = validElements.length; ei < el; ei++) {
 					// Parse element rule
-					matches = elementRuleRegExp.exec(valid_elements[ei]);
+					matches = elementRuleRegExp.exec(validElements[ei]);
 					if (matches) {
 						// Setup local names for matches
 						prefix = matches[1];
@@ -9961,11 +10621,11 @@ define("tinymce/html/Schema", [
 			}
 		}
 
-		function setValidElements(valid_elements) {
+		function setValidElements(validElements) {
 			elements = {};
 			patternElements = [];
 
-			addValidElements(valid_elements);
+			addValidElements(validElements);
 
 			each(schemaItems, function(element, name) {
 				children[name] = element.children;
@@ -9973,14 +10633,14 @@ define("tinymce/html/Schema", [
 		}
 
 		// Adds custom non HTML elements to the schema
-		function addCustomElements(custom_elements) {
+		function addCustomElements(customElements) {
 			var customElementRegExp = /^(~)?(.+)$/;
 
-			if (custom_elements) {
+			if (customElements) {
 				// Flush cached items since we are altering the default maps
 				mapCache.text_block_elements = mapCache.block_elements = null;
 
-				each(split(custom_elements, ','), function(rule) {
+				each(split(customElements, ','), function(rule) {
 					var matches = customElementRegExp.exec(rule),
 						inline = matches[1] === '~',
 						cloneName = inline ? 'span' : 'div',
@@ -10018,11 +10678,11 @@ define("tinymce/html/Schema", [
 		}
 
 		// Adds valid children to the schema object
-		function addValidChildren(valid_children) {
+		function addValidChildren(validChildren) {
 			var childRuleRegExp = /^([+\-]?)(\w+)\[([^\]]+)\]$/;
 
-			if (valid_children) {
-				each(split(valid_children, ','), function(rule) {
+			if (validChildren) {
+				each(split(validChildren, ','), function(rule) {
 					var matches = childRuleRegExp.exec(rule), parent, prefix;
 
 					if (matches) {
@@ -10467,7 +11127,7 @@ define("tinymce/html/SaxParser", [
 		var count = 1, index, matches, tokenRegExp, shortEndedElements;
 
 		shortEndedElements = schema.getShortEndedElements();
-		tokenRegExp = /<([!?\/])?([A-Za-z0-9\-\:\.]+)((?:\s+[^"\'>]+(?:(?:"[^"]*")|(?:\'[^\']*\')|[^>]*))*|\/|\s+)>/g;
+		tokenRegExp = /<([!?\/])?([A-Za-z0-9\-_\:\.]+)((?:\s+[^"\'>]+(?:(?:"[^"]*")|(?:\'[^\']*\')|[^>]*))*|\/|\s+)>/g;
 		tokenRegExp.lastIndex = index = startIndex;
 
 		while ((matches = tokenRegExp.exec(html))) {
@@ -10635,7 +11295,7 @@ define("tinymce/html/SaxParser", [
 				'(?:!DOCTYPE([\\w\\W]*?)>)|' + // DOCTYPE
 				'(?:\\?([^\\s\\/<>]+) ?([\\w\\W]*?)[?/]>)|' + // PI
 				'(?:\\/([^>]+)>)|' + // End element
-				'(?:([A-Za-z0-9\\-\\:\\.]+)((?:\\s+[^"\'>]+(?:(?:"[^"]*")|(?:\'[^\']*\')|[^>]*))*|\\/|\\s+)>)' + // Start element
+				'(?:([A-Za-z0-9\\-_\\:\\.]+)((?:\\s+[^"\'>]+(?:(?:"[^"]*")|(?:\'[^\']*\')|[^>]*))*|\\/|\\s+)>)' + // Start element
 			')', 'g');
 
 			attrRegExp = /([\w:\-]+)(?:\s*=\s*(?:(?:\"((?:[^\"])*)\")|(?:\'((?:[^\'])*)\')|([^>\s]+)))?/g;
@@ -13243,7 +13903,11 @@ define("tinymce/dom/ControlSelection", [
 						ratio = startH / startW;
 						selectedHandle = handle;
 
-						handle.startPos = dom.getPos(handle.elm, rootElement);
+						handle.startPos = {
+							x: targetWidth * handle[0] + selectedElmX,
+							y: targetHeight * handle[1] + selectedElmY
+						};
+
 						startScrollWidth = rootElement.scrollWidth;
 						startScrollHeight = rootElement.scrollHeight;
 
@@ -13366,7 +14030,7 @@ define("tinymce/dom/ControlSelection", [
 			});
 
 			controlElm = e.type == 'mousedown' ? e.target : selection.getNode();
-			controlElm = dom.getParent(controlElm, isIE ? 'table' : 'table,img,hr');
+			controlElm = dom.$(controlElm).closest(isIE ? 'table' : 'table,img,hr')[0];
 
 			if (isChildOrEqual(controlElm, rootElement)) {
 				disableGeckoResize();
@@ -13416,6 +14080,11 @@ define("tinymce/dom/ControlSelection", [
 
 			// Remove native selection and let the magic begin
 			resizeStarted = true;
+			editor.fire('ObjectResizeStart', {
+				target: selectedElm,
+				width: selectedElm.clientWidth,
+				height: selectedElm.clientHeight
+			});
 			editor.getDoc().selection.empty();
 			showResizeRect(target, name, lastMouseDownEvent);
 		}
@@ -13424,6 +14093,7 @@ define("tinymce/dom/ControlSelection", [
 			var target = e.srcElement;
 
 			if (target != selectedElm) {
+				editor.fire('ObjectSelected', {target: target});
 				detachResizeStartListener();
 
 				if (target.id.indexOf('mceResizeHandle') === 0) {
@@ -13504,7 +14174,7 @@ define("tinymce/dom/ControlSelection", [
 					editor.on('mouseup', function(e) {
 						var nodeName = e.target.nodeName;
 
-						if (/^(TABLE|IMG|HR)$/.test(nodeName)) {
+						if (!resizeStarted && /^(TABLE|IMG|HR)$/.test(nodeName)) {
 							editor.selection.select(e.target, nodeName == 'TABLE');
 							editor.nodeChanged();
 						}
@@ -13561,503 +14231,6 @@ define("tinymce/dom/ControlSelection", [
 			destroy: destroy
 		};
 	};
-});
-
-// Included from: js/tinymce/classes/dom/RangeUtils.js
-
-/**
- * RangeUtils.js
- *
- * Copyright, Moxiecode Systems AB
- * Released under LGPL License.
- *
- * License: http://www.tinymce.com/license
- * Contributing: http://www.tinymce.com/contributing
- */
-
-/**
- * This class contains a few utility methods for ranges.
- *
- * @class tinymce.dom.RangeUtils
- * @private
- */
-define("tinymce/dom/RangeUtils", [
-	"tinymce/util/Tools",
-	"tinymce/dom/TreeWalker"
-], function(Tools, TreeWalker) {
-	var each = Tools.each;
-
-	function getEndChild(container, index) {
-		var childNodes = container.childNodes;
-
-		index--;
-
-		if (index > childNodes.length - 1) {
-			index = childNodes.length - 1;
-		} else if (index < 0) {
-			index = 0;
-		}
-
-		return childNodes[index] || container;
-	}
-
-	function RangeUtils(dom) {
-		/**
-		 * Walks the specified range like object and executes the callback for each sibling collection it finds.
-		 *
-		 * @method walk
-		 * @param {Object} rng Range like object.
-		 * @param {function} callback Callback function to execute for each sibling collection.
-		 */
-		this.walk = function(rng, callback) {
-			var startContainer = rng.startContainer,
-				startOffset = rng.startOffset,
-				endContainer = rng.endContainer,
-				endOffset = rng.endOffset,
-				ancestor, startPoint,
-				endPoint, node, parent, siblings, nodes;
-
-			// Handle table cell selection the table plugin enables
-			// you to fake select table cells and perform formatting actions on them
-			nodes = dom.select('td.mce-item-selected,th.mce-item-selected');
-			if (nodes.length > 0) {
-				each(nodes, function(node) {
-					callback([node]);
-				});
-
-				return;
-			}
-
-			/**
-			 * Excludes start/end text node if they are out side the range
-			 *
-			 * @private
-			 * @param {Array} nodes Nodes to exclude items from.
-			 * @return {Array} Array with nodes excluding the start/end container if needed.
-			 */
-			function exclude(nodes) {
-				var node;
-
-				// First node is excluded
-				node = nodes[0];
-				if (node.nodeType === 3 && node === startContainer && startOffset >= node.nodeValue.length) {
-					nodes.splice(0, 1);
-				}
-
-				// Last node is excluded
-				node = nodes[nodes.length - 1];
-				if (endOffset === 0 && nodes.length > 0 && node === endContainer && node.nodeType === 3) {
-					nodes.splice(nodes.length - 1, 1);
-				}
-
-				return nodes;
-			}
-
-			/**
-			 * Collects siblings
-			 *
-			 * @private
-			 * @param {Node} node Node to collect siblings from.
-			 * @param {String} name Name of the sibling to check for.
-			 * @return {Array} Array of collected siblings.
-			 */
-			function collectSiblings(node, name, end_node) {
-				var siblings = [];
-
-				for (; node && node != end_node; node = node[name]) {
-					siblings.push(node);
-				}
-
-				return siblings;
-			}
-
-			/**
-			 * Find an end point this is the node just before the common ancestor root.
-			 *
-			 * @private
-			 * @param {Node} node Node to start at.
-			 * @param {Node} root Root/ancestor element to stop just before.
-			 * @return {Node} Node just before the root element.
-			 */
-			function findEndPoint(node, root) {
-				do {
-					if (node.parentNode == root) {
-						return node;
-					}
-
-					node = node.parentNode;
-				} while (node);
-			}
-
-			function walkBoundary(start_node, end_node, next) {
-				var siblingName = next ? 'nextSibling' : 'previousSibling';
-
-				for (node = start_node, parent = node.parentNode; node && node != end_node; node = parent) {
-					parent = node.parentNode;
-					siblings = collectSiblings(node == start_node ? node : node[siblingName], siblingName);
-
-					if (siblings.length) {
-						if (!next) {
-							siblings.reverse();
-						}
-
-						callback(exclude(siblings));
-					}
-				}
-			}
-
-			// If index based start position then resolve it
-			if (startContainer.nodeType == 1 && startContainer.hasChildNodes()) {
-				startContainer = startContainer.childNodes[startOffset];
-			}
-
-			// If index based end position then resolve it
-			if (endContainer.nodeType == 1 && endContainer.hasChildNodes()) {
-				endContainer = getEndChild(endContainer, endOffset);
-			}
-
-			// Same container
-			if (startContainer == endContainer) {
-				return callback(exclude([startContainer]));
-			}
-
-			// Find common ancestor and end points
-			ancestor = dom.findCommonAncestor(startContainer, endContainer);
-
-			// Process left side
-			for (node = startContainer; node; node = node.parentNode) {
-				if (node === endContainer) {
-					return walkBoundary(startContainer, ancestor, true);
-				}
-
-				if (node === ancestor) {
-					break;
-				}
-			}
-
-			// Process right side
-			for (node = endContainer; node; node = node.parentNode) {
-				if (node === startContainer) {
-					return walkBoundary(endContainer, ancestor);
-				}
-
-				if (node === ancestor) {
-					break;
-				}
-			}
-
-			// Find start/end point
-			startPoint = findEndPoint(startContainer, ancestor) || startContainer;
-			endPoint = findEndPoint(endContainer, ancestor) || endContainer;
-
-			// Walk left leaf
-			walkBoundary(startContainer, startPoint, true);
-
-			// Walk the middle from start to end point
-			siblings = collectSiblings(
-				startPoint == startContainer ? startPoint : startPoint.nextSibling,
-				'nextSibling',
-				endPoint == endContainer ? endPoint.nextSibling : endPoint
-			);
-
-			if (siblings.length) {
-				callback(exclude(siblings));
-			}
-
-			// Walk right leaf
-			walkBoundary(endContainer, endPoint);
-		};
-
-		/**
-		 * Splits the specified range at it's start/end points.
-		 *
-		 * @private
-		 * @param {Range/RangeObject} rng Range to split.
-		 * @return {Object} Range position object.
-		 */
-		this.split = function(rng) {
-			var startContainer = rng.startContainer,
-				startOffset = rng.startOffset,
-				endContainer = rng.endContainer,
-				endOffset = rng.endOffset;
-
-			function splitText(node, offset) {
-				return node.splitText(offset);
-			}
-
-			// Handle single text node
-			if (startContainer == endContainer && startContainer.nodeType == 3) {
-				if (startOffset > 0 && startOffset < startContainer.nodeValue.length) {
-					endContainer = splitText(startContainer, startOffset);
-					startContainer = endContainer.previousSibling;
-
-					if (endOffset > startOffset) {
-						endOffset = endOffset - startOffset;
-						startContainer = endContainer = splitText(endContainer, endOffset).previousSibling;
-						endOffset = endContainer.nodeValue.length;
-						startOffset = 0;
-					} else {
-						endOffset = 0;
-					}
-				}
-			} else {
-				// Split startContainer text node if needed
-				if (startContainer.nodeType == 3 && startOffset > 0 && startOffset < startContainer.nodeValue.length) {
-					startContainer = splitText(startContainer, startOffset);
-					startOffset = 0;
-				}
-
-				// Split endContainer text node if needed
-				if (endContainer.nodeType == 3 && endOffset > 0 && endOffset < endContainer.nodeValue.length) {
-					endContainer = splitText(endContainer, endOffset).previousSibling;
-					endOffset = endContainer.nodeValue.length;
-				}
-			}
-
-			return {
-				startContainer: startContainer,
-				startOffset: startOffset,
-				endContainer: endContainer,
-				endOffset: endOffset
-			};
-		};
-
-		/**
-		 * Normalizes the specified range by finding the closest best suitable caret location.
-		 *
-		 * @private
-		 * @param {Range} rng Range to normalize.
-		 * @return {Boolean} True/false if the specified range was normalized or not.
-		 */
-		this.normalize = function(rng) {
-			var normalized, collapsed;
-
-			function normalizeEndPoint(start) {
-				var container, offset, walker, body = dom.getRoot(), node, nonEmptyElementsMap;
-				var directionLeft, isAfterNode;
-
-				function hasBrBeforeAfter(node, left) {
-					var walker = new TreeWalker(node, dom.getParent(node.parentNode, dom.isBlock) || body);
-
-					while ((node = walker[left ? 'prev' : 'next']())) {
-						if (node.nodeName === "BR") {
-							return true;
-						}
-					}
-				}
-
-				function isPrevNode(node, name) {
-					return node.previousSibling && node.previousSibling.nodeName == name;
-				}
-
-				// Walks the dom left/right to find a suitable text node to move the endpoint into
-				// It will only walk within the current parent block or body and will stop if it hits a block or a BR/IMG
-				function findTextNodeRelative(left, startNode) {
-					var walker, lastInlineElement, parentBlockContainer;
-
-					startNode = startNode || container;
-					parentBlockContainer = dom.getParent(startNode.parentNode, dom.isBlock) || body;
-
-					// Lean left before the BR element if it's the only BR within a block element. Gecko bug: #6680
-					// This: <p><br>|</p> becomes <p>|<br></p>
-					if (left && startNode.nodeName == 'BR' && isAfterNode && dom.isEmpty(parentBlockContainer)) {
-						container = startNode.parentNode;
-						offset = dom.nodeIndex(startNode);
-						normalized = true;
-						return;
-					}
-
-					// Walk left until we hit a text node we can move to or a block/br/img
-					walker = new TreeWalker(startNode, parentBlockContainer);
-					while ((node = walker[left ? 'prev' : 'next']())) {
-						// Break if we hit a non content editable node
-						if (dom.getContentEditableParent(node) === "false") {
-							return;
-						}
-
-						// Found text node that has a length
-						if (node.nodeType === 3 && node.nodeValue.length > 0) {
-							container = node;
-							offset = left ? node.nodeValue.length : 0;
-							normalized = true;
-							return;
-						}
-
-						// Break if we find a block or a BR/IMG/INPUT etc
-						if (dom.isBlock(node) || nonEmptyElementsMap[node.nodeName.toLowerCase()]) {
-							return;
-						}
-
-						lastInlineElement = node;
-					}
-
-					// Only fetch the last inline element when in caret mode for now
-					if (collapsed && lastInlineElement) {
-						container = lastInlineElement;
-						normalized = true;
-						offset = 0;
-					}
-				}
-
-				container = rng[(start ? 'start' : 'end') + 'Container'];
-				offset = rng[(start ? 'start' : 'end') + 'Offset'];
-				isAfterNode = container.nodeType == 1 && offset === container.childNodes.length;
-				nonEmptyElementsMap = dom.schema.getNonEmptyElements();
-				directionLeft = start;
-
-				if (container.nodeType == 1 && offset > container.childNodes.length - 1) {
-					directionLeft = false;
-				}
-
-				// If the container is a document move it to the body element
-				if (container.nodeType === 9) {
-					container = dom.getRoot();
-					offset = 0;
-				}
-
-				// If the container is body try move it into the closest text node or position
-				if (container === body) {
-					// If start is before/after a image, table etc
-					if (directionLeft) {
-						node = container.childNodes[offset > 0 ? offset - 1 : 0];
-						if (node) {
-							if (nonEmptyElementsMap[node.nodeName] || node.nodeName == "TABLE") {
-								return;
-							}
-						}
-					}
-
-					// Resolve the index
-					if (container.hasChildNodes()) {
-						offset = Math.min(!directionLeft && offset > 0 ? offset - 1 : offset, container.childNodes.length - 1);
-						container = container.childNodes[offset];
-						offset = 0;
-
-						// Don't walk into elements that doesn't have any child nodes like a IMG
-						if (container.hasChildNodes() && !/TABLE/.test(container.nodeName)) {
-							// Walk the DOM to find a text node to place the caret at or a BR
-							node = container;
-							walker = new TreeWalker(container, body);
-
-							do {
-								// Found a text node use that position
-								if (node.nodeType === 3 && node.nodeValue.length > 0) {
-									offset = directionLeft ? 0 : node.nodeValue.length;
-									container = node;
-									normalized = true;
-									break;
-								}
-
-								// Found a BR/IMG element that we can place the caret before
-								if (nonEmptyElementsMap[node.nodeName.toLowerCase()]) {
-									offset = dom.nodeIndex(node);
-									container = node.parentNode;
-
-									// Put caret after image when moving the end point
-									if (node.nodeName ==  "IMG" && !directionLeft) {
-										offset++;
-									}
-
-									normalized = true;
-									break;
-								}
-							} while ((node = (directionLeft ? walker.next() : walker.prev())));
-						}
-					}
-				}
-
-				// Lean the caret to the left if possible
-				if (collapsed) {
-					// So this: <b>x</b><i>|x</i>
-					// Becomes: <b>x|</b><i>x</i>
-					// Seems that only gecko has issues with this
-					if (container.nodeType === 3 && offset === 0) {
-						findTextNodeRelative(true);
-					}
-
-					// Lean left into empty inline elements when the caret is before a BR
-					// So this: <i><b></b><i>|<br></i>
-					// Becomes: <i><b>|</b><i><br></i>
-					// Seems that only gecko has issues with this.
-					// Special edge case for <p><a>x</a>|<br></p> since we don't want <p><a>x|</a><br></p>
-					if (container.nodeType === 1) {
-						node = container.childNodes[offset];
-
-						// Offset is after the containers last child
-						// then use the previous child for normalization
-						if (!node) {
-							node = container.childNodes[offset - 1];
-						}
-
-						if (node && node.nodeName === 'BR' && !isPrevNode(node, 'A') &&
-							!hasBrBeforeAfter(node) && !hasBrBeforeAfter(node, true)) {
-							findTextNodeRelative(true, node);
-						}
-					}
-				}
-
-				// Lean the start of the selection right if possible
-				// So this: x[<b>x]</b>
-				// Becomes: x<b>[x]</b>
-				if (directionLeft && !collapsed && container.nodeType === 3 && offset === container.nodeValue.length) {
-					findTextNodeRelative(false);
-				}
-
-				// Set endpoint if it was normalized
-				if (normalized) {
-					rng['set' + (start ? 'Start' : 'End')](container, offset);
-				}
-			}
-
-			collapsed = rng.collapsed;
-
-			normalizeEndPoint(true);
-
-			if (!collapsed) {
-				normalizeEndPoint();
-			}
-
-			// If it was collapsed then make sure it still is
-			if (normalized && collapsed) {
-				rng.collapse(true);
-			}
-
-			return normalized;
-		};
-	}
-
-	/**
-	 * Compares two ranges and checks if they are equal.
-	 *
-	 * @static
-	 * @method compareRanges
-	 * @param {DOMRange} rng1 First range to compare.
-	 * @param {DOMRange} rng2 First range to compare.
-	 * @return {Boolean} true/false if the ranges are equal.
-	 */
-	RangeUtils.compareRanges = function(rng1, rng2) {
-		if (rng1 && rng2) {
-			// Compare native IE ranges
-			if (rng1.item || rng1.duplicate) {
-				// Both are control ranges and the selected element matches
-				if (rng1.item && rng2.item && rng1.item(0) === rng2.item(0)) {
-					return true;
-				}
-
-				// Both are text ranges and the range matches
-				if (rng1.isEqual && rng2.isEqual && rng2.isEqual(rng1)) {
-					return true;
-				}
-			} else {
-				// Compare w3c ranges
-				return rng1.startContainer == rng2.startContainer && rng1.startOffset == rng2.startOffset;
-			}
-		}
-
-		return false;
-	};
-
-	return RangeUtils;
 });
 
 // Included from: js/tinymce/classes/dom/BookmarkManager.js
@@ -14886,9 +15059,9 @@ define("tinymce/dom/Selection", [
 		 * Collapse the selection to start or end of range.
 		 *
 		 * @method collapse
-		 * @param {Boolean} to_start Optional boolean state if to collapse to end or not. Defaults to start.
+		 * @param {Boolean} toStart Optional boolean state if to collapse to end or not. Defaults to start.
 		 */
-		collapse: function(to_start) {
+		collapse: function(toStart) {
 			var self = this, rng = self.getRng(), node;
 
 			// Control range on IE
@@ -14898,7 +15071,7 @@ define("tinymce/dom/Selection", [
 				rng.moveToElementText(node);
 			}
 
-			rng.collapse(!!to_start);
+			rng.collapse(!!toStart);
 			self.setRng(rng);
 		},
 
@@ -16043,62 +16216,6 @@ define("tinymce/Formatter", [
 				return rng;
 			}
 
-			function applyStyleToList(node, bookmark, wrapElm, newWrappers, process) {
-				var nodes = [], listIndex = -1, list, startIndex = -1, endIndex = -1, currentWrapElm;
-
-				// find the index of the first child list.
-				each(node.childNodes, function(n, index) {
-					if (n.nodeName === "UL" || n.nodeName === "OL") {
-						listIndex = index;
-						list = n;
-						return false;
-					}
-				});
-
-				// get the index of the bookmarks
-				each(node.childNodes, function(n, index) {
-					if (isBookmarkNode(n)) {
-						if (n.id == bookmark.id + "_start") {
-							startIndex = index;
-						} else if (n.id == bookmark.id + "_end") {
-							endIndex = index;
-						}
-					}
-				});
-
-				// if the selection spans across an embedded list, or there isn't an embedded list - handle processing normally
-				if (listIndex <= 0 || (startIndex < listIndex && endIndex > listIndex)) {
-					each(grep(node.childNodes), process);
-					return 0;
-				} else {
-					currentWrapElm = dom.clone(wrapElm, FALSE);
-
-					// create a list of the nodes on the same side of the list as the selection
-					each(grep(node.childNodes), function(n, index) {
-						if ((startIndex < listIndex && index < listIndex) || (startIndex > listIndex && index > listIndex)) {
-							nodes.push(n);
-							n.parentNode.removeChild(n);
-						}
-					});
-
-					// insert the wrapping element either before or after the list.
-					if (startIndex < listIndex) {
-						node.insertBefore(currentWrapElm, list);
-					} else if (startIndex > listIndex) {
-						node.insertBefore(currentWrapElm, list.nextSibling);
-					}
-
-					// add the new nodes to the list.
-					newWrappers.push(currentWrapElm);
-
-					each(nodes, function(node) {
-						currentWrapElm.appendChild(node);
-					});
-
-					return currentWrapElm;
-				}
-			}
-
 			function applyRngStyle(rng, bookmark, node_specific) {
 				var newWrappers = [], wrapName, wrapElm, contentEditable = true;
 
@@ -16195,10 +16312,6 @@ define("tinymce/Formatter", [
 							}
 
 							currentWrapElm.appendChild(node);
-						} else if (nodeName == 'li' && bookmark) {
-							// Start wrapping - if we are in a list node and have a bookmark, then
-							// we will always begin by wrapping in a new element.
-							currentWrapElm = applyStyleToList(node, bookmark, wrapElm, newWrappers, process);
 						} else {
 							// Start a new wrapper for possible children
 							currentWrapElm = 0;
@@ -16463,12 +16576,12 @@ define("tinymce/Formatter", [
 				return formatRoot;
 			}
 
-			function wrapAndSplit(format_root, container, target, split) {
+			function wrapAndSplit(formatRoot, container, target, split) {
 				var parent, clone, lastClone, firstClone, i, formatRootParent;
 
 				// Format root found then clone formats and split it
-				if (format_root) {
-					formatRootParent = format_root.parentNode;
+				if (formatRoot) {
+					formatRootParent = formatRoot.parentNode;
 
 					for (parent = container.parentNode; parent && parent != formatRootParent; parent = parent.parentNode) {
 						clone = dom.clone(parent, FALSE);
@@ -16495,8 +16608,8 @@ define("tinymce/Formatter", [
 					}
 
 					// Never split block elements if the format is mixed
-					if (split && (!format.mixed || !isBlock(format_root))) {
-						container = dom.split(format_root, container);
+					if (split && (!format.mixed || !isBlock(formatRoot))) {
+						container = dom.split(formatRoot, container);
 					}
 
 					// Wrap container in cloned formats
@@ -16859,6 +16972,11 @@ define("tinymce/Formatter", [
 
 				ed.on('NodeChange', function(e) {
 					var parents = getParents(e.element), matchedFormats = {};
+
+					// Ignore bogus nodes like the <a> tag created by moveStart()
+					parents = Tools.grep(parents, function(node) {
+						return !node.getAttribute('data-mce-bogus');
+					});
 
 					// Check for new formats
 					each(formatChangeData, function(callbacks, format) {
@@ -18044,7 +18162,7 @@ define("tinymce/Formatter", [
 					if (node.nodeType == 3 && !isWhiteSpaceNode(node)) {
 						// IE has a "neat" feature where it moves the start node into the closest element
 						// we can avoid this by inserting an element before it and then remove it after we set the selection
-						tmpNode = dom.create('a', null, INVISIBLE_CHAR);
+						tmpNode = dom.create('a', {'data-mce-bogus': 'all'}, INVISIBLE_CHAR);
 						node.parentNode.insertBefore(tmpNode, node);
 
 						// Set selection and remove tmpNode
@@ -18229,38 +18347,6 @@ define("tinymce/UndoManager", [
 				editor.nodeChanged();
 			}
 		});
-
-		// Selection range isn't updated until after the click events default handler is executed
-		// so we need to wait for the selection to update on Gecko/WebKit it happens right away.
-		// On IE it might take a while so we listen for the SelectionChange event.
-		//
-		// We can't use the SelectionChange on all browsers event since Gecko doesn't support that.
-		if (Env.ie) {
-			editor.on('MouseUp', function(e) {
-				if (!e.isDefaultPrevented()) {
-					editor.once('SelectionChange', function() {
-						// Selection change might fire when focus is lost
-						if (editor.dom.isChildOf(editor.selection.getStart(), editor.getBody())) {
-							editor.nodeChanged();
-						}
-					});
-
-					editor.nodeChanged();
-				}
-			});
-		} else {
-			editor.on('MouseUp', function() {
-				editor.nodeChanged();
-			});
-
-			editor.on('Click', function(e) {
-				if (!e.isDefaultPrevented()) {
-					setTimeout(function() {
-						editor.nodeChanged();
-					}, 0);
-				}
-			});
-		}
 
 		self = {
 			// Explose for debugging reasons
@@ -23482,7 +23568,13 @@ define("tinymce/ui/KeyboardNavigation", [
 	return function(settings) {
 		var root = settings.root, focusedElement, focusedControl;
 
-		focusedElement = document.activeElement;
+		try {
+			focusedElement = document.activeElement;
+		} catch (ex) {
+			// IE sometimes fails to return a proper element
+			focusedElement = document.body;
+		}
+
 		focusedControl = root.getParentCtrl(focusedElement);
 
 		/**
@@ -25858,44 +25950,41 @@ define("tinymce/ui/MessageBox", [
 			msgBox: function(settings) {
 				var buttons, callback = settings.callback || function() {};
 
+				function createButton(text, status, primary) {
+					return {
+						type: "button",
+						text: text,
+						subtype: primary ? 'primary' : '',
+						onClick: function(e) {
+							e.control.parents()[1].close();
+							callback(status);
+						}
+					};
+				}
+
 				switch (settings.buttons) {
 					case MessageBox.OK_CANCEL:
 						buttons = [
-							{type: "button", text: "Ok", subtype: "primary", onClick: function(e) {
-								e.control.parents()[1].close();
-								callback(true);
-							}},
-
-							{type: "button", text: "Cancel", onClick: function(e) {
-								e.control.parents()[1].close();
-								callback(false);
-							}}
+							createButton('Ok', true, true),
+							createButton('Cancel', false)
 						];
 						break;
 
 					case MessageBox.YES_NO:
-						buttons = [
-							{type: "button", text: "Ok", subtype: "primary", onClick: function(e) {
-								e.control.parents()[1].close();
-								callback(true);
-							}}
-						];
-						break;
-
 					case MessageBox.YES_NO_CANCEL:
 						buttons = [
-							{type: "button", text: "Ok", subtype: "primary", onClick: function(e) {
-								e.control.parents()[1].close();
-							}}
+							createButton('Yes', 1, true),
+							createButton('No', 0)
 						];
+
+						if (settings.buttons == MessageBox.YES_NO_CANCEL) {
+							buttons.push(createButton('Cancel', -1));
+						}
 						break;
 
 					default:
 						buttons = [
-							{type: "button", text: "Ok", subtype: "primary", onClick: function(e) {
-								e.control.parents()[1].close();
-								callback(true);
-							}}
+							createButton('Ok', true, true)
 						];
 						break;
 				}
@@ -26707,8 +26796,6 @@ define("tinymce/util/Quirks", [
 				if (e.nodeName == 'A' && dom.hasClass(e, 'mce-item-anchor')) {
 					selection.select(e);
 				}
-
-				editor.nodeChanged();
 			});
 		}
 
@@ -27338,6 +27425,26 @@ define("tinymce/util/Quirks", [
 			});
 		}
 
+		/**
+		 * Sometimes WebKit/Blink generates BR elements with the Apple-interchange-newline class.
+		 *
+		 * Scenario:
+		 *  1) Create a table 2x2.
+		 *  2) Select and copy cells A2-B2.
+		 *  3) Paste and it will add BR element to table cell.
+		 */
+		function removeAppleInterchangeBrs() {
+			parser.addNodeFilter('br', function(nodes) {
+				var i = nodes.length;
+
+				while (i--) {
+					if (nodes[i].attr('class') == 'Apple-interchange-newline') {
+						nodes[i].remove();
+					}
+				}
+			});
+		}
+
 		// All browsers
 		removeBlockQuoteOnBackSpace();
 		emptyEditorWhenDeleting();
@@ -27351,6 +27458,7 @@ define("tinymce/util/Quirks", [
 			setDefaultBlockType();
 			blockFormSubmitInsideEditor();
 			disableBackspaceIntoATable();
+			removeAppleInterchangeBrs();
 
 			// iOS
 			if (Env.iOS) {
@@ -27830,6 +27938,7 @@ define("tinymce/Editor", [
 	"tinymce/dom/DOMUtils",
 	"tinymce/dom/DomQuery",
 	"tinymce/AddOnManager",
+	"tinymce/NodeChange",
 	"tinymce/html/Node",
 	"tinymce/dom/Serializer",
 	"tinymce/html/Serializer",
@@ -27851,7 +27960,7 @@ define("tinymce/Editor", [
 	"tinymce/EditorObservable",
 	"tinymce/Shortcuts"
 ], function(
-	DOMUtils, DomQuery, AddOnManager, Node, DomSerializer, Serializer,
+	DOMUtils, DomQuery, AddOnManager, NodeChange, Node, DomSerializer, Serializer,
 	Selection, Formatter, UndoManager, EnterKey, ForceBlocks, EditorCommands,
 	URI, ScriptLoader, EventUtils, WindowManager,
 	Schema, DomParser, Quirks, Env, Tools, EditorObservable, Shortcuts
@@ -27923,9 +28032,9 @@ define("tinymce/Editor", [
 			inline_styles: true,
 			convert_fonts_to_spans: true,
 			indent: 'simple',
-			indent_before: 'p,h1,h2,h3,h4,h5,h6,blockquote,div,title,style,pre,script,td,ul,li,area,table,thead,' +
+			indent_before: 'p,h1,h2,h3,h4,h5,h6,blockquote,div,title,style,pre,script,td,ul,ol,li,dl,dt,dd,area,table,thead,' +
 				'tfoot,tbody,tr,section,article,hgroup,aside,figure,option,optgroup,datalist',
-			indent_after: 'p,h1,h2,h3,h4,h5,h6,blockquote,div,title,style,pre,script,td,ul,li,area,table,thead,' +
+			indent_after: 'p,h1,h2,h3,h4,h5,h6,blockquote,div,title,style,pre,script,td,ul,ol,li,dl,dt,dd,area,table,thead,' +
 				'tfoot,tbody,tr,section,article,hgroup,aside,figure,option,optgroup,datalist',
 			validate: true,
 			entity_encoding: 'named',
@@ -28029,6 +28138,10 @@ define("tinymce/Editor", [
 		self.queryStateCommands = {};
 		self.queryValueCommands = {};
 		self.loadedCSS = {};
+
+		if (settings.target) {
+			self.targetElm = settings.target;
+		}
 
 		self.suffix = editorManager.suffix;
 		self.editorManager = editorManager;
@@ -28339,12 +28452,6 @@ define("tinymce/Editor", [
 
 					// Resize editor
 					if (!settings.content_editable) {
-						DOM.setStyles(o.sizeContainer || o.editorContainer, {
-							wi2dth: w,
-							// TODO: Fix this
-							h2eight: h
-						});
-
 						h = (o.iframeHeight || h) + (typeof(h) == 'number' ? (o.deltaHeight || 0) : '');
 						if (h < minHeight) {
 							h = minHeight;
@@ -28422,8 +28529,9 @@ define("tinymce/Editor", [
 				bodyClass = bodyClass[self.id] || '';
 			}
 
-			self.iframeHTML += '</head><body id="' + bodyId + '" class="mce-content-body ' + bodyClass + '" ' +
-				'onload="window.parent.tinymce.get(\'' + self.id + '\').fire(\'load\');"><br></body></html>';
+			self.iframeHTML += '</head><body id="' + bodyId +
+				'" class="mce-content-body ' + bodyClass +
+				'" data-id="' + self.id + '"><br></body></html>';
 
 			/*eslint no-script-url:0 */
 			var domainRelaxUrl = 'javascript:(function(){' +
@@ -28438,14 +28546,14 @@ define("tinymce/Editor", [
 
 			// Create iframe
 			// TODO: ACC add the appropriate description on this.
-			n = DOM.add(o.iframeContainer, 'iframe', {
+			var ifr = DOM.create('iframe', {
 				id: self.id + "_ifr",
-				src: url || 'javascript:""', // Workaround for HTTPS warning in IE6/7
+				//src: url || 'javascript:""', // Workaround for HTTPS warning in IE6/7
 				frameBorder: '0',
 				allowTransparency: "true",
 				title: self.editorManager.translate(
-					"Rich Text Area. Press ALT-F9 for menu. " +
-					"Press ALT-F10 for toolbar. Press ALT-0 for help"
+						"Rich Text Area. Press ALT-F9 for menu. " +
+						"Press ALT-F10 for toolbar. Press ALT-0 for help"
 				),
 				style: {
 					width: '100%',
@@ -28453,6 +28561,15 @@ define("tinymce/Editor", [
 					display: 'block' // Important for Gecko to render the iframe correctly
 				}
 			});
+
+			ifr.onload = function() {
+				ifr.onload = null;
+				self.fire("load");
+			};
+
+			DOM.setAttrib("src", url || 'javascript:""');
+
+			n = DOM.add(o.iframeContainer, ifr);
 
 			// Try accessing the document this will fail on IE when document.domain is set to the same as location.hostname
 			// Then we have to force domain relaxing using the domainRelaxUrl approach very ugly!!
@@ -28465,12 +28582,14 @@ define("tinymce/Editor", [
 			}
 
 			self.contentAreaContainer = o.iframeContainer;
+			self.iframeElement = ifr;
 
 			if (o.editorContainer) {
 				DOM.get(o.editorContainer).style.display = self.orgDisplay;
+				self.hidden = DOM.isHidden(o.editorContainer);
 			}
 
-			DOM.get(self.id).style.display = 'none';
+			self.getElement().style.display = 'none';
 			DOM.setAttrib(self.id, 'aria-hidden', true);
 
 			if (!url) {
@@ -28488,7 +28607,7 @@ define("tinymce/Editor", [
 		 * @private
 		 */
 		initContentBody: function(skipWrite) {
-			var self = this, settings = self.settings, targetElm = DOM.get(self.id), doc = self.getDoc(), body, contentCssText;
+			var self = this, settings = self.settings, targetElm = self.getElement(), doc = self.getDoc(), body, contentCssText;
 
 			// Restore visibility on target element
 			if (!settings.inline) {
@@ -28561,7 +28680,7 @@ define("tinymce/Editor", [
 				hex_colors: settings.force_hex_style_colors,
 				class_filter: settings.class_filter,
 				update_styles: true,
-				root_element: settings.content_editable ? self.id : null,
+				root_element: self.inline ? self.getBody() : null,
 				collect: settings.content_editable,
 				schema: self.schema,
 				onSetAttrib: function(e) {
@@ -28635,7 +28754,7 @@ define("tinymce/Editor", [
 					node = nodes[i];
 
 					if (node.isEmpty(nonEmptyElements)) {
-						node.empty().append(new Node('br', 1)).shortEnded = true;
+						node.append(new Node('br', 1)).shortEnded = true;
 					}
 				}
 			});
@@ -28690,6 +28809,7 @@ define("tinymce/Editor", [
 			self.forceBlocks = new ForceBlocks(self);
 			self.enterKey = new EnterKey(self);
 			self.editorCommands = new EditorCommands(self);
+			self._nodeChangeDispatcher = new NodeChange(self);
 
 			self.fire('PreInit');
 
@@ -28700,7 +28820,7 @@ define("tinymce/Editor", [
 
 			self.fire('PostRender');
 
-			self.quirks = Quirks(self);
+			self.quirks = new Quirks(self);
 
 			if (settings.directionality) {
 				body.dir = settings.directionality;
@@ -28792,13 +28912,13 @@ define("tinymce/Editor", [
 		 * it will also place DOM focus inside the editor.
 		 *
 		 * @method focus
-		 * @param {Boolean} skip_focus Skip DOM focus. Just set is as the active editor.
+		 * @param {Boolean} skipFocus Skip DOM focus. Just set is as the active editor.
 		 */
-		focus: function(skip_focus) {
+		focus: function(skipFocus) {
 			var oed, self = this, selection = self.selection, contentEditable = self.settings.content_editable, rng;
 			var controlElm, doc = self.getDoc(), body;
 
-			if (!skip_focus) {
+			if (!skipFocus) {
 				// Get selected control element
 				rng = selection.getRng();
 				if (rng.item) {
@@ -28975,36 +29095,7 @@ define("tinymce/Editor", [
 		 * @param {Object} args Optional args to pass to NodeChange event handlers.
 		 */
 		nodeChanged: function(args) {
-			var self = this, selection = self.selection, node, parents, root;
-
-			// Fix for bug #1896577 it seems that this can not be fired while the editor is loading
-			if (self.initialized && !self.settings.disable_nodechange && !self.settings.readonly) {
-				// Get start node
-				root = self.getBody();
-				node = selection.getStart() || root;
-				node = ie && node.ownerDocument != self.getDoc() ? self.getBody() : node; // Fix for IE initial state
-
-				// Edge case for <p>|<img></p>
-				if (node.nodeName == 'IMG' && selection.isCollapsed()) {
-					node = node.parentNode;
-				}
-
-				// Get parents and add them to object
-				parents = [];
-				self.dom.getParent(node, function(node) {
-					if (node === root) {
-						return true;
-					}
-
-					parents.push(node);
-				});
-
-				args = args || {};
-				args.element = node;
-				args.parents = parents;
-
-				self.fire('NodeChange', args);
-			}
+			this._nodeChangeDispatcher.nodeChanged(args);
 		},
 
 		/**
@@ -29550,7 +29641,7 @@ define("tinymce/Editor", [
 					content = '<br data-mce-bogus="1">';
 				}
 
-				body.innerHTML = content;
+				self.dom.setHTML(body, content);
 
 				self.fire('SetContent', args);
 			} else {
@@ -29698,7 +29789,11 @@ define("tinymce/Editor", [
 		 * @return {Element} HTML DOM element for the replaced element.
 		 */
 		getElement: function() {
-			return DOM.get(this.settings.content_element || this.id);
+			if (!this.targetElm) {
+				this.targetElm = DOM.get(this.id);
+			}
+
+			return this.targetElm;
 		},
 
 		/**
@@ -29711,7 +29806,7 @@ define("tinymce/Editor", [
 			var self = this, elm;
 
 			if (!self.contentWindow) {
-				elm = DOM.get(self.id + "_ifr");
+				elm = self.iframeElement;
 
 				if (elm) {
 					self.contentWindow = elm.contentWindow;
@@ -29809,12 +29904,10 @@ define("tinymce/Editor", [
 						cls = settings.visual_table_class || 'mce-item-table';
 						value = dom.getAttrib(elm, 'border');
 
-						if (!value || value == '0') {
-							if (self.hasVisual) {
-								dom.addClass(elm, cls);
-							} else {
-								dom.removeClass(elm, cls);
-							}
+						if ((!value || value == '0') && self.hasVisual) {
+							dom.addClass(elm, cls);
+						} else {
+							dom.removeClass(elm, cls);
 						}
 
 						return;
@@ -29824,12 +29917,10 @@ define("tinymce/Editor", [
 							value = dom.getAttrib(elm, 'name') || elm.id;
 							cls = settings.visual_anchor_class || 'mce-item-anchor';
 
-							if (value) {
-								if (self.hasVisual) {
-									dom.addClass(elm, cls);
-								} else {
-									dom.removeClass(elm, cls);
-								}
+							if (value && self.hasVisual) {
+								dom.addClass(elm, cls);
+							} else {
+								dom.removeClass(elm, cls);
 							}
 						}
 
@@ -29940,7 +30031,8 @@ define("tinymce/Editor", [
 			}
 
 			self.contentAreaContainer = self.formElement = self.container = self.editorContainer = null;
-			self.settings.content_element = self.bodyElement = self.contentDocument = self.contentWindow = null;
+			self.bodyElement = self.contentDocument = self.contentWindow = null;
+			self.iframeElement = self.targetElm = null;
 
 			if (self.selection) {
 				self.selection = self.selection.win = self.selection.dom = self.selection.dom.doc = null;
@@ -30155,19 +30247,35 @@ define("tinymce/FocusManager", [
 			editor.on('init', function() {
 				// Gecko/WebKit has ghost selections in iframes and IE only has one selection per browser tab
 				if (editor.inline || Env.ie) {
-					// On other browsers take snapshot on nodechange in inline mode since they have Ghost selections for iframes
-					editor.on('nodechange keyup', function() {
-						var node = document.activeElement;
+					// Use the onbeforedeactivate event when available since it works better see #7023
+					if ("onbeforedeactivate" in document && Env.ie < 9) {
+						editor.dom.bind(editor.getBody(), 'beforedeactivate', function() {
+							try {
+								editor.lastRng = editor.selection.getRng();
+							} catch (ex) {
+								// IE throws "Unexcpected call to method or property access" some times so lets ignore it
+							}
+						});
+					} else {
+						// On other browsers take snapshot on nodechange in inline mode since they have Ghost selections for iframes
+						editor.on('nodechange mouseup keyup', function(e) {
+							var node = getActiveElement();
 
-						// IE 11 reports active element as iframe not body of iframe
-						if (node && node.id == editor.id + '_ifr') {
-							node = editor.getBody();
-						}
+							// Only act on manual nodechanges
+							if (e.type == 'nodechange' && e.selectionChange) {
+								return;
+							}
 
-						if (editor.dom.isChildOf(node, editor.getBody())) {
-							editor.lastRng = editor.selection.getRng();
-						}
-					});
+							// IE 11 reports active element as iframe not body of iframe
+							if (node && node.id == editor.id + '_ifr') {
+								node = editor.getBody();
+							}
+
+							if (editor.dom.isChildOf(node, editor.getBody())) {
+								editor.lastRng = editor.selection.getRng();
+							}
+						});
+					}
 
 					// Handles the issue with WebKit not retaining selection within inline document
 					// If the user releases the mouse out side the body since a mouse up event wont occur on the body
@@ -30245,8 +30353,9 @@ define("tinymce/FocusManager", [
 					var activeEditor = editorManager.activeEditor;
 
 					if (activeEditor && e.target.ownerDocument == document) {
-						// Check to make sure we have a valid selection
-						if (activeEditor.selection) {
+						// Check to make sure we have a valid selection don't update the bookmark if it's
+						// a focusin to the body of the editor see #7025
+						if (activeEditor.selection && e.target != activeEditor.getBody()) {
 							activeEditor.selection.lastFocusBookmark = createBookmark(activeEditor.dom, activeEditor.lastRng);
 						}
 
@@ -30410,7 +30519,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion: '1.0',
+		minorVersion: '1.2',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -30418,7 +30527,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2014-06-18',
+		releaseDate: '2014-07-15',
 
 		/**
 		 * Collection of editor instances.
@@ -30578,26 +30687,27 @@ define("tinymce/EditorManager", [
 				return id;
 			}
 
-			function createEditor(id, settings) {
+			function createEditor(id, settings, targetElm) {
 				if (!purgeDestroyedEditor(self.get(id))) {
 					var editor = new Editor(id, settings, self);
+					editor.targetElm = editor.targetElm || targetElm;
 					editors.push(editor);
 					editor.render();
 				}
 			}
 
-			function execCallback(se, n, s) {
-				var f = se[n];
+			function execCallback(name) {
+				var callback = settings[name];
 
-				if (!f) {
+				if (!callback) {
 					return;
 				}
 
-				return f.apply(s || this, Array.prototype.slice.call(arguments, 2));
+				return callback.apply(self, Array.prototype.slice.call(arguments, 2));
 			}
 
-			function hasClass(n, c) {
-				return c.constructor === RegExp ? c.test(n.className) : DOM.hasClass(n, c);
+			function hasClass(elm, className) {
+				return className.constructor === RegExp ? className.test(elm.className) : DOM.hasClass(elm, className);
 			}
 
 			function readyHandler() {
@@ -30605,13 +30715,13 @@ define("tinymce/EditorManager", [
 
 				DOM.unbind(window, 'ready', readyHandler);
 
-				execCallback(settings, 'onpageload');
+				execCallback('onpageload');
 
 				if (settings.types) {
 					// Process type specific selector
 					each(settings.types, function(type) {
 						each(DOM.select(type.selector), function(elm) {
-							createEditor(createId(elm), extend({}, settings, type));
+							createEditor(createId(elm), extend({}, settings, type), elm);
 						});
 					});
 
@@ -30619,10 +30729,12 @@ define("tinymce/EditorManager", [
 				} else if (settings.selector) {
 					// Process global selector
 					each(DOM.select(settings.selector), function(elm) {
-						createEditor(createId(elm), settings);
+						createEditor(createId(elm), settings, elm);
 					});
 
 					return;
+				} else if (settings.target) {
+					createEditor(createId(settings.target), settings);
 				}
 
 				// Fallback to old setting
@@ -30642,7 +30754,7 @@ define("tinymce/EditorManager", [
 											if (e.name === v) {
 												v = 'mce_editor_' + instanceCounter++;
 												DOM.setAttrib(e, 'id', v);
-												createEditor(v, settings);
+												createEditor(v, settings, e);
 											}
 										});
 									});
@@ -30659,7 +30771,7 @@ define("tinymce/EditorManager", [
 							}
 
 							if (!settings.editor_selector || hasClass(elm, settings.editor_selector)) {
-								createEditor(createId(elm), settings);
+								createEditor(createId(elm), settings, elm);
 							}
 						});
 						break;
@@ -30679,7 +30791,7 @@ define("tinymce/EditorManager", [
 
 								// All done
 								if (l == co) {
-									execCallback(settings, 'oninit');
+									execCallback('oninit');
 								}
 							});
 						} else {
@@ -30688,7 +30800,7 @@ define("tinymce/EditorManager", [
 
 						// All done
 						if (l == co) {
-							execCallback(settings, 'oninit');
+							execCallback('oninit');
 						}
 					});
 				}
@@ -30808,7 +30920,11 @@ define("tinymce/EditorManager", [
 				selector = selector.selector || selector;
 
 				each(DOM.select(selector), function(elm) {
-					self.remove(editors[elm.id]);
+					editor = editors[elm.id];
+
+					if (editor) {
+						self.remove(editor);
+					}
 				});
 
 				return;
@@ -33719,38 +33835,32 @@ define("tinymce/ui/ElementPath", [
 			}
 
 			self.on('select', function(e) {
-				var parents = [], node, body = editor.getBody();
-
 				editor.focus();
-
-				node = editor.selection.getStart();
-				while (node && node != body) {
-					if (!isHidden(node)) {
-						parents.push(node);
-					}
-
-					node = node.parentNode;
-				}
-
-				editor.selection.select(parents[parents.length - 1 - e.index]);
+				editor.selection.select(this.data()[e.index].element);
 				editor.nodeChanged();
 			});
 
 			editor.on('nodeChange', function(e) {
-				var parents = [], selectionParents = e.parents, i = selectionParents.length;
+				var outParents = [], parents = e.parents, i = parents.length;
 
 				while (i--) {
-					if (selectionParents[i].nodeType == 1 && !isHidden(selectionParents[i])) {
+					if (parents[i].nodeType == 1 && !isHidden(parents[i])) {
 						var args = editor.fire('ResolveName', {
-							name: selectionParents[i].nodeName.toLowerCase(),
-							target: selectionParents[i]
+							name: parents[i].nodeName.toLowerCase(),
+							target: parents[i]
 						});
 
-						parents.push({name: args.name});
+						if (!args.isDefaultPrevented()) {
+							outParents.push({name: args.name, element: parents[i]});
+						}
+
+						if (args.isPropagationStopped()) {
+							break;
+						}
 					}
 				}
 
-				self.data(parents);
+				self.data(outParents);
 			});
 
 			return self._super();
