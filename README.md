@@ -26,11 +26,11 @@ Be sure to add to the global group, not the `assets` group. Then run `bundle ins
 
 ```yml
 toolbar:
-  - styleselect | bold italic | link image | undo redo
-  - table | fullscreen
+  - styleselect | bold italic | undo redo
+  - image | link
 plugins:
-  - table
-  - fullscreen
+  - image
+  - link
 ```
 
 The Rails server no longer needs to be restarted when this file is updated in development mode.
@@ -45,7 +45,7 @@ default:
 
 alternate:
   selector: textarea.table-editor
-  toolbar: styleselect | bold italic | link image | undo redo | table
+  toolbar: styleselect | bold italic | undo redo | table
   plugins:
     - table
 ```
