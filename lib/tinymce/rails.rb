@@ -5,6 +5,7 @@ module TinyMCE
     require "tinymce/rails/configuration"
     require "tinymce/rails/configuration_file"
     require "tinymce/rails/helper"
+    require "tinymce/rails/environment" if defined?(Sprockets::Rails::Environment)
 
     def self.configuration
       @configuration ||= ConfigurationFile.new(::Rails.root.join("config/tinymce.yml"))
