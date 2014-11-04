@@ -1,4 +1,4 @@
-// 4.1.5 (2014-09-09)
+// 4.1.6 (2014-10-08)
 
 /**
  * Compiled inline version. (Library mode)
@@ -15255,6 +15255,10 @@ define("tinymce/dom/Selection", [
 		setRng: function(rng, forward) {
 			var self = this, sel;
 
+			if (!rng) {
+				return;
+			}
+
 			// Is IE specific range
 			if (rng.select) {
 				try {
@@ -26772,12 +26776,7 @@ define("tinymce/util/Quirks", [
 		 * This selects the whole body so that backspace/delete logic will delete everything
 		 */
 		function selectAll() {
-			editor.on('keydown', function(e) {
-				if (!isDefaultPrevented(e) && e.keyCode == 65 && VK.metaKeyPressed(e)) {
-					e.preventDefault();
-					editor.execCommand('SelectAll');
-				}
-			});
+			editor.shortcuts.add('ctrl+a', null, 'SelectAll');
 		}
 
 		/**
@@ -28005,7 +28004,7 @@ define("tinymce/Shortcuts", [
 		var self = this, shortcuts = {};
 
 		editor.on('keyup keypress keydown', function(e) {
-			if (e.altKey || e.ctrlKey || e.metaKey) {
+			if ((e.altKey || e.ctrlKey || e.metaKey) && !e.isDefaultPrevented()) {
 				each(shortcuts, function(shortcut) {
 					var ctrlKey = Env.mac ? e.metaKey : e.ctrlKey;
 
@@ -30710,7 +30709,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion: '1.5',
+		minorVersion: '1.6',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -30718,7 +30717,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2014-09-09',
+		releaseDate: '2014-10-08',
 
 		/**
 		 * Collection of editor instances.

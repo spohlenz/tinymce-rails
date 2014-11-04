@@ -1,4 +1,4 @@
-// 4.1.5 (2014-09-09)
+// 4.1.6 (2014-10-08)
 
 /**
  * Compiled inline version. (Library mode)
@@ -81,32 +81,6 @@
 			target[fragments[fragments.length - 1]] = modules[id];
 		}
 	}
-
-// Included from: js/tinymce/classes/dom/Sizzle.jQuery.js
-
-/**
- * Sizzle.jQuery.js
- *
- * Copyright, Moxiecode Systems AB
- * Released under LGPL License.
- *
- * License: http://www.tinymce.com/license
- * Contributing: http://www.tinymce.com/contributing
- */
-
-/*global jQuery:true */
-
-/*
- * Fake Sizzle using jQuery.
- */
-define("tinymce/dom/Sizzle", [], function() {
-	// Detect if jQuery is loaded
-	if (!window.jQuery) {
-		throw new Error("Load jQuery first");
-	}
-
-	return jQuery.find;
-});
 
 // Included from: js/tinymce/classes/dom/EventUtils.js
 
@@ -672,6 +646,32 @@ define("tinymce/dom/EventUtils", [], function() {
 	EventUtils.Event.bind(window, 'ready', function() {});
 
 	return EventUtils;
+});
+
+// Included from: js/tinymce/classes/dom/Sizzle.jQuery.js
+
+/**
+ * Sizzle.jQuery.js
+ *
+ * Copyright, Moxiecode Systems AB
+ * Released under LGPL License.
+ *
+ * License: http://www.tinymce.com/license
+ * Contributing: http://www.tinymce.com/contributing
+ */
+
+/*global jQuery:true */
+
+/*
+ * Fake Sizzle using jQuery.
+ */
+define("tinymce/dom/Sizzle", [], function() {
+	// Detect if jQuery is loaded
+	if (!window.jQuery) {
+		throw new Error("Load jQuery first");
+	}
+
+	return jQuery.find;
 });
 
 // Included from: js/tinymce/classes/util/Tools.js
@@ -13240,6 +13240,10 @@ define("tinymce/dom/Selection", [
 		setRng: function(rng, forward) {
 			var self = this, sel;
 
+			if (!rng) {
+				return;
+			}
+
 			// Is IE specific range
 			if (rng.select) {
 				try {
@@ -24757,12 +24761,7 @@ define("tinymce/util/Quirks", [
 		 * This selects the whole body so that backspace/delete logic will delete everything
 		 */
 		function selectAll() {
-			editor.on('keydown', function(e) {
-				if (!isDefaultPrevented(e) && e.keyCode == 65 && VK.metaKeyPressed(e)) {
-					e.preventDefault();
-					editor.execCommand('SelectAll');
-				}
-			});
+			editor.shortcuts.add('ctrl+a', null, 'SelectAll');
 		}
 
 		/**
@@ -25990,7 +25989,7 @@ define("tinymce/Shortcuts", [
 		var self = this, shortcuts = {};
 
 		editor.on('keyup keypress keydown', function(e) {
-			if (e.altKey || e.ctrlKey || e.metaKey) {
+			if ((e.altKey || e.ctrlKey || e.metaKey) && !e.isDefaultPrevented()) {
 				each(shortcuts, function(shortcut) {
 					var ctrlKey = Env.mac ? e.metaKey : e.ctrlKey;
 
@@ -28695,7 +28694,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion: '1.5',
+		minorVersion: '1.6',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -28703,7 +28702,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2014-09-09',
+		releaseDate: '2014-10-08',
 
 		/**
 		 * Collection of editor instances.
@@ -35579,5 +35578,5 @@ define("tinymce/ui/Throbber", [
 	};
 });
 
-expose(["tinymce/dom/Sizzle","tinymce/dom/EventUtils","tinymce/util/Tools","tinymce/Env","tinymce/dom/DomQuery","tinymce/html/Styles","tinymce/dom/TreeWalker","tinymce/dom/Range","tinymce/html/Entities","tinymce/dom/DOMUtils","tinymce/dom/ScriptLoader","tinymce/AddOnManager","tinymce/html/Node","tinymce/html/Schema","tinymce/html/SaxParser","tinymce/html/DomParser","tinymce/html/Writer","tinymce/html/Serializer","tinymce/dom/Serializer","tinymce/dom/TridentSelection","tinymce/util/VK","tinymce/dom/ControlSelection","tinymce/dom/BookmarkManager","tinymce/dom/Selection","tinymce/dom/ElementUtils","tinymce/Formatter","tinymce/UndoManager","tinymce/EnterKey","tinymce/ForceBlocks","tinymce/EditorCommands","tinymce/util/URI","tinymce/util/Class","tinymce/util/EventDispatcher","tinymce/ui/Selector","tinymce/ui/Collection","tinymce/ui/DomUtils","tinymce/ui/Control","tinymce/ui/Factory","tinymce/ui/KeyboardNavigation","tinymce/ui/Container","tinymce/ui/DragHelper","tinymce/ui/Scrollable","tinymce/ui/Panel","tinymce/ui/Movable","tinymce/ui/Resizable","tinymce/ui/FloatPanel","tinymce/ui/Window","tinymce/ui/MessageBox","tinymce/WindowManager","tinymce/util/Quirks","tinymce/util/Observable","tinymce/EditorObservable","tinymce/Shortcuts","tinymce/Editor","tinymce/util/I18n","tinymce/FocusManager","tinymce/EditorManager","tinymce/LegacyInput","tinymce/util/XHR","tinymce/util/JSON","tinymce/util/JSONRequest","tinymce/util/JSONP","tinymce/util/LocalStorage","tinymce/Compat","tinymce/ui/Layout","tinymce/ui/AbsoluteLayout","tinymce/ui/Tooltip","tinymce/ui/Widget","tinymce/ui/Button","tinymce/ui/ButtonGroup","tinymce/ui/Checkbox","tinymce/ui/ComboBox","tinymce/ui/ColorBox","tinymce/ui/PanelButton","tinymce/ui/ColorButton","tinymce/util/Color","tinymce/ui/ColorPicker","tinymce/ui/Path","tinymce/ui/ElementPath","tinymce/ui/FormItem","tinymce/ui/Form","tinymce/ui/FieldSet","tinymce/ui/FilePicker","tinymce/ui/FitLayout","tinymce/ui/FlexLayout","tinymce/ui/FlowLayout","tinymce/ui/FormatControls","tinymce/ui/GridLayout","tinymce/ui/Iframe","tinymce/ui/Label","tinymce/ui/Toolbar","tinymce/ui/MenuBar","tinymce/ui/MenuButton","tinymce/ui/ListBox","tinymce/ui/MenuItem","tinymce/ui/Menu","tinymce/ui/Radio","tinymce/ui/ResizeHandle","tinymce/ui/Spacer","tinymce/ui/SplitButton","tinymce/ui/StackLayout","tinymce/ui/TabPanel","tinymce/ui/TextBox","tinymce/ui/Throbber"]);
+expose(["tinymce/dom/EventUtils","tinymce/dom/Sizzle","tinymce/util/Tools","tinymce/Env","tinymce/dom/DomQuery","tinymce/html/Styles","tinymce/dom/TreeWalker","tinymce/dom/Range","tinymce/html/Entities","tinymce/dom/DOMUtils","tinymce/dom/ScriptLoader","tinymce/AddOnManager","tinymce/html/Node","tinymce/html/Schema","tinymce/html/SaxParser","tinymce/html/DomParser","tinymce/html/Writer","tinymce/html/Serializer","tinymce/dom/Serializer","tinymce/dom/TridentSelection","tinymce/util/VK","tinymce/dom/ControlSelection","tinymce/dom/BookmarkManager","tinymce/dom/Selection","tinymce/dom/ElementUtils","tinymce/Formatter","tinymce/UndoManager","tinymce/EnterKey","tinymce/ForceBlocks","tinymce/EditorCommands","tinymce/util/URI","tinymce/util/Class","tinymce/util/EventDispatcher","tinymce/ui/Selector","tinymce/ui/Collection","tinymce/ui/DomUtils","tinymce/ui/Control","tinymce/ui/Factory","tinymce/ui/KeyboardNavigation","tinymce/ui/Container","tinymce/ui/DragHelper","tinymce/ui/Scrollable","tinymce/ui/Panel","tinymce/ui/Movable","tinymce/ui/Resizable","tinymce/ui/FloatPanel","tinymce/ui/Window","tinymce/ui/MessageBox","tinymce/WindowManager","tinymce/util/Quirks","tinymce/util/Observable","tinymce/EditorObservable","tinymce/Shortcuts","tinymce/Editor","tinymce/util/I18n","tinymce/FocusManager","tinymce/EditorManager","tinymce/LegacyInput","tinymce/util/XHR","tinymce/util/JSON","tinymce/util/JSONRequest","tinymce/util/JSONP","tinymce/util/LocalStorage","tinymce/Compat","tinymce/ui/Layout","tinymce/ui/AbsoluteLayout","tinymce/ui/Tooltip","tinymce/ui/Widget","tinymce/ui/Button","tinymce/ui/ButtonGroup","tinymce/ui/Checkbox","tinymce/ui/ComboBox","tinymce/ui/ColorBox","tinymce/ui/PanelButton","tinymce/ui/ColorButton","tinymce/util/Color","tinymce/ui/ColorPicker","tinymce/ui/Path","tinymce/ui/ElementPath","tinymce/ui/FormItem","tinymce/ui/Form","tinymce/ui/FieldSet","tinymce/ui/FilePicker","tinymce/ui/FitLayout","tinymce/ui/FlexLayout","tinymce/ui/FlowLayout","tinymce/ui/FormatControls","tinymce/ui/GridLayout","tinymce/ui/Iframe","tinymce/ui/Label","tinymce/ui/Toolbar","tinymce/ui/MenuBar","tinymce/ui/MenuButton","tinymce/ui/ListBox","tinymce/ui/MenuItem","tinymce/ui/Menu","tinymce/ui/Radio","tinymce/ui/ResizeHandle","tinymce/ui/Spacer","tinymce/ui/SplitButton","tinymce/ui/StackLayout","tinymce/ui/TabPanel","tinymce/ui/TextBox","tinymce/ui/Throbber"]);
 })(this);
