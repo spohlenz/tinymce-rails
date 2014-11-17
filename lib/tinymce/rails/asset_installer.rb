@@ -40,6 +40,7 @@ module TinyMCE
 
       def compress_assets
         asset_files.each do |file|
+          next unless %w(.css .js .svg).include? file.extname
           asset = Sprockets::StaticAsset.new(::Rails.application.assets, logical_path(file), file)
           asset.write_to(File.join(@target, "#{asset.logical_path}.gz"))
         end
