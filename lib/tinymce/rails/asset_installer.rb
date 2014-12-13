@@ -84,9 +84,11 @@ module TinyMCE
       
       def symlink_asset(src, dest)
         with_asset(src, dest) do |src, dest|
-          unless File.exists?(dest) && File.symlink?(dest) && File.readlink(dest) == src
+          target = File.basename(src)
+          
+          unless File.exists?(dest) && File.symlink?(dest) && File.readlink(dest) == target
             logger.info "Creating symlink #{dest}"
-            FileUtils.ln_s(File.basename(src), dest, :force => true)
+            FileUtils.ln_s(target, dest, :force => true)
           else
             logger.debug "Skipping symlink #{dest}, already exists"
           end
