@@ -50,6 +50,10 @@ module TinyMCE
           yield src, dest if File.exists?(src)
         end
       end
+      
+      def index_asset?(asset)
+        asset =~ /\/index\.js$/
+      end
     end
   end
 end
