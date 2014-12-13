@@ -84,14 +84,8 @@ module TinyMCE
       
       def symlink_asset(src, dest)
         with_asset(src, dest) do |src, dest|
-          target = File.basename(src)
-          
-          unless File.exists?(dest) && File.symlink?(dest) && File.readlink(dest) == target
-            logger.info "Creating symlink #{dest}"
-            FileUtils.ln_s(target, dest, :force => true)
-          else
-            logger.debug "Skipping symlink #{dest}, already exists"
-          end
+          create_symlink(src, dest)
+          create_symlink("#{src}.gz", "#{dest}.gz") if File.exists?("#{src}.gz")
         end
       end
       
@@ -101,6 +95,17 @@ module TinyMCE
           dest = File.join(@target, dest)
           
           yield src, dest if File.exists?(src)
+        end
+      end
+      
+      def create_symlink(src, dest)
+        target = File.basename(src)
+        
+        unless File.exists?(dest) && File.symlink?(dest) && File.readlink(dest) == target
+          logger.info "Creating symlink #{dest}"
+          FileUtils.ln_s(target, dest, :force => true)
+        else
+          logger.debug "Skipping symlink #{dest}, already exists"
         end
       end
       
