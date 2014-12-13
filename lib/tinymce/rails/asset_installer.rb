@@ -1,9 +1,13 @@
 require "tinymce/rails/asset_manifest"
 
+require "tinymce/rails/asset_installer/copy"
+require "tinymce/rails/asset_installer/symlink"
+
 module TinyMCE
   module Rails
     class AssetInstaller
-      attr_accessor :logger
+      attr_reader :assets, :target
+      attr_accessor :logger, :strategy
       
       def initialize(assets, target, manifest_path)
         @assets = assets
@@ -15,19 +19,7 @@ module TinyMCE
       end
       
       def install
-        cleanup_assets
-        copy_assets
-        append_to_manifest
-        
-        manifest.write
-      end
-      
-      def symlink
-        manifest.each(/^tinymce\//) do |asset|
-          manifest.remove_digest(asset) do |src, dest|
-            symlink_asset(src, dest)
-          end
-        end
+        (strategy || Copy).new(self).call
       end
       
       def log_level
@@ -41,52 +33,13 @@ module TinyMCE
           @logger.level = Logger.const_get(level.to_s.upcase)
         end
       end
-    
-    private
+      
       def manifest
         @manifest ||= AssetManifest.load(@manifest_path)
       end
-      
-      def cleanup_assets
-        manifest.each(/^tinymce\//) do |asset|
-          manifest.remove(asset) if index_asset?(asset)
-          
-          manifest.remove_digest(asset) do |src, dest|
-            move_asset(src, dest)
-          end
-        end
-      end
-      
-      def copy_assets
-        FileUtils.cp_r(@assets, @target, :preserve => true)
-      end
-      
-      def append_to_manifest
-        asset_files.each do |file|
-          manifest.append(logical_path(file), file)
-        end
-      end
-      
-      def asset_files
-        Pathname.glob("#{@assets}/**/*").select(&:file?)
-      end
-      
+    
       def logical_path(file)
         file.relative_path_from(@assets.parent).to_s
-      end
-      
-      def move_asset(src, dest)
-        with_asset(src, dest) do |src, dest|
-          logger.info "Removing digest from #{src}"
-          FileUtils.mv(src, dest, :force => true)
-        end
-      end
-      
-      def symlink_asset(src, dest)
-        with_asset(src, dest) do |src, dest|
-          create_symlink(src, dest)
-          create_symlink("#{src}.gz", "#{dest}.gz") if File.exists?("#{src}.gz")
-        end
       end
       
       def with_asset(src, dest)
@@ -96,21 +49,6 @@ module TinyMCE
           
           yield src, dest if File.exists?(src)
         end
-      end
-      
-      def create_symlink(src, dest)
-        target = File.basename(src)
-        
-        unless File.exists?(dest) && File.symlink?(dest) && File.readlink(dest) == target
-          logger.info "Creating symlink #{dest}"
-          FileUtils.ln_s(target, dest, :force => true)
-        else
-          logger.debug "Skipping symlink #{dest}, already exists"
-        end
-      end
-      
-      def index_asset?(asset)
-        asset =~ /\/index\.js$/
       end
     end
   end

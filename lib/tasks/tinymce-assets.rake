@@ -13,8 +13,10 @@ Rake::Task[assets_task].enhance do
   installer.log_level = Logger::INFO
   
   if config.tinymce.install == :compile
-    installer.symlink
+    installer.strategy = TinyMCE::Rails::AssetInstaller::Symlink
   else
-    installer.install
+    installer.strategy = TinyMCE::Rails::AssetInstaller::Copy
   end
+  
+  installer.install
 end
