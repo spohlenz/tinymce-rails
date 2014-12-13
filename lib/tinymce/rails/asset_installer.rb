@@ -3,10 +3,15 @@ require "tinymce/rails/asset_manifest"
 module TinyMCE
   module Rails
     class AssetInstaller
+      attr_accessor :logger
+      
       def initialize(assets, target, manifest_path)
         @assets = assets
         @target = target
         @manifest_path = manifest_path || target
+        
+        @logger       = Logger.new($stderr)
+        @logger.level = Logger::INFO
       end
       
       def install
@@ -15,6 +20,26 @@ module TinyMCE
         append_to_manifest
         
         manifest.write
+      end
+      
+      def symlink
+        manifest.each(/^tinymce\//) do |asset|
+          manifest.remove_digest(asset) do |src, dest|
+            symlink_asset(src, dest)
+          end
+        end
+      end
+      
+      def log_level
+        @logger.level
+      end
+
+      def log_level=(level)
+        if level.is_a?(Integer)
+          @logger.level = level
+        else
+          @logger.level = Logger.const_get(level.to_s.upcase)
+        end
       end
     
     private
@@ -51,10 +76,30 @@ module TinyMCE
       end
       
       def move_asset(src, dest)
-        src = File.join(@target, src)
-        dest = File.join(@target, dest)
-        
-        FileUtils.mv(src, dest, :force => true) if src != dest && File.exists?(src)
+        with_asset(src, dest) do |src, dest|
+          logger.info "Removing digest from #{src}"
+          FileUtils.mv(src, dest, :force => true)
+        end
+      end
+      
+      def symlink_asset(src, dest)
+        with_asset(src, dest) do |src, dest|
+          unless File.exists?(dest) && File.readlink(dest) == src
+            logger.info "Creating symlink #{dest}"
+            FileUtils.ln_s(src, dest, :force => true)
+          else
+            logger.debug "Skipping symlink #{dest}, already exists"
+          end
+        end
+      end
+      
+      def with_asset(src, dest)
+        if src != dest
+          src = File.join(@target, src)
+          dest = File.join(@target, dest)
+          
+          yield src, dest if File.exists?(src)
+        end
       end
       
       def index_asset?(asset)

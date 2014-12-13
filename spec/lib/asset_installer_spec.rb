@@ -16,7 +16,9 @@ module TinyMCE
       let(:manifest) { double.as_null_object }
       
       def install
-        AssetInstaller.new(assets, target, manifest_path).install
+        installer = AssetInstaller.new(assets, target, manifest_path)
+        installer.log_level = :warn
+        installer.install
       end
       
       it "removes TinyMCE index assets" do
