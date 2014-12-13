@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-gem 'rails', '3.2.18'
+gem 'rails', '4.1.8'
 
 gem 'jquery-rails'
 gem 'uglifier'
