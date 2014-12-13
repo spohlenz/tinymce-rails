@@ -31,8 +31,13 @@ module TinyMCE
     end
     
     def remove_digest(logical_path)
+      asset_path(logical_path) do |digested, logical_path|
+        yield digested, logical_path if block_given?
+      end
+    end
+    
+    def asset_path(logical_path)
       if digested = @manifest[logical_path]
-        @manifest[logical_path] = logical_path
         yield digested, logical_path if block_given?
       end
     end
@@ -86,9 +91,15 @@ module TinyMCE
     end
     
     def remove_digest(logical_path)
-      if digested = @manifest["assets"][logical_path]
+      asset_path(logical_path) do |digested, logical_path|
         @manifest["assets"][logical_path] = logical_path
         @manifest["files"][logical_path] = @manifest["files"].delete(digested).tap { |f| f["digest"] = nil }
+        yield digested, logical_path if block_given?
+      end
+    end
+    
+    def asset_path(logical_path)
+      if digested = @manifest["assets"][logical_path]
         yield digested, logical_path if block_given?
       end
     end

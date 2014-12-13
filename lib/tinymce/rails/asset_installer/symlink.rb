@@ -2,7 +2,7 @@ module TinyMCE
   module Rails
     class AssetInstaller
       class Symlink
-        delegate :target, :manifest, :logger, :logical_path, :with_asset, :to => :@installer
+        delegate :target, :manifest, :logger, :logical_path, :with_asset, :index_asset?, :to => :@installer
         
         def initialize(installer)
           @installer = installer
@@ -10,12 +10,16 @@ module TinyMCE
         
         def call
           symlink_assets
+          
+          manifest.write
         end
       
       private
         def symlink_assets
           manifest.each(/^tinymce\//) do |asset|
-            manifest.remove_digest(asset) do |src, dest|
+            manifest.remove(asset) if index_asset?(asset)
+            
+            manifest.asset_path(asset) do |src, dest|
               symlink_asset(src, dest)
             end
           end

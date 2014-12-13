@@ -2,7 +2,7 @@ module TinyMCE
   module Rails
     class AssetInstaller
       class Copy
-        delegate :assets, :target, :manifest, :logger, :logical_path, :with_asset, :to => :@installer
+        delegate :assets, :target, :manifest, :logger, :logical_path, :with_asset, :index_asset?, :to => :@installer
         
         def initialize(installer)
           @installer = installer
@@ -46,10 +46,6 @@ module TinyMCE
       
         def asset_files
           Pathname.glob("#{assets}/**/*").select(&:file?)
-        end
-        
-        def index_asset?(asset)
-          asset =~ /\/index\.js$/
         end
       end
     end
