@@ -5,7 +5,7 @@ module TinyMCE::Rails
     # Set an explicit base path for TinyMCE assets (usually defaults to /assets/tinymce)
     config.tinymce.base = nil
     
-    # Set default installation method (:compile or :copy) for TinyMCE assets
+    # Set default installation method (:symlink or :copy) for TinyMCE assets
     #   :compile - adds TinyMCE to the Sprockets load paths and creates symlinks to the digested versions
     #   :copy    - copies across the TinyMCE assets statically
     config.tinymce.install = :compile

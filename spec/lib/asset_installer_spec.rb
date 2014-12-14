@@ -21,15 +21,6 @@ module TinyMCE
         installer.install
       end
       
-      it "removes TinyMCE index assets" do
-        asset = "tinymce/langs/es/index.js"
-        
-        manifest.stub(:each).and_yield(asset)
-        manifest.should_receive(:remove).with(asset)
-        
-        install
-      end
-      
       it "removes digests from existing TinyMCE assets in the manifest" do
         digested_asset = "tinymce/langs/es-abcde1234567890.js"
         asset = "tinymce/langs/es.js"

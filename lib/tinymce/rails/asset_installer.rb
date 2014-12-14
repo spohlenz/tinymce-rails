@@ -1,13 +1,13 @@
 require "tinymce/rails/asset_manifest"
 
 require "tinymce/rails/asset_installer/copy"
-require "tinymce/rails/asset_installer/symlink"
+require "tinymce/rails/asset_installer/compile"
 
 module TinyMCE
   module Rails
     class AssetInstaller
-      attr_reader :assets, :target
-      attr_accessor :logger, :strategy
+      attr_reader :assets, :target, :strategy
+      attr_accessor :logger
       
       def initialize(assets, target, manifest_path)
         @assets = assets
@@ -34,6 +34,14 @@ module TinyMCE
         end
       end
       
+      def strategy=(strategy)
+        if strategy.is_a?(Class)
+          @strategy = strategy
+        else
+          @strategy = const_get(strategy.to_s.titlecase)
+        end
+      end
+      
       def manifest
         @manifest ||= AssetManifest.load(@manifest_path)
       end
@@ -49,10 +57,6 @@ module TinyMCE
           
           yield src, dest if File.exists?(src)
         end
-      end
-      
-      def index_asset?(asset)
-        asset =~ /\/index\.js$/
       end
     end
   end

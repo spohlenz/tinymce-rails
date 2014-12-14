@@ -50,5 +50,7 @@ module Sandbox
     config.assets.precompile += %w(tinymce-standalone.js tinymce-with-jquery.js)
     config.assets.precompile << "tinymce/**/es.js"
     config.assets.precompile << "tinymce/**/es_dlg.js"
+    
+    # config.tinymce.install = :copy
   end
 end

@@ -2,7 +2,7 @@ module TinyMCE
   module Rails
     class AssetInstaller
       class Copy
-        delegate :assets, :target, :manifest, :logger, :logical_path, :with_asset, :index_asset?, :to => :@installer
+        delegate :assets, :target, :manifest, :logger, :logical_path, :with_asset, :to => :@installer
         
         def initialize(installer)
           @installer = installer
@@ -19,8 +19,6 @@ module TinyMCE
       private
         def cleanup_assets
           manifest.each(/^tinymce\//) do |asset|
-            manifest.remove(asset) if index_asset?(asset)
-          
             manifest.remove_digest(asset) do |src, dest|
               move_asset(src, dest)
             end
@@ -28,6 +26,7 @@ module TinyMCE
         end
         
         def copy_assets
+          logger.info "Copying assets to #{File.join(target, "tinymce")}"
           FileUtils.cp_r(assets, target, :preserve => true)
         end
         
