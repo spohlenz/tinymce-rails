@@ -38,7 +38,7 @@ module TinyMCE
         if strategy.is_a?(Class)
           @strategy = strategy
         else
-          @strategy = const_get(strategy.to_s.titlecase)
+          @strategy = self.class.const_get(strategy.to_s.titlecase)
         end
       end
       
