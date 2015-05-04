@@ -1,5 +1,3 @@
-require "multi_json"
-
 module TinyMCE
   module Rails
     class AssetManifest
@@ -81,7 +79,7 @@ module TinyMCE
     
       def initialize(file)
         @file = file
-        @manifest = MultiJson.load(File.read(file))
+        @manifest = JSON.parse(File.read(file))
       end
     
       def append(logical_path, file)
@@ -120,7 +118,7 @@ module TinyMCE
       end
     
       def dump
-        MultiJson.dump(@manifest)
+        JSON.generate(@manifest)
       end
     
       def write
