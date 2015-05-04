@@ -72,10 +72,20 @@ module TinyMCE::Rails
     # Searches asset paths for TinyMCE language files.
     def self.available_languages
       assets.paths.map { |path|
-        files = assets.entries(File.join(path, "tinymce/langs"))
-        files.map { |file|
-          asset = assets.attributes_for(File.join(path, file))
-          asset.logical_path.sub(/\.js$/, "")
+        # Find all assets within tinymce/langs
+        entries = assets.entries(File.join(path, "tinymce/langs"))
+        entries.map { |entry|
+          if assets.respond_to?(:attributes_for)
+            assets.attributes_for(File.join(path, entry))
+          else
+            assets.find_asset(File.join("tinymce/langs", entry))
+          end
+        }.select { |asset|
+          # Select only JavaScript files
+          asset.logical_path =~ /\.js$/
+        }.map { |asset|
+          # Strip path and extension
+          asset.logical_path.sub(/^tinymce\/langs\//, "").sub(/\.js$/, "")
         }
       }.flatten.uniq
     end
