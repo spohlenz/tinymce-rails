@@ -1,5 +1,4 @@
 require "tinymce/rails/asset_manifest"
-require "multi_json"
 
 module TinyMCE
   module Rails
@@ -94,7 +93,7 @@ module TinyMCE
         subject(:manifest) { JsonManifest.new(fixture("json_manifest/manifest-18802ea98f713a419dac90694dd5b6c4.json")) }
       
         def reload_manifest(manifest)
-          MultiJson.load(manifest.to_s)
+          JSON.parse(manifest.to_s)
         end
       
         it "keeps existing manifest data" do
