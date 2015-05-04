@@ -5,8 +5,8 @@ module TinyMCE::Rails
     it "loads single-configuration YAML files" do
       file = File.expand_path("../fixtures/single.yml", File.dirname(__FILE__))
       config = ConfigurationFile.new(file).configuration
-      config.should be_an_instance_of(Configuration)
-      config.options.should eq(
+      expect(config).to be_an_instance_of(Configuration)
+      expect(config.options).to eq(
         "selector" => "textarea.tinymce",
         "plugins" => %w(inlinepopups imageselector contextmenu paste table fullscreen),
         "theme_advanced_toolbar_location" => "top",
@@ -19,12 +19,12 @@ module TinyMCE::Rails
       file = File.expand_path("../fixtures/multiple.yml", File.dirname(__FILE__))
       config = ConfigurationFile.new(file).configuration
       
-      config.should be_an_instance_of(MultipleConfiguration)
-      config[:default].should be_an_instance_of(Configuration)
-      config[:alternate].should be_an_instance_of(Configuration)
+      expect(config).to be_an_instance_of(MultipleConfiguration)
+      expect(config[:default]).to be_an_instance_of(Configuration)
+      expect(config[:alternate]).to be_an_instance_of(Configuration)
       
-      config[:default].options.should eq(Configuration.defaults)
-      config[:alternate].options.should eq(
+      expect(config[:default].options).to eq(Configuration.defaults)
+      expect(config[:alternate].options).to eq(
         "selector" => "textarea.tinymce",
         "skin" => "alternate"
       )
@@ -32,7 +32,7 @@ module TinyMCE::Rails
     
     it "uses default configuration when loading a nonexistant file" do
       config = ConfigurationFile.new("missing.yml").configuration
-      config.options.should eq(Configuration.defaults)
+      expect(config.options).to eq(Configuration.defaults)
     end
     
     describe "#changed?" do
@@ -43,24 +43,24 @@ module TinyMCE::Rails
       before(:each) { file.configuration }
       
       it "returns true if the file has been modified (different mtime)" do
-        File.stub(:mtime).and_return(Time.now)
-        file.should be_changed
+        allow(File).to receive(:mtime).and_return(Time.now)
+        expect(file).to be_changed
       end
       
       it "returns true if the file no longer exists" do
-        File.stub(:exists?).and_return(false)
-        file.should be_changed
+        allow(File).to receive(:exists?).and_return(false)
+        expect(file).to be_changed
       end
       
       it "returns false if the file has not been modified" do
-        file.should_not be_changed
+        expect(file).to_not be_changed
       end
       
       context "when the file does not originally exist" do
         let(:path) { "missing.yml" }
         
         it "returns false if a missing file is still missing" do
-          file.should_not be_changed
+          expect(file).to_not be_changed
         end
       end
     end

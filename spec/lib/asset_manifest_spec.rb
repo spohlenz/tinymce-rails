@@ -10,17 +10,17 @@ module TinyMCE
       describe ".load" do
         it "returns a YamlManifest if a YAML manifest file exists" do
           manifest = AssetManifest.load(fixture("yaml_manifest"))
-          manifest.should be_an_instance_of(YamlManifest)
+          expect(manifest).to be_an_instance_of(YamlManifest)
         end
         
         it "returns a JsonManifest if a JSON manifest file exists" do
           manifest = AssetManifest.load(fixture("json_manifest"))
-          manifest.should be_an_instance_of(JsonManifest)
+          expect(manifest).to be_an_instance_of(JsonManifest)
         end
         
         it "returns a NullManifest if it can't find a manifest" do
           manifest = AssetManifest.load(fixture("no_manifest"))
-          manifest.should be_an_instance_of(NullManifest)
+          expect(manifest).to be_an_instance_of(NullManifest)
         end
       end
     
@@ -33,7 +33,7 @@ module TinyMCE
       
         it "keeps existing manifest data" do
           result = reload_manifest(manifest)
-          result["application.js"].should == "application-d41d8cd98f00b204e9800998ecf8427e.js"
+          expect(result["application.js"]).to eq("application-d41d8cd98f00b204e9800998ecf8427e.js")
         end
     
         describe "#append" do
@@ -41,7 +41,7 @@ module TinyMCE
             manifest.append("tinymce/tiny_mce_jquery.js", double)
         
             result = reload_manifest(manifest)
-            result["tinymce/tiny_mce_jquery.js"].should == "tinymce/tiny_mce_jquery.js"
+            expect(result["tinymce/tiny_mce_jquery.js"]).to eq("tinymce/tiny_mce_jquery.js")
           end
         end
     
@@ -50,7 +50,7 @@ module TinyMCE
             manifest.remove("tinymce.js")
         
             result = reload_manifest(manifest)
-            result.should_not have_key("tinymce.js")
+            expect(result).to_not have_key("tinymce.js")
           end
         end
     
@@ -59,7 +59,7 @@ module TinyMCE
             manifest.remove_digest("tinymce.js")
         
             result = reload_manifest(manifest)
-            result["tinymce.js"].should == "tinymce.js"
+            expect(result["tinymce.js"]).to eq("tinymce.js")
           end
       
           it "yields the digested and non-digested file names" do
@@ -73,18 +73,18 @@ module TinyMCE
           it "yields the logical path for each asset that matches the given pattern" do
             result = []
             manifest.each(/^tinymce\//) { |asset| result << asset }
-            result.should == ["tinymce/tiny_mce.js"]
+            expect(result).to eq ["tinymce/tiny_mce.js"]
           end
         end
         
         describe ".try" do
           it "returns a new YamlManifest if a YAML manifest exists for the given path" do
             manifest = YamlManifest.try(fixture("yaml_manifest"))
-            manifest.should be_an_instance_of(YamlManifest)
+            expect(manifest).to be_an_instance_of(YamlManifest)
           end
           
           it "returns nil if no YAML manifest was found" do
-            YamlManifest.try(fixture("no_manifest")).should be_nil
+            expect(YamlManifest.try(fixture("no_manifest"))).to be_nil
           end
         end
       end
@@ -98,13 +98,13 @@ module TinyMCE
       
         it "keeps existing manifest data" do
           result = reload_manifest(manifest)
-          result["assets"]["application.js"].should == "application-cd171d98b53f649551a409c3b5f65272.js"
-          result["files"]["application-cd171d98b53f649551a409c3b5f65272.js"].should == {
+          expect(result["assets"]["application.js"]).to eq("application-cd171d98b53f649551a409c3b5f65272.js")
+          expect(result["files"]["application-cd171d98b53f649551a409c3b5f65272.js"]).to eq({
             "logical_path" => "application.js",
             "mtime" => "2013-02-11T11:26:00+10:30",
             "size" => 579,
             "digest" => "cd171d98b53f649551a409c3b5f65272"
-          }
+          })
         end
         
         describe "#append" do
@@ -112,18 +112,18 @@ module TinyMCE
           let(:mtime) { double(:iso8601 => "2013-02-26T12:29:33+10:30") }
           
           it "adds files to the manifest without a fingerprint" do
-            File.should_receive(:stat).with(file).and_return(double(:mtime => mtime, :size => 123))
+            expect(File).to receive(:stat).with(file).and_return(double(:mtime => mtime, :size => 123))
             
             manifest.append("tinymce/tiny_mce_jquery.js", file)
         
             result = reload_manifest(manifest)
-            result["assets"]["tinymce/tiny_mce_jquery.js"].should == "tinymce/tiny_mce_jquery.js"
-            result["files"]["tinymce/tiny_mce_jquery.js"].should == {
+            expect(result["assets"]["tinymce/tiny_mce_jquery.js"]).to eq("tinymce/tiny_mce_jquery.js")
+            expect(result["files"]["tinymce/tiny_mce_jquery.js"]).to eq({
               "logical_path" => "tinymce/tiny_mce_jquery.js",
               "mtime" => "2013-02-26T12:29:33+10:30",
               "size" => 123,
               "digest" => nil
-            }
+            })
           end
         end
         
@@ -132,8 +132,8 @@ module TinyMCE
             manifest.remove("tinymce.js")
         
             result = reload_manifest(manifest)
-            result["assets"].should_not have_key("tinymce.js")
-            result["files"].should_not have_key("tinymce-89aa452594633dfb3487381efbe9706e.js")
+            expect(result["assets"]).to_not have_key("tinymce.js")
+            expect(result["files"]).to_not have_key("tinymce-89aa452594633dfb3487381efbe9706e.js")
           end
         end
         
@@ -142,14 +142,14 @@ module TinyMCE
             manifest.remove_digest("tinymce.js")
         
             result = reload_manifest(manifest)
-            result["assets"]["tinymce.js"].should == "tinymce.js"
-            result["files"].should_not have_key("tinymce-89aa452594633dfb3487381efbe9706e.js")
-            result["files"]["tinymce.js"].should == {
+            expect(result["assets"]["tinymce.js"]).to eq("tinymce.js")
+            expect(result["files"]).to_not have_key("tinymce-89aa452594633dfb3487381efbe9706e.js")
+            expect(result["files"]["tinymce.js"]).to eq({
               "logical_path" => "tinymce.js",
               "mtime" => "2013-02-12T20:57:55+10:30",
               "size" => 521386,
               "digest" => nil
-            }
+            })
           end
       
           it "yields the digested and non-digested file names" do
@@ -163,18 +163,18 @@ module TinyMCE
           it "yields the logical path for each asset that matches the given pattern" do
             result = []
             manifest.each(/^tinymce/) { |asset| result << asset }
-            result.should == ["tinymce.js"]
+            expect(result).to eq(["tinymce.js"])
           end
         end
         
         describe ".try" do
           it "returns a new JsonManifest if a JSON manifest exists for the given path" do
             manifest = JsonManifest.try(fixture("json_manifest"))
-            manifest.should be_an_instance_of(JsonManifest)
+            expect(manifest).to be_an_instance_of(JsonManifest)
           end
           
           it "returns nil if no JSON manifest was found" do
-            JsonManifest.try(fixture("no_manifest")).should be_nil
+            expect(JsonManifest.try(fixture("no_manifest"))).to be_nil
           end
         end
       end

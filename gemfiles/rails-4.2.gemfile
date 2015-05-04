@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-gem 'rails', '4.0.13'
+gem 'rails', '4.2.1'
 
 group :test do
   gem "test-unit",   "~> 3.0"

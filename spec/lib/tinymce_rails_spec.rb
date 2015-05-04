@@ -9,8 +9,8 @@ module TinyMCE
       let(:configuration) { double }
       
       it "loads the tinymce.yml config file" do
-        TinyMCE::Rails::ConfigurationFile.should_receive(:new).with(path).and_return(configuration_file)
-        TinyMCE::Rails.configuration.should eq(configuration)
+        expect(TinyMCE::Rails::ConfigurationFile).to receive(:new).with(path).and_return(configuration_file)
+        expect(TinyMCE::Rails.configuration).to eq(configuration)
       end
     end
   end

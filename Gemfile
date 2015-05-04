@@ -1,16 +1,17 @@
 source 'https://rubygems.org'
 
-gem 'rails', '~> 4.1.8'
-#gem 'rails', '~> 4.0.12'
-#gem 'rails', '~> 3.2.18'
+gem 'rails', '~> 4.2.1'
+#gem 'rails', '~> 4.1.10'
+#gem 'rails', '~> 4.0.13'
+#gem 'rails', '~> 3.2.21'
 
 gem 'jquery-rails'
 gem 'uglifier'
-gem 'json', :platforms => [:ruby_18]
 
 group :test do
-  gem "rspec-rails", "~> 2.0"
-  gem "capybara", "~> 2.3.0"
+  gem "test-unit",   "~> 3.0"
+  gem "rspec-rails", "~> 3.2.1"
+  gem "capybara",    "~> 2.4.4"
 end
 
 gemspec
