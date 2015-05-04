@@ -13,13 +13,13 @@ module TinyMCE::Rails
     
     describe "#tinymce_assets" do
       it "returns a TinyMCE javascript tag" do
-        tinymce_assets.should have_selector("script[src='/assets/tinymce.js']", :visible => false)
+        expect(tinymce_assets).to have_selector("script[src='/assets/tinymce.js']", :visible => false)
       end
     end
     
     describe "#tinymce" do
       before(:each) do
-        TinyMCE::Rails.stub(:configuration).and_return(configuration)
+        allow(TinyMCE::Rails).to receive(:configuration).and_return(configuration)
       end
       
       context "single-configuration" do
@@ -29,22 +29,22 @@ module TinyMCE::Rails
         
         it "initializes TinyMCE using global configuration" do
           result = tinymce
-          result.should have_selector("script", :visible => false)
-          result.should include('tinyMCE.init({')
-          result.should include('theme: "advanced"')
-          result.should include('plugins: "paste,table,fullscreen"')
-          result.should include('});')
+          expect(result).to have_selector("script", :visible => false)
+          expect(result).to include('tinyMCE.init({')
+          expect(result).to include('theme: "advanced"')
+          expect(result).to include('plugins: "paste,table,fullscreen"')
+          expect(result).to include('});')
         end
       
         it "initializes TinyMCE with passed in options" do
           result = tinymce(:theme => "simple")
-          result.should include('theme: "simple"')
-          result.should include('plugins: "paste,table,fullscreen"')
+          expect(result).to include('theme: "simple"')
+          expect(result).to include('plugins: "paste,table,fullscreen"')
         end
       
         it "outputs function strings without quotes" do
           result = tinymce(:oninit => "function() { alert('Hello'); }")
-          result.should include('oninit: function() { alert(\'Hello\'); }')
+          expect(result).to include('oninit: function() { alert(\'Hello\'); }')
         end
       end
       
@@ -58,25 +58,25 @@ module TinyMCE::Rails
         
         it "initializes TinyMCE with default configuration" do
           result = tinymce
-          result.should include('theme: "advanced"')
-          result.should include('plugins: "paste,table"')
+          expect(result).to include('theme: "advanced"')
+          expect(result).to include('plugins: "paste,table"')
         end
         
         it "merges passed in options with default configuration" do
           result = tinymce(:theme => "simple")
-          result.should include('theme: "simple"')
-          result.should include('plugins: "paste,table"')
+          expect(result).to include('theme: "simple"')
+          expect(result).to include('plugins: "paste,table"')
         end
         
         it "initializes TinyMCE with custom configuration" do
           result = tinymce(:alternate)
-          result.should include('skin: "alternate"')
+          expect(result).to include('skin: "alternate"')
         end
         
         it "merges passed in options with custom configuration" do
           result = tinymce(:alternate, :theme => "simple")
-          result.should include('theme: "simple"')
-          result.should include('skin: "alternate"')
+          expect(result).to include('theme: "simple"')
+          expect(result).to include('skin: "alternate"')
         end
         
         it "raises an error when given an invalid configuration" do

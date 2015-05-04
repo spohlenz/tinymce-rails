@@ -27,19 +27,19 @@ module TinyMCE
         let(:strategy) { :compile }
 
         before(:each) do
-          FileUtils.stub(:ln_s)
+          allow(FileUtils).to receive(:ln_s)
         end
 
         it "symlinks non-digested asset paths" do
           digested_asset = "tinymce/langs/es-abcde1234567890.js"
           asset = "tinymce/langs/es.js"
 
-          manifest.stub(:each).and_yield(asset)
-          manifest.should_receive(:asset_path).with(asset).and_yield(digested_asset, asset)
+          allow(manifest).to receive(:each).and_yield(asset)
+          expect(manifest).to receive(:asset_path).with(asset).and_yield(digested_asset, asset)
 
-          File.stub(:exists?).and_return(true)
+          allow(File).to receive(:exists?).and_return(true)
 
-          FileUtils.should_receive(:ln_s).with("es-abcde1234567890.js", "/assets/tinymce/langs/es.js", :force => true)
+          expect(FileUtils).to receive(:ln_s).with("es-abcde1234567890.js", "/assets/tinymce/langs/es.js", :force => true)
 
           install
         end
@@ -49,35 +49,35 @@ module TinyMCE
         let(:strategy) { :copy }
 
         before(:each) do
-          FileUtils.stub(:cp_r)
-          FileUtils.stub(:mv)
+          allow(FileUtils).to receive(:cp_r)
+          allow(FileUtils).to receive(:mv)
         end
         
         it "removes digests from existing TinyMCE assets in the manifest" do
           digested_asset = "tinymce/langs/es-abcde1234567890.js"
           asset = "tinymce/langs/es.js"
           
-          manifest.stub(:each).and_yield(asset)
-          manifest.should_receive(:remove_digest).with(asset).and_yield(digested_asset, asset)
-          File.stub(:exists?).and_return(true)
-          FileUtils.should_receive(:mv).with("/assets/tinymce/langs/es-abcde1234567890.js", "/assets/tinymce/langs/es.js", :force => true)
+          allow(manifest).to receive(:each).and_yield(asset)
+          expect(manifest).to receive(:remove_digest).with(asset).and_yield(digested_asset, asset)
+          allow(File).to receive(:exists?).and_return(true)
+          expect(FileUtils).to receive(:mv).with("/assets/tinymce/langs/es-abcde1234567890.js", "/assets/tinymce/langs/es.js", :force => true)
           
           install
         end
         
         it "copies TinyMCE assets to the target directory" do
-          FileUtils.should_receive(:cp_r).with(assets, target, :preserve => true)
+          expect(FileUtils).to receive(:cp_r).with(assets, target, :preserve => true)
           install
         end
         
         it "adds TinyMCE assets to the manifest" do
-          manifest.should_receive(:append).with("tinymce/tiny_mce.js", assets.parent.join("tinymce/tiny_mce.js"))
-          manifest.should_receive(:append).with("tinymce/themes/advanced/editor_template.js", assets.parent.join("tinymce/themes/advanced/editor_template.js"))
+          expect(manifest).to receive(:append).with("tinymce/tiny_mce.js", assets.parent.join("tinymce/tiny_mce.js"))
+          expect(manifest).to receive(:append).with("tinymce/themes/advanced/editor_template.js", assets.parent.join("tinymce/themes/advanced/editor_template.js"))
           install
         end
         
         it "writes the manifest" do
-          manifest.should_receive(:write)
+          expect(manifest).to receive(:write)
           install
         end
       end
