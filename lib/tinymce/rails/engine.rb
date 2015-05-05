@@ -26,7 +26,9 @@ module TinyMCE::Rails
     end
 
     def self.default_base
-      File.join(relative_url_root || "", Rails.application.config.assets.prefix || "/", "tinymce")
+      File.join(asset_host || "", relative_url_root || "",
+                Rails.application.config.assets.prefix || "/",
+                "tinymce")
     end
     
     def self.relative_url_root
@@ -37,6 +39,30 @@ module TinyMCE::Rails
       else
         # Fallback for Rails 3.1
         config.action_controller.relative_url_root
+      end
+    end
+
+    def self.asset_host
+      host = Rails.application.config.action_controller.asset_host
+      
+      if host.respond_to?(:call)
+        # Callable asset hosts cannot be supported during
+        # precompilation as there is no request object
+        nil
+      elsif host =~ /%d/
+        # Load all TinyMCE assets from the first asset host
+        normalize_host(host % 0)
+      else
+        normalize_host(host)
+      end
+    end
+    
+    def self.normalize_host(host)
+      if host =~ /^https?:\/\// || host =~ /^\/\//
+        host
+      else
+        # Use a protocol-relative URL if not otherwise specified
+        "//#{host}"
       end
     end
   end
