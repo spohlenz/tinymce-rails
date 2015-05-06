@@ -11,11 +11,19 @@ module TinyMCE
         it "returns a YamlManifest if a YAML manifest file exists" do
           manifest = AssetManifest.load(fixture("yaml_manifest"))
           expect(manifest).to be_an_instance_of(YamlManifest)
+          expect(manifest.file).to eq fixture("yaml_manifest/manifest.yml")
         end
-        
+
         it "returns a JsonManifest if a JSON manifest file exists" do
           manifest = AssetManifest.load(fixture("json_manifest"))
           expect(manifest).to be_an_instance_of(JsonManifest)
+          expect(manifest.file).to eq fixture("json_manifest/.sprockets-manifest-18802ea98f713a419dac90694dd5b6c4.json")
+        end
+        
+        it "returns a JsonManifest if a legacy JSON manifest file exists" do
+          manifest = AssetManifest.load(fixture("legacy_manifest"))
+          expect(manifest).to be_an_instance_of(JsonManifest)
+          expect(manifest.file).to eq fixture("legacy_manifest/manifest-18802ea98f713a419dac90694dd5b6c4.json")
         end
         
         it "returns a NullManifest if it can't find a manifest" do
@@ -90,7 +98,7 @@ module TinyMCE
       end
     
       describe "JSON manifest" do
-        subject(:manifest) { JsonManifest.new(fixture("json_manifest/manifest-18802ea98f713a419dac90694dd5b6c4.json")) }
+        subject(:manifest) { JsonManifest.new(fixture("json_manifest/.sprockets-manifest-18802ea98f713a419dac90694dd5b6c4.json")) }
       
         def reload_manifest(manifest)
           JSON.parse(manifest.to_s)
@@ -169,12 +177,12 @@ module TinyMCE
         
         describe ".try" do
           it "returns a new JsonManifest if a JSON manifest exists for the given path" do
-            manifest = JsonManifest.try(fixture("json_manifest"))
+            manifest = JsonManifest.try(fixture("json_manifest"), ".sprockets-manifest*.json")
             expect(manifest).to be_an_instance_of(JsonManifest)
           end
           
           it "returns nil if no JSON manifest was found" do
-            expect(JsonManifest.try(fixture("no_manifest"))).to be_nil
+            expect(JsonManifest.try(fixture("no_manifest"), ".sprockets-manifest*.json")).to be_nil
           end
         end
       end
