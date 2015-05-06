@@ -1,9 +1,12 @@
 module TinyMCE
   module Rails
     class AssetManifest
+      attr_reader :file
+
       def self.load(manifest_path)
         YamlManifest.try(manifest_path) ||
-          JsonManifest.try(manifest_path) ||
+          JsonManifest.try(manifest_path, "manifest*.json") ||
+          JsonManifest.try(manifest_path, ".sprockets-manifest*.json") ||
           NullManifest.new
       end
       
@@ -72,8 +75,8 @@ module TinyMCE
     end
   
     class JsonManifest < AssetManifest
-      def self.try(manifest_path)
-        paths = Dir[File.join(manifest_path, "manifest*.json")]
+      def self.try(manifest_path, pattern)
+        paths = Dir[File.join(manifest_path, pattern)]
         new(paths.first) if paths.any?
       end
     
