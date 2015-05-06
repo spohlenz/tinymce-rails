@@ -4,9 +4,9 @@ module TinyMCE
       attr_reader :file
 
       def self.load(manifest_path)
-        YamlManifest.try(manifest_path) ||
+        JsonManifest.try(manifest_path, ".sprockets-manifest*.json") ||
           JsonManifest.try(manifest_path, "manifest*.json") ||
-          JsonManifest.try(manifest_path, ".sprockets-manifest*.json") ||
+          YamlManifest.try(manifest_path) ||
           NullManifest.new
       end
       
