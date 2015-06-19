@@ -1,10 +1,11 @@
 source 'https://rubygems.org'
 
-gem 'rails', '3.2.18'
+gem 'rails', '>= 4'
 
 gem 'jquery-rails'
 gem 'uglifier'
 gem 'json', :platforms => [:ruby_18]
+gem 'multi_json'
 
 group :test do
   gem "rspec-rails", "~> 2.0"
