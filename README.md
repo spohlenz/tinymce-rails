@@ -9,6 +9,7 @@ This is the branch for TinyMCE 4. For TinyMCE 3.5.x, please see the [tinymce-3 b
 
 [![Build Status](https://travis-ci.org/spohlenz/tinymce-rails.png?branch=master)](https://travis-ci.org/spohlenz/tinymce-rails)
 
+**New in 3.5.11, 4.1.10 and 4.2.1:** Alternative asset installation methods (copy vs compile/symlink). See the [Asset Compilation](#asset-compilation) section below for details.
 
 Instructions
 ------------
@@ -135,9 +136,25 @@ Using the `tinymce` helper and global configuration file is entirely optional. T
 Asset Compilation
 -----------------
 
-If you are including TinyMCE via `application.js` or using the `tinymce_assets` helper, the TinyMCE assets will be automatically precompiled when you run `rake assets:precompile`.
+Since TinyMCE loads most of its files dynamically, some workarounds are required to ensure that the TinyMCE asset files are accessible using non-digested filenames.
 
-However if you wish to include `tinymce-jquery.js` independently, you will need to add it to the precompile list in `config/environments/production.rb`:
+As of tinymce-rails 3.5.11, 4.1.10 and 4.2.1, two alternative asset installation methods are available, which can be changed by setting `config.tinymce.install` within your `config/application.rb` file. Both methods are called when you run `rake asset:precompile` (via `Rake::Task#enhance`) after the regular application assets are compiled.
+
+The default method, `copy`, copies the TinyMCE assets directly into `public/assets` and appends the file information into the asset manifest.
+
+```ruby
+config.tinymce.install = :copy
+```
+
+The new method, `compile`, adds the TinyMCE paths to the Sprockets precompilation paths and then creates symlinks from the non-digested filenames to their digested versions.
+
+```ruby
+config.tinymce.install = :compile
+```
+
+Due to compilation times, this method is only recommended using Rails 4 and up. This method is intended to eventually become the default, so please try it if it suits your environment and report any issues.
+
+If you are including TinyMCE via `application.js` or using the `tinymce_assets` helper, you do not need to manually alter the precompile paths. However if you wish to include `tinymce-jquery.js` independently (i.e. using `javascript_include_tag`), you will need to add it to the precompile list in `config/environments/production.rb`:
 
 ```ruby
 config.assets.precompile << "tinymce-jquery.js"
