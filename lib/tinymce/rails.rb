@@ -7,7 +7,7 @@ module TinyMCE
     require "tinymce/rails/helper"
 
     def self.configuration
-      @configuration ||= ConfigurationFile.new(::Rails.root.join("config/tinymce.yml"))
+      @configuration ||= ConfigurationFile.new(Engine.config_path)
       @configuration.respond_to?(:configuration) ? @configuration.configuration : @configuration
     end
 
