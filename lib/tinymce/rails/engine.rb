@@ -4,6 +4,9 @@ module TinyMCE::Rails
 
     # Set an explicit base path for TinyMCE assets (usually defaults to /assets/tinymce)
     config.tinymce.base = nil
+
+    # Set default configuration file path (defaults to config/tinymce.yml within the Rails root if unset)
+    config.tinymce.config_path = nil
     
     # Set default installation method (:compile or :copy) for TinyMCE assets
     #   :compile - adds TinyMCE to the Sprockets load paths and creates non-digested symlinks to the digested versions
@@ -64,6 +67,10 @@ module TinyMCE::Rails
         # Use a protocol-relative URL if not otherwise specified
         "//#{host}"
       end
+    end
+
+    def self.config_path
+      Rails.application.config.tinymce.config_path || ::Rails.root.join("config/tinymce.yml")
     end
   end
 end
