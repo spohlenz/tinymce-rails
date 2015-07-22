@@ -51,6 +51,6 @@ module Sandbox
     config.assets.precompile << "tinymce/**/es.js"
     config.assets.precompile << "tinymce/**/es_dlg.js"
     
-    # config.tinymce.install = :copy
+    # config.tinymce.install = :compile
   end
 end
