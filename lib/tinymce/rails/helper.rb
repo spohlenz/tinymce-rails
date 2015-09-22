@@ -38,7 +38,11 @@ module TinyMCE::Rails
       
       base_configuration.merge(options)
     end
-    
+
+    # Make  helper methods module functions, so could be called with the module
+    # as a receiver
+    module_function :tinymce, :tinymce_javascript, :tinymce_configuration
+
     # Includes TinyMCE javascript assets via a script tag.
     def tinymce_assets
       javascript_include_tag "tinymce"
