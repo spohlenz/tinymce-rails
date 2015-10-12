@@ -24,7 +24,7 @@ module TinyMCE::Rails
       <<-JAVASCRIPT.strip_heredoc.html_safe
       (function() {
         if (typeof tinyMCE != 'undefined') {
-          tinyMCE.init(#{tinymce_configuration(config, options).to_javascript.indent(10).sub(/\A\s+/, "")});
+          tinyMCE.init(#{tinymce_configuration(config, options).to_javascript.gsub(/^/, ' ' * 10).sub(/\A\s+/, "")});
         } else {
           setTimeout(arguments.callee, 50);
         }
