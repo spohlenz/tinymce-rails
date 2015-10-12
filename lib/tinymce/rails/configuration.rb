@@ -83,7 +83,7 @@ module TinyMCE::Rails
         result << [k, v].join(": ")
       end
       
-      "{\n#{pairs.join(",\n")}\n}"
+      "{\n  #{pairs.join(",\n  ")}\n}"
     end
     
     def merge(options)

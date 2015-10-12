@@ -21,13 +21,15 @@ module TinyMCE::Rails
     
     # Returns the JavaScript code required to initialize TinyMCE.
     def tinymce_javascript(config=:default, options={})
-      "(function() {
-         if (typeof tinyMCE != 'undefined') {
-           tinyMCE.init(#{tinymce_configuration(config, options).to_javascript});
-         } else {
-           setTimeout(arguments.callee, 50);
-         }
-       })();".html_safe
+      <<-JAVASCRIPT.strip_heredoc.html_safe
+      (function() {
+        if (typeof tinyMCE != 'undefined') {
+          tinyMCE.init(#{tinymce_configuration(config, options).to_javascript.indent(10).sub(/\A\s+/, "")});
+        } else {
+          setTimeout(arguments.callee, 50);
+        }
+      })();
+      JAVASCRIPT
     end
     
     # Returns the TinyMCE configuration object.
