@@ -1,4 +1,4 @@
-// 4.3.0 (2015-11-23)
+// 4.3.1 (2015-11-30)
 
 /**
  * Compiled inline version. (Library mode)
@@ -82,7 +82,7 @@
 
 			target[fragments[fragments.length - 1]] = modules[id];
 		}
-
+		
 		// Expose private modules for unit tests
 		if (exports.AMDLC_TESTS) {
 			privateModules = exports.privateModules || {};
@@ -3715,7 +3715,7 @@ define("tinymce/util/Tools", [
 	 * More details on this method can be found in the Wiki.
 	 *
 	 * @method create
-	 * @param {String} s Class name, inheritage and prefix.
+	 * @param {String} s Class name, inheritance and prefix.
 	 * @param {Object} p Collection of methods to add to the class.
 	 * @param {Object} root Optional root object defaults to the global window object.
 	 * @example
@@ -5940,7 +5940,7 @@ define("tinymce/html/Styles", [], function() {
 					}
 
 					// IE 11 will produce a border-image: none when getting the style attribute from <p style="border: 1px solid red"></p>
-					// So lets asume it shouldn't be there
+					// So let us assume it shouldn't be there
 					if (styles['border-image'] === 'none') {
 						delete styles['border-image'];
 					}
@@ -6855,7 +6855,7 @@ define("tinymce/dom/Range", [
 		}
 
 		extend(self, {
-			// Inital states
+			// Initial states
 			startContainer: doc,
 			startOffset: 0,
 			endContainer: doc,
@@ -14718,8 +14718,9 @@ define("tinymce/dom/TridentSelection", [], function() {
 				}
 			} catch (ex) {
 				// IE has a nasty bug where text nodes might throw "invalid argument" when you
-				// access the nodeValue or other properties of text nodes. This seems to happend when
-				// text nodes are split into two nodes by a delete/backspace call. So lets detect it and try to fix it.
+				// access the nodeValue or other properties of text nodes. This seems to happen when
+				// text nodes are split into two nodes by a delete/backspace call.
+				// So let us detect and try to fix it.
 				if (ex.number == -2147024809) {
 					// Get the current selection
 					bookmark = self.getBookmark(2);
@@ -15273,6 +15274,7 @@ define("tinymce/dom/ControlSelection", [
 		function showResizeRect(targetElm, mouseDownHandleName, mouseDownEvent) {
 			var position, targetWidth, targetHeight, e, rect;
 
+			hideResizeRect();
 			unbindResizeHandleEvents();
 
 			// Get position and size of target
@@ -20544,7 +20546,7 @@ define("tinymce/Formatter", [
 				}
 			}
 
-			// Applies formatting to the caret postion
+			// Applies formatting to the caret position
 			function applyCaretFormat() {
 				var rng, caretContainer, textNode, offset, bookmark, container, text;
 
@@ -20664,7 +20666,7 @@ define("tinymce/Formatter", [
 						// Replace formatNode with caretContainer when removing format from empty block like <p><b>|</b></p>
 						formatNode.parentNode.replaceChild(caretContainer, formatNode);
 					} else {
-						// Insert caret container after the formated node
+						// Insert caret container after the formatted node
 						dom.insertAfter(caretContainer, formatNode);
 					}
 
@@ -23414,7 +23416,7 @@ define("tinymce/util/URI", [
  */
 
 /**
- * This utilitiy class is used for easier inheritage.
+ * This utilitiy class is used for easier inheritance.
  *
  * Features:
  * * Exposed super functions: this._super();
@@ -25471,7 +25473,7 @@ define("tinymce/ui/ClassList", [
 
 /**
  * This class will automatically reflow controls on the next animation frame within a few milliseconds on older browsers.
- * If the user manually reflows then the automatic reflow will be cancelled. This class is unsed internally when various control states
+ * If the user manually reflows then the automatic reflow will be cancelled. This class is used internally when various control states
  * changes that triggers a reflow.
  *
  * @class tinymce.ui.ReflowQueue
@@ -31048,7 +31050,7 @@ define("tinymce/util/Quirks", [
 						}
 					}
 
-					// Remove all spans that isn't maked and retain selection
+					// Remove all spans that aren't marked and retain selection
 					Tools.each(record.addedNodes, function(node) {
 						if (node.nodeName == "SPAN" && !node.getAttribute('mce-data-marked')) {
 							var offset, container;
@@ -34681,7 +34683,7 @@ define("tinymce/SelectionOverrides", [
 		var getNextVisualCaretPosition = curry(getVisualCaretPosition, caretWalker.next);
 		var getPrevVisualCaretPosition = curry(getVisualCaretPosition, caretWalker.prev),
 			fakeCaret = new FakeCaret(editor.getBody(), isBlock),
-			realSelectionId = editor.dom.uniqueId(),
+			realSelectionId = 'sel-' + editor.dom.uniqueId(),
 			selectedContentEditableNode, $ = editor.$;
 
 		function isBlock(node) {
@@ -35922,6 +35924,10 @@ define("tinymce/Editor", [
 					each(PluginManager.dependencies(plugin), function(dep) {
 						initPlugin(dep);
 					});
+
+					if (self.plugins[plugin]) {
+						return;
+					}
 
 					pluginInstance = new Plugin(self, pluginUrl, self.$);
 
@@ -37574,7 +37580,7 @@ define("tinymce/Editor", [
 		_refreshContentEditable: function() {
 			var self = this, body, parent;
 
-			// Check if the editor was hidden and the re-initalize contentEditable mode by removing and adding the body again
+			// Check if the editor was hidden and the re-initialize contentEditable mode by removing and adding the body again
 			if (self._isHidden()) {
 				body = self.getBody();
 				parent = body.parentNode;
@@ -37903,7 +37909,7 @@ define("tinymce/FocusManager", [
 				Delay.setEditorTimeout(editor, function() {
 					var focusedEditor = editorManager.focusedEditor;
 
-					// Still the same editor the the blur was outside any editor UI
+					// Still the same editor the blur was outside any editor UI
 					if (!isUIElement(getActiveElement()) && focusedEditor == editor) {
 						editor.fire('blur', {focusedEditor: null});
 						editorManager.focusedEditor = null;
@@ -38108,7 +38114,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion: '3.0',
+		minorVersion: '3.1',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -38116,7 +38122,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2015-11-23',
+		releaseDate: '2015-11-30',
 
 		/**
 		 * Collection of editor instances.
@@ -45115,4 +45121,4 @@ define("tinymce/ui/Throbber", [
 });
 
 expose(["tinymce/geom/Rect","tinymce/util/Promise","tinymce/util/Delay","tinymce/dom/EventUtils","tinymce/dom/Sizzle","tinymce/Env","tinymce/util/Tools","tinymce/dom/DomQuery","tinymce/html/Styles","tinymce/dom/TreeWalker","tinymce/html/Entities","tinymce/dom/DOMUtils","tinymce/dom/ScriptLoader","tinymce/AddOnManager","tinymce/dom/RangeUtils","tinymce/html/Node","tinymce/html/Schema","tinymce/html/SaxParser","tinymce/html/DomParser","tinymce/html/Writer","tinymce/html/Serializer","tinymce/dom/Serializer","tinymce/util/VK","tinymce/dom/ControlSelection","tinymce/dom/BookmarkManager","tinymce/dom/Selection","tinymce/Formatter","tinymce/UndoManager","tinymce/EditorCommands","tinymce/util/URI","tinymce/util/Class","tinymce/util/EventDispatcher","tinymce/util/Observable","tinymce/ui/Selector","tinymce/ui/Collection","tinymce/ui/ReflowQueue","tinymce/ui/Control","tinymce/ui/Factory","tinymce/ui/KeyboardNavigation","tinymce/ui/Container","tinymce/ui/DragHelper","tinymce/ui/Scrollable","tinymce/ui/Panel","tinymce/ui/Movable","tinymce/ui/Resizable","tinymce/ui/FloatPanel","tinymce/ui/Window","tinymce/ui/MessageBox","tinymce/WindowManager","tinymce/ui/Tooltip","tinymce/ui/Widget","tinymce/ui/Progress","tinymce/ui/Notification","tinymce/NotificationManager","tinymce/EditorObservable","tinymce/Shortcuts","tinymce/Editor","tinymce/util/I18n","tinymce/FocusManager","tinymce/EditorManager","tinymce/util/XHR","tinymce/util/JSON","tinymce/util/JSONRequest","tinymce/util/JSONP","tinymce/util/LocalStorage","tinymce/Compat","tinymce/ui/Layout","tinymce/ui/AbsoluteLayout","tinymce/ui/Button","tinymce/ui/ButtonGroup","tinymce/ui/Checkbox","tinymce/ui/ComboBox","tinymce/ui/ColorBox","tinymce/ui/PanelButton","tinymce/ui/ColorButton","tinymce/util/Color","tinymce/ui/ColorPicker","tinymce/ui/Path","tinymce/ui/ElementPath","tinymce/ui/FormItem","tinymce/ui/Form","tinymce/ui/FieldSet","tinymce/ui/FilePicker","tinymce/ui/FitLayout","tinymce/ui/FlexLayout","tinymce/ui/FlowLayout","tinymce/ui/FormatControls","tinymce/ui/GridLayout","tinymce/ui/Iframe","tinymce/ui/Label","tinymce/ui/Toolbar","tinymce/ui/MenuBar","tinymce/ui/MenuButton","tinymce/ui/MenuItem","tinymce/ui/Menu","tinymce/ui/ListBox","tinymce/ui/Radio","tinymce/ui/ResizeHandle","tinymce/ui/SelectBox","tinymce/ui/Slider","tinymce/ui/Spacer","tinymce/ui/SplitButton","tinymce/ui/StackLayout","tinymce/ui/TabPanel","tinymce/ui/TextBox","tinymce/ui/Throbber"]);
-})(window);
+})(this);

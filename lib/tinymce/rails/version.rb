@@ -1,6 +1,6 @@
 module TinyMCE
   module Rails
-    VERSION = "4.3.0"
-    TINYMCE_VERSION = "4.3.0"
+    VERSION = "4.3.1"
+    TINYMCE_VERSION = "4.3.1"
   end
 end
