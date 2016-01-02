@@ -1,9 +1,9 @@
 source 'https://rubygems.org'
 
 gem 'rails', '~> 4.2.5'
-#gem 'rails', '~> 4.1.10'
+#gem 'rails', '~> 4.1.14'
 #gem 'rails', '~> 4.0.13'
-#gem 'rails', '~> 3.2.21'
+#gem 'rails', '~> 3.2.22'
 
 gem 'jquery-rails'
 gem 'uglifier'

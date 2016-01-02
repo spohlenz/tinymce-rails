@@ -1,6 +1,7 @@
 source 'https://rubygems.org'
 
-gem 'rails', '4.1.10'
+gem 'rails', '4.1.14'
+gem 'jquery-rails'
 
 group :test do
   gem "test-unit",   "~> 3.0"
