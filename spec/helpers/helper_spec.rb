@@ -9,7 +9,7 @@ module TinyMCE::Rails
       self.assets_prefix      = Rails.application.config.assets.prefix
 
       if respond_to?(:resolve_assets_with=)
-        self.resolve_assets_with = Rails.application.config.assets.resolve_with
+        self.resolve_assets_with = [:environment]
       end
 
       if respond_to?(:precompiled_asset_checker)
