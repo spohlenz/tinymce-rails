@@ -5,8 +5,16 @@ module TinyMCE::Rails
     if defined?(Sprockets::Rails::Helper)
       include Sprockets::Rails::Helper
       
-      self.assets_environment = Rails.application.assets
-      self.assets_prefix      = Rails.application.config.assets.prefix
+      self.assets_environment  = Rails.application.assets
+      self.assets_prefix       = Rails.application.config.assets.prefix
+
+      if respond_to?(:resolve_assets_with=)
+        self.resolve_assets_with = Rails.application.config.assets.resolve_with
+      end
+
+      if respond_to?(:precompiled_asset_checker)
+        self.precompiled_asset_checker = ActionView::Base.precompiled_asset_checker
+      end
     else
       include Sprockets::Helpers::RailsHelper
     end

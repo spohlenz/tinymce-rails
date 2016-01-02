@@ -114,7 +114,7 @@ Alternate configurations defined in 'config/tinymce.yml' can be used with:
 Language Packs
 --------------
 
-See the [tinymce-rails-langs](https://github.com/spohlenz/tinymce-rails-langs) gem for additional language packs for TinyMCE. The `tinymce` helper will use the current locale as the language if available, falling back to English if the core language files are missing.
+See the [tinymce-rails-langs](https://github.com/spohlenz/tinymce-rails-langs) gem for additional language packs for TinyMCE.
 
 
 Manual Initialization

@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-gem 'rails', '~> 4.2.1'
+gem 'rails', '~> 4.2.5'
 #gem 'rails', '~> 4.1.10'
 #gem 'rails', '~> 4.0.13'
 #gem 'rails', '~> 3.2.21'

@@ -12,16 +12,6 @@ module TinyMCE::Rails
       expect(config.options).to eq(options)
     end
     
-    it "detects available languages" do
-      langs = Configuration.available_languages
-
-      expect(langs).to include("pirate")
-      expect(langs).to include("erb")
-      
-      expect(langs).to_not include("readme.md")
-      expect(langs).to_not include("missing")
-    end
-    
     describe "#options_for_tinymce" do
       it "returns string options as normal" do
         config = Configuration.new("mode" => "textareas")
@@ -56,25 +46,6 @@ module TinyMCE::Rails
       it "converts javascript function strings to Function objects" do
         config = Configuration.new("oninit" => "function() {}")
         expect(config.options_for_tinymce["oninit"]).to be_a(Configuration::Function)
-      end
-      
-      it "returns the language based on the current locale" do
-        I18n.locale = "pirate"
-        
-        config = Configuration.new({})
-        expect(config.options_for_tinymce["language"]).to eq("pirate")
-      end
-      
-      it "falls back to English (nil) if the current locale is not available" do
-        I18n.locale = "missing"
-        
-        config = Configuration.new({})
-        expect(config.options_for_tinymce["language"]).to be_nil
-      end
-      
-      it "does not override the language if already provided" do
-        config = Configuration.new("language" => "es")
-        expect(config.options_for_tinymce["language"]).to eq("es")
       end
     end
     

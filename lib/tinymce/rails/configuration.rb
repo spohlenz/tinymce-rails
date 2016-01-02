@@ -65,10 +65,6 @@ module TinyMCE::Rails
         end
       end
       
-      if self.class.default_language
-        result["language"] ||= self.class.default_language
-      end
-      
       result
     end
     
@@ -88,36 +84,6 @@ module TinyMCE::Rails
     
     def merge(options)
       self.class.new(self.options.merge(options))
-    end
-    
-    # Default language falls back to English if current locale is not available.
-    def self.default_language
-      I18n.locale.to_s if available_languages.include?(I18n.locale.to_s)
-    end
-    
-    # Searches asset paths for TinyMCE language files.
-    def self.available_languages
-      assets.paths.map { |path|
-        # Find all assets within tinymce/langs
-        entries = assets.entries(File.join(path, "tinymce/langs"))
-        entries.map { |entry|
-          if assets.respond_to?(:attributes_for)
-            assets.attributes_for(File.join(path, entry))
-          else
-            assets.find_asset(File.join("tinymce/langs", entry))
-          end
-        }.select { |asset|
-          # Select only JavaScript files
-          asset.logical_path =~ /\.js$/
-        }.map { |asset|
-          # Strip path and extension
-          asset.logical_path.sub(/^tinymce\/langs\//, "").sub(/\.js$/, "")
-        }
-      }.flatten.uniq
-    end
-  
-    def self.assets
-      Rails.application.assets
     end
   end
   
