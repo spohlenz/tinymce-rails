@@ -1,4 +1,4 @@
-// 4.3.2 (2015-12-14)
+// 4.3.3 (2016-01-14)
 
 /**
  * Compiled inline version. (Library mode)
@@ -665,6 +665,28 @@ define("tinymce/util/Delay", [
 			}, time);
 
 			return timer;
+		},
+
+		/**
+		 * Creates throttled callback function that only gets executed once within the specified time.
+		 *
+		 * @method throttle
+		 * @param {function} callback Callback to execute when timer finishes.
+		 * @param {Number} time Optional time to wait before the callback is executed, defaults to 0.
+		 * @return {Function} Throttled function callback.
+		 */
+		throttle: function(callback, time) {
+			var timer;
+
+			return function() {
+				var args = arguments;
+
+				clearTimeout(timer);
+
+				timer = wrappedSetTimeout(function() {
+					callback.apply(this, args);
+				}, time);
+			};
 		},
 
 		/**
@@ -15639,16 +15661,14 @@ define("tinymce/dom/ControlSelection", [
 				}
 			}
 
-			editor.on('nodechange ResizeEditor ResizeWindow drop', function(e) {
-				Delay.requestAnimationFrame(function() {
-					updateResizeRect(e);
-				});
-			});
+			var throttledUpdateResizeRect = Delay.throttle(updateResizeRect);
+
+			editor.on('nodechange ResizeEditor ResizeWindow drop', throttledUpdateResizeRect);
 
 			// Update resize rect while typing in a table
 			editor.on('keydown keyup', function(e) {
 				if (selectedElm && selectedElm.nodeName == "TABLE") {
-					updateResizeRect(e);
+					throttledUpdateResizeRect(e);
 				}
 			});
 
@@ -18540,6 +18560,7 @@ define("tinymce/Formatter", [
 
 				aligncenter: [
 					{selector: 'figure,p,h1,h2,h3,h4,h5,h6,td,th,tr,div,ul,ol,li', styles: {textAlign: 'center'}, defaultBlock: 'div'},
+					{selector: 'figure.image', collapsed: false, classes: 'align-center', ceFalseOverride: true},
 					{selector: 'img', collapsed: false, styles: {display: 'block', marginLeft: 'auto', marginRight: 'auto'}},
 					{selector: 'table', collapsed: false, styles: {marginLeft: 'auto', marginRight: 'auto'}}
 				],
@@ -22604,6 +22625,9 @@ define("tinymce/EditorCommands", [
 
 				// Insert node maker where we will insert the new HTML and get it's parent
 				if (!selection.isCollapsed()) {
+					// Fix for #2595 seems that delete removes one extra character on
+					// WebKit for some odd reason if you double click select a word
+					editor.selection.setRng(editor.selection.getRng());
 					editor.getDoc().execCommand('Delete', false, null);
 					trimNbspAfterDeleteAndPaddValue();
 				}
@@ -38142,7 +38166,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion: '3.2',
+		minorVersion: '3.3',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -38150,7 +38174,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2015-12-14',
+		releaseDate: '2016-01-14',
 
 		/**
 		 * Collection of editor instances.
@@ -38857,6 +38881,8 @@ define("tinymce/util/XHR", [
 			settings.error_scope = settings.error_scope || settings.scope;
 			settings.async = settings.async === false ? false : true;
 			settings.data = settings.data || '';
+
+			XHR.fire('beforeInitialize', {settings: settings});
 
 			xhr = new XMLHttpRequest();
 
