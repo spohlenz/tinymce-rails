@@ -51,7 +51,7 @@ alternate:
     - table
 ```
 
-See the [TinyMCE 4 Documentation](http://www.tinymce.com/wiki.php/Configuration) for a full list of configuration options.
+See the [TinyMCE 4 Documentation](https://www.tinymce.com/docs/advanced/editor-control-identifiers/) for a full list of configuration options.
 
 
 **3. Include the TinyMCE assets**
