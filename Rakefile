@@ -16,8 +16,8 @@ desc "Update TinyMCE to version #{TinyMCE::Rails::TINYMCE_VERSION}"
 task :update => [ :fetch, :extract, :rename ]
 
 task :fetch do
-  download("http://download.moxiecode.com/tinymce/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}.zip", "tinymce.zip")
-  download("http://download.moxiecode.com/tinymce/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}_dev.zip", "tinymce.dev.zip")
+  download("http://download.ephox.com/tinymce/community/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}.zip", "tinymce.zip")
+  download("http://download.ephox.com/tinymce/community/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}_dev.zip", "tinymce.dev.zip")
 end
 
 task :extract do
@@ -36,7 +36,6 @@ task :extract do
    `mv tmp/tinymce/js/tinymce/tinymce.jquery.min.js vendor/assets/javascripts/tinymce/tinymce.jquery.js`
    `mkdir -p app/assets/source/tinymce`
    `mv tmp/tinymce/js/tinymce/tinymce.js app/assets/source/tinymce/tinymce.js`
-   `mv tmp/tinymce/js/tinymce/tinymce.jquery.js app/assets/source/tinymce/tinymce.jquery.js`
   end
 end
 
