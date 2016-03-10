@@ -7,6 +7,7 @@ gem 'rails', '~> 4.2.5'
 
 gem 'jquery-rails'
 gem 'uglifier'
+gem 'rake', '< 11'
 
 group :test do
   gem "test-unit",   "~> 3.0"
