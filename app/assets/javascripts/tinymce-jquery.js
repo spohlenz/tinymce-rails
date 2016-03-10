@@ -1,3 +1,3 @@
 //= require tinymce/preinit.js
-//= require tinymce/tinymce.jquery.js
+//= require tinymce/tinymce.js
 //= require tinymce/jquery.tinymce.js
