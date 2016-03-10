@@ -8,7 +8,6 @@ gem 'rails', '~> 4.2.1'
 gem 'jquery-rails'
 gem 'uglifier'
 gem 'iconv'
-gem 'rake', '< 11'
 
 group :test do
   gem "test-unit",   "~> 3.0"
