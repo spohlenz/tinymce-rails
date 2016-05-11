@@ -1,4 +1,4 @@
-// 4.3.8 (2016-03-15)
+// 4.3.12 (2016-05-10)
 
 /**
  * Compiled inline version. (Library mode)
@@ -713,6 +713,186 @@ define("tinymce/util/Delay", [
 	};
 });
 
+// Included from: js/tinymce/classes/Env.js
+
+/**
+ * Env.js
+ *
+ * Released under LGPL License.
+ * Copyright (c) 1999-2015 Ephox Corp. All rights reserved
+ *
+ * License: http://www.tinymce.com/license
+ * Contributing: http://www.tinymce.com/contributing
+ */
+
+/**
+ * This class contains various environment constants like browser versions etc.
+ * Normally you don't want to sniff specific browser versions but sometimes you have
+ * to when it's impossible to feature detect. So use this with care.
+ *
+ * @class tinymce.Env
+ * @static
+ */
+define("tinymce/Env", [], function() {
+	var nav = navigator, userAgent = nav.userAgent;
+	var opera, webkit, ie, ie11, ie12, gecko, mac, iDevice, android, fileApi, phone, tablet, windowsPhone;
+
+	function matchMediaQuery(query) {
+		return "matchMedia" in window ? matchMedia(query).matches : false;
+	}
+
+	opera = window.opera && window.opera.buildNumber;
+	android = /Android/.test(userAgent);
+	webkit = /WebKit/.test(userAgent);
+	ie = !webkit && !opera && (/MSIE/gi).test(userAgent) && (/Explorer/gi).test(nav.appName);
+	ie = ie && /MSIE (\w+)\./.exec(userAgent)[1];
+	ie11 = userAgent.indexOf('Trident/') != -1 && (userAgent.indexOf('rv:') != -1 || nav.appName.indexOf('Netscape') != -1) ? 11 : false;
+	ie12 = (userAgent.indexOf('Edge/') != -1 && !ie && !ie11) ? 12 : false;
+	ie = ie || ie11 || ie12;
+	gecko = !webkit && !ie11 && /Gecko/.test(userAgent);
+	mac = userAgent.indexOf('Mac') != -1;
+	iDevice = /(iPad|iPhone)/.test(userAgent);
+	fileApi = "FormData" in window && "FileReader" in window && "URL" in window && !!URL.createObjectURL;
+	phone = matchMediaQuery("only screen and (max-device-width: 480px)") && (android || iDevice);
+	tablet = matchMediaQuery("only screen and (min-width: 800px)") && (android || iDevice);
+	windowsPhone = userAgent.indexOf('Windows Phone') != -1;
+
+	if (ie12) {
+		webkit = false;
+	}
+
+	// Is a iPad/iPhone and not on iOS5 sniff the WebKit version since older iOS WebKit versions
+	// says it has contentEditable support but there is no visible caret.
+	var contentEditable = !iDevice || fileApi || userAgent.match(/AppleWebKit\/(\d*)/)[1] >= 534;
+
+	return {
+		/**
+		 * Constant that is true if the browser is Opera.
+		 *
+		 * @property opera
+		 * @type Boolean
+		 * @final
+		 */
+		opera: opera,
+
+		/**
+		 * Constant that is true if the browser is WebKit (Safari/Chrome).
+		 *
+		 * @property webKit
+		 * @type Boolean
+		 * @final
+		 */
+		webkit: webkit,
+
+		/**
+		 * Constant that is more than zero if the browser is IE.
+		 *
+		 * @property ie
+		 * @type Boolean
+		 * @final
+		 */
+		ie: ie,
+
+		/**
+		 * Constant that is true if the browser is Gecko.
+		 *
+		 * @property gecko
+		 * @type Boolean
+		 * @final
+		 */
+		gecko: gecko,
+
+		/**
+		 * Constant that is true if the os is Mac OS.
+		 *
+		 * @property mac
+		 * @type Boolean
+		 * @final
+		 */
+		mac: mac,
+
+		/**
+		 * Constant that is true if the os is iOS.
+		 *
+		 * @property iOS
+		 * @type Boolean
+		 * @final
+		 */
+		iOS: iDevice,
+
+		/**
+		 * Constant that is true if the os is android.
+		 *
+		 * @property android
+		 * @type Boolean
+		 * @final
+		 */
+		android: android,
+
+		/**
+		 * Constant that is true if the browser supports editing.
+		 *
+		 * @property contentEditable
+		 * @type Boolean
+		 * @final
+		 */
+		contentEditable: contentEditable,
+
+		/**
+		 * Transparent image data url.
+		 *
+		 * @property transparentSrc
+		 * @type Boolean
+		 * @final
+		 */
+		transparentSrc: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+
+		/**
+		 * Returns true/false if the browser can or can't place the caret after a inline block like an image.
+		 *
+		 * @property noCaretAfter
+		 * @type Boolean
+		 * @final
+		 */
+		caretAfter: ie != 8,
+
+		/**
+		 * Constant that is true if the browser supports native DOM Ranges. IE 9+.
+		 *
+		 * @property range
+		 * @type Boolean
+		 */
+		range: window.getSelection && "Range" in window,
+
+		/**
+		 * Returns the IE document mode for non IE browsers this will fake IE 10.
+		 *
+		 * @property documentMode
+		 * @type Number
+		 */
+		documentMode: ie && !ie12 ? (document.documentMode || 7) : 10,
+
+		/**
+		 * Constant that is true if the browser has a modern file api.
+		 *
+		 * @property fileApi
+		 * @type Boolean
+		 */
+		fileApi: fileApi,
+
+		/**
+		 * Constant that is true if the browser supports contentEditable=false regions.
+		 *
+		 * @property ceFalse
+		 * @type Boolean
+		 */
+		ceFalse: (ie === false || ie > 8),
+
+		desktop: !phone && !tablet,
+		windowsPhone: windowsPhone
+	};
+});
+
 // Included from: js/tinymce/classes/dom/EventUtils.js
 
 /**
@@ -734,8 +914,9 @@ define("tinymce/util/Delay", [
  * @class tinymce.dom.EventUtils
  */
 define("tinymce/dom/EventUtils", [
-	"tinymce/util/Delay"
-], function(Delay) {
+	"tinymce/util/Delay",
+	"tinymce/Env"
+], function(Delay, Env) {
 	"use strict";
 
 	var eventExpandoPrefix = "mce-data-";
@@ -762,6 +943,32 @@ define("tinymce/dom/EventUtils", [
 		} else if (target.detachEvent) {
 			target.detachEvent('on' + name, callback);
 		}
+	}
+
+	/**
+	 * Gets the event target based on shadow dom properties like path and deepPath.
+	 */
+	function getTargetFromShadowDom(event, defaultTarget) {
+		var path, target = defaultTarget;
+
+		// When target element is inside Shadow DOM we need to take first element from path
+		// otherwise we'll get Shadow Root parent, not actual target element
+
+		// Normalize target for WebComponents v0 implementation (in Chrome)
+		path = event.path;
+		if (path && path.length > 0) {
+			target = path[0];
+		}
+
+		// Normalize target for WebComponents v1 implementation (standard)
+		if (event.deepPath) {
+			path = event.deepPath();
+			if (path && path.length > 0) {
+				target = path[0];
+			}
+		}
+
+		return target;
 	}
 
 	/**
@@ -793,17 +1000,9 @@ define("tinymce/dom/EventUtils", [
 			event.target = event.srcElement || document;
 		}
 
-		// When target element is inside Shadow DOM we need to take first element from path
-		// otherwise we'll get Shadow Root parent, not actual target element
-
-		// Normalize target for WebComponents v0 implementation (in Chrome)
-		if (event.path) {
-			event.target = event.path[0];
-		}
-
-		// Normalize target for WebComponents v1 implementation (standard)
-		if (event.deepPath) {
-			event.target = event.deepPath[0];
+		// Experimental shadow dom support
+		if (Env.experimentalShadowDom) {
+			event.target = getTargetFromShadowDom(originalEvent, event.target);
 		}
 
 		// Calculate pageX/Y if missing and clientX/Y available
@@ -1778,6 +1977,17 @@ setDocument = Sizzle.setDocument = function( node ) {
 		doc = node ? node.ownerDocument || node : preferredDoc,
 		parent = doc.defaultView;
 
+	function getTop(win) {
+		// Edge throws a lovely Object expected if you try to get top on a detached reference see #2642
+		try {
+			return win.top;
+		} catch (ex) {
+			// Ignore
+		}
+
+		return null;
+	}
+
 	// If no document and documentElement is available, return
 	if ( doc === document || doc.nodeType !== 9 || !doc.documentElement ) {
 		return document;
@@ -1794,7 +2004,7 @@ setDocument = Sizzle.setDocument = function( node ) {
 	// If iframe document is assigned to "document" variable and if iframe has been reloaded,
 	// IE will throw "permission denied" error when accessing "document" variable, see jQuery #13936
 	// IE6-8 do not support the defaultView property so parent will be undefined
-	if ( parent && parent !== parent.top ) {
+	if ( parent && parent !== getTop(parent) ) {
 		// IE11 does not have attachEvent, so all must suffer
 		if ( parent.addEventListener ) {
 			parent.addEventListener( "unload", function() {
@@ -3340,186 +3550,6 @@ return Sizzle;
 });
 
 /*eslint-enable */
-
-// Included from: js/tinymce/classes/Env.js
-
-/**
- * Env.js
- *
- * Released under LGPL License.
- * Copyright (c) 1999-2015 Ephox Corp. All rights reserved
- *
- * License: http://www.tinymce.com/license
- * Contributing: http://www.tinymce.com/contributing
- */
-
-/**
- * This class contains various environment constants like browser versions etc.
- * Normally you don't want to sniff specific browser versions but sometimes you have
- * to when it's impossible to feature detect. So use this with care.
- *
- * @class tinymce.Env
- * @static
- */
-define("tinymce/Env", [], function() {
-	var nav = navigator, userAgent = nav.userAgent;
-	var opera, webkit, ie, ie11, ie12, gecko, mac, iDevice, android, fileApi, phone, tablet, windowsPhone;
-
-	function matchMediaQuery(query) {
-		return "matchMedia" in window ? matchMedia(query).matches : false;
-	}
-
-	opera = window.opera && window.opera.buildNumber;
-	android = /Android/.test(userAgent);
-	webkit = /WebKit/.test(userAgent);
-	ie = !webkit && !opera && (/MSIE/gi).test(userAgent) && (/Explorer/gi).test(nav.appName);
-	ie = ie && /MSIE (\w+)\./.exec(userAgent)[1];
-	ie11 = userAgent.indexOf('Trident/') != -1 && (userAgent.indexOf('rv:') != -1 || nav.appName.indexOf('Netscape') != -1) ? 11 : false;
-	ie12 = (userAgent.indexOf('Edge/') != -1 && !ie && !ie11) ? 12 : false;
-	ie = ie || ie11 || ie12;
-	gecko = !webkit && !ie11 && /Gecko/.test(userAgent);
-	mac = userAgent.indexOf('Mac') != -1;
-	iDevice = /(iPad|iPhone)/.test(userAgent);
-	fileApi = "FormData" in window && "FileReader" in window && "URL" in window && !!URL.createObjectURL;
-	phone = matchMediaQuery("only screen and (max-device-width: 480px)") && (android || iDevice);
-	tablet = matchMediaQuery("only screen and (min-width: 800px)") && (android || iDevice);
-	windowsPhone = userAgent.indexOf('Windows Phone') != -1;
-
-	if (ie12) {
-		webkit = false;
-	}
-
-	// Is a iPad/iPhone and not on iOS5 sniff the WebKit version since older iOS WebKit versions
-	// says it has contentEditable support but there is no visible caret.
-	var contentEditable = !iDevice || fileApi || userAgent.match(/AppleWebKit\/(\d*)/)[1] >= 534;
-
-	return {
-		/**
-		 * Constant that is true if the browser is Opera.
-		 *
-		 * @property opera
-		 * @type Boolean
-		 * @final
-		 */
-		opera: opera,
-
-		/**
-		 * Constant that is true if the browser is WebKit (Safari/Chrome).
-		 *
-		 * @property webKit
-		 * @type Boolean
-		 * @final
-		 */
-		webkit: webkit,
-
-		/**
-		 * Constant that is more than zero if the browser is IE.
-		 *
-		 * @property ie
-		 * @type Boolean
-		 * @final
-		 */
-		ie: ie,
-
-		/**
-		 * Constant that is true if the browser is Gecko.
-		 *
-		 * @property gecko
-		 * @type Boolean
-		 * @final
-		 */
-		gecko: gecko,
-
-		/**
-		 * Constant that is true if the os is Mac OS.
-		 *
-		 * @property mac
-		 * @type Boolean
-		 * @final
-		 */
-		mac: mac,
-
-		/**
-		 * Constant that is true if the os is iOS.
-		 *
-		 * @property iOS
-		 * @type Boolean
-		 * @final
-		 */
-		iOS: iDevice,
-
-		/**
-		 * Constant that is true if the os is android.
-		 *
-		 * @property android
-		 * @type Boolean
-		 * @final
-		 */
-		android: android,
-
-		/**
-		 * Constant that is true if the browser supports editing.
-		 *
-		 * @property contentEditable
-		 * @type Boolean
-		 * @final
-		 */
-		contentEditable: contentEditable,
-
-		/**
-		 * Transparent image data url.
-		 *
-		 * @property transparentSrc
-		 * @type Boolean
-		 * @final
-		 */
-		transparentSrc: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-
-		/**
-		 * Returns true/false if the browser can or can't place the caret after a inline block like an image.
-		 *
-		 * @property noCaretAfter
-		 * @type Boolean
-		 * @final
-		 */
-		caretAfter: ie != 8,
-
-		/**
-		 * Constant that is true if the browser supports native DOM Ranges. IE 9+.
-		 *
-		 * @property range
-		 * @type Boolean
-		 */
-		range: window.getSelection && "Range" in window,
-
-		/**
-		 * Returns the IE document mode for non IE browsers this will fake IE 10.
-		 *
-		 * @property documentMode
-		 * @type Number
-		 */
-		documentMode: ie && !ie12 ? (document.documentMode || 7) : 10,
-
-		/**
-		 * Constant that is true if the browser has a modern file api.
-		 *
-		 * @property fileApi
-		 * @type Boolean
-		 */
-		fileApi: fileApi,
-
-		/**
-		 * Constant that is true if the browser supports contentEditable=false regions.
-		 *
-		 * @property ceFalse
-		 * @type Boolean
-		 */
-		ceFalse: (ie === false || ie > 8),
-
-		desktop: !phone && !tablet,
-		windowsPhone: windowsPhone
-	};
-});
 
 // Included from: js/tinymce/classes/util/Arr.js
 
@@ -10899,7 +10929,11 @@ define("tinymce/NodeChange", [
 				// Get start node
 				root = editor.getBody();
 				node = selection.getStart() || root;
-				node = node.ownerDocument != editor.getDoc() ? editor.getBody() : node;
+
+				// Make sure the node is within the editor root or is the editor root
+				if (node.ownerDocument != editor.getDoc() || !editor.dom.isChildOf(node, root)) {
+					node = root;
+				}
 
 				// Edge case for <p>|<img></p>
 				if (node.nodeName == 'IMG' && selection.isCollapsed()) {
@@ -15751,18 +15785,18 @@ define("tinymce/dom/ControlSelection", [
 				}
 			}
 
-			var throttledUpdateResizeRect = Delay.throttle(updateResizeRect);
-
-			editor.on('nodechange ResizeEditor ResizeWindow drop', function(e) {
+			var throttledUpdateResizeRect = Delay.throttle(function(e) {
 				if (!editor.composing) {
-					throttledUpdateResizeRect(e);
+					updateResizeRect(e);
 				}
 			});
 
+			editor.on('nodechange ResizeEditor ResizeWindow drop', throttledUpdateResizeRect);
+
 			// Update resize rect while typing in a table
-			editor.on('keydown keyup compositionend', function(e) {
+			editor.on('keyup compositionend', function(e) {
 				// Don't update the resize rect while composing since it blows away the IME see: #2710
-				if (selectedElm && selectedElm.nodeName == "TABLE" && !editor.composing) {
+				if (selectedElm && selectedElm.nodeName == "TABLE") {
 					throttledUpdateResizeRect(e);
 				}
 			});
@@ -16298,6 +16332,18 @@ define("tinymce/caret/CaretPosition", [
 			if (offset < container.data.length) {
 				if (ExtendingChar.isExtendingChar(container.data[offset])) {
 					return clientRects;
+				}
+
+				// WebKit returns two client rects for a position after an extending
+				// character a\uxxx|b so expand on "b" and collapse to start of "b" box
+				if (ExtendingChar.isExtendingChar(container.data[offset - 1])) {
+					range.setStart(container, offset);
+					range.setEnd(container, offset + 1);
+
+					if (!isHiddenWhiteSpaceRange(range)) {
+						addUniqueAndValidRect(collapseAndInflateWidth(getBoundingClientRect(range), false));
+						return clientRects;
+					}
 				}
 			}
 
@@ -17960,8 +18006,7 @@ define("tinymce/dom/Selection", [
 		 */
 		getNode: function() {
 			var self = this, rng = self.getRng(), elm;
-			var startContainer = rng.startContainer, endContainer = rng.endContainer;
-			var startOffset = rng.startOffset, endOffset = rng.endOffset, root = self.dom.getRoot();
+			var startContainer, endContainer, startOffset, endOffset, root = self.dom.getRoot();
 
 			function skipEmptyTextNodes(node, forwards) {
 				var orig = node;
@@ -17977,6 +18022,11 @@ define("tinymce/dom/Selection", [
 			if (!rng) {
 				return root;
 			}
+
+			startContainer = rng.startContainer;
+			endContainer = rng.endContainer;
+			startOffset = rng.startOffset;
+			endOffset = rng.endOffset;
 
 			if (rng.setStart) {
 				elm = rng.commonAncestorContainer;
@@ -18333,7 +18383,7 @@ define("tinymce/dom/ElementUtils", [
 					var name = attr.nodeName.toLowerCase();
 
 					// Don't compare internal attributes or style
-					if (name.indexOf('_') !== 0 && name !== 'style' && name !== 'data-mce-style') {
+					if (name.indexOf('_') !== 0 && name !== 'style' && name !== 'data-mce-style' && name != 'data-mce-fragment') {
 						attribs[name] = dom.getAttrib(node, name);
 					}
 				});
@@ -21644,7 +21694,7 @@ define("tinymce/EnterKey", [
 								block.appendChild(clonedNode);
 							}
 						}
-					} while ((node = node.parentNode));
+					} while ((node = node.parentNode) && node != editableRoot);
 				}
 
 				// BR is needed in empty blocks on non IE browsers
@@ -22570,6 +22620,7 @@ define("tinymce/caret/CaretWalker", [
 	var isContentEditableFalse = NodeType.isContentEditableFalse,
 		isText = NodeType.isText,
 		isElement = NodeType.isElement,
+		isBr = NodeType.isBr,
 		isForwards = CaretUtils.isForwards,
 		isBackwards = CaretUtils.isBackwards,
 		isCaretCandidate = CaretCandidate.isCaretCandidate,
@@ -22617,10 +22668,30 @@ define("tinymce/caret/CaretWalker", [
 		}
 
 		if (isBackwards(direction)) {
+			if (isBr(node)) {
+				return CaretPosition.before(node);
+			}
+
 			return CaretPosition.after(node);
 		}
 
 		return CaretPosition.before(node);
+	}
+
+	// Jumps over BR elements <p>|<br></p><p>a</p> -> <p><br></p><p>|a</p>
+	function isBrBeforeBlock(node, rootNode) {
+		var next;
+
+		if (!NodeType.isBr(node)) {
+			return false;
+		}
+
+		next = findCaretPosition(1, CaretPosition.after(node), rootNode);
+		if (!next) {
+			return false;
+		}
+
+		return !CaretUtils.isInSameBlock(CaretPosition.before(node), CaretPosition.before(next), rootNode);
 	}
 
 	function findCaretPosition(direction, startCaretPosition, rootNode) {
@@ -22671,6 +22742,10 @@ define("tinymce/caret/CaretWalker", [
 			if (isForwards(direction) && offset < container.childNodes.length) {
 				nextNode = nodeAtIndex(container, offset);
 				if (isCaretCandidate(nextNode)) {
+					if (isBrBeforeBlock(nextNode, rootNode)) {
+						return findCaretPosition(direction, CaretPosition.after(nextNode), rootNode);
+					}
+
 					if (!isAtomic(nextNode)) {
 						innerNode = CaretUtils.findNode(nextNode, direction, isEditableCaretCandidate, nextNode);
 						if (innerNode) {
@@ -22873,7 +22948,7 @@ define("tinymce/EditorCommands", [
 			var func;
 
 			// Is hidden then return undefined
-			if (editor._isHidden()) {
+			if (editor.quirks.isHidden()) {
 				return;
 			}
 
@@ -22903,7 +22978,7 @@ define("tinymce/EditorCommands", [
 			var func;
 
 			// Is hidden then return undefined
-			if (editor._isHidden()) {
+			if (editor.quirks.isHidden()) {
 				return;
 			}
 
@@ -23050,6 +23125,11 @@ define("tinymce/EditorCommands", [
 				} catch (ex) {
 					// Command failed
 					failed = TRUE;
+				}
+
+				// Chrome reports the paste command as supported however older IE:s will return false for cut/paste
+				if (command === 'paste' && !doc.queryCommandEnabled(command)) {
+					failed = true;
 				}
 
 				// Present alert message about clipboard access not being available
@@ -23281,12 +23361,32 @@ define("tinymce/EditorCommands", [
 					}
 				}
 
+				function markFragmentElements(fragment) {
+					var node = fragment;
+
+					while ((node = node.walk())) {
+						if (node.type === 1) {
+							node.attr('data-mce-fragment', '1');
+						}
+					}
+				}
+
+				function umarkFragmentElements(elm) {
+					Tools.each(elm.getElementsByTagName('*'), function(elm) {
+						elm.removeAttribute('data-mce-fragment');
+					});
+				}
+
+				function isPartOfFragment(node) {
+					return !!node.getAttribute('data-mce-fragment');
+				}
+
 				function canHaveChildren(node) {
 					return node && !editor.schema.getShortEndedElements()[node.nodeName];
 				}
 
 				function moveSelectionToMarker(marker) {
-					var parentEditableFalseElm, parentNode, nextRng;
+					var parentEditableFalseElm, parentBlock, nextRng;
 
 					function getContentEditableFalseParent(node) {
 						var root = editor.getBody();
@@ -23347,20 +23447,20 @@ define("tinymce/EditorCommands", [
 					}
 
 					// Remove the marker node and set the new range
-					parentNode = marker.parentNode;
+					parentBlock = dom.getParent(marker, dom.isBlock);
 					dom.remove(marker);
 
-					if (dom.isEmpty(parentNode) && dom.isBlock(parentNode)) {
-						editor.$(parentNode).empty();
+					if (parentBlock && dom.isEmpty(parentBlock)) {
+						editor.$(parentBlock).empty();
 
-						rng.setStart(parentNode, 0);
-						rng.setEnd(parentNode, 0);
+						rng.setStart(parentBlock, 0);
+						rng.setEnd(parentBlock, 0);
 
-						if (!isTableCell(parentNode) && (nextRng = findNextCaretRng(rng))) {
+						if (!isTableCell(parentBlock) && !isPartOfFragment(parentBlock) && (nextRng = findNextCaretRng(rng))) {
 							rng = nextRng;
-							dom.remove(parentNode);
+							dom.remove(parentBlock);
 						} else {
-							dom.add(parentNode, dom.create('br', {'data-mce-bogus': '1'}));
+							dom.add(parentBlock, dom.create('br', {'data-mce-bogus': '1'}));
 						}
 					}
 
@@ -23425,6 +23525,7 @@ define("tinymce/EditorCommands", [
 				// Parse the fragment within the context of the parent node
 				var parserArgs = {context: parentNode.nodeName.toLowerCase(), data: data};
 				fragment = parser.parse(value, parserArgs);
+				markFragmentElements(fragment);
 
 				markInlineFormatElements(fragment);
 
@@ -23500,6 +23601,7 @@ define("tinymce/EditorCommands", [
 
 				reduceInlineTextElements();
 				moveSelectionToMarker(dom.get('mce_marker'));
+				umarkFragmentElements(editor.getBody());
 				editor.fire('SetContent', args);
 				editor.addVisual();
 			},
@@ -24220,6 +24322,27 @@ define("tinymce/util/URI", [
 			type: type,
 			data: uri[1]
 		};
+	};
+
+	URI.getDocumentBaseUrl = function(loc) {
+		var baseUrl;
+
+		// Pass applewebdata:// and other non web protocols though
+		if (loc.protocol.indexOf('http') !== 0 && loc.protocol !== 'file:') {
+			baseUrl = loc.href;
+		} else {
+			baseUrl = loc.protocol + '//' + loc.host + loc.pathname;
+		}
+
+		if (/^[^:]+:\/\/\/?[^\/]+\//.test(baseUrl)) {
+			baseUrl = baseUrl.replace(/[\?#].*$/, '').replace(/[\/\\][^\/]+$/, '');
+
+			if (!/[\/\\]$/.test(baseUrl)) {
+				baseUrl += '/';
+			}
+		}
+
+		return baseUrl;
 	};
 
 	return URI;
@@ -25945,6 +26068,24 @@ define("tinymce/ui/DomUtils", [
 	return {
 		id: function() {
 			return 'mceu_' + (count++);
+		},
+
+		create: function(name, attrs, children) {
+			var elm = document.createElement(name);
+
+			DOMUtils.DOM.setAttribs(elm, attrs);
+
+			if (typeof children === 'string') {
+				elm.innerHTML = children;
+			} else {
+				Tools.each(children, function(child) {
+					if (child.nodeType) {
+						elm.appendChild(child);
+					}
+				});
+			}
+
+			return elm;
 		},
 
 		createFragment: function(html) {
@@ -27894,7 +28035,7 @@ define("tinymce/ui/KeyboardNavigation", [
 				return true;
 			}
 
-			if (/^(button|menuitem|checkbox|tab|menuitemcheckbox|option|gridcell)$/.test(getRole(elm))) {
+			if (/^(button|menuitem|checkbox|tab|menuitemcheckbox|option|gridcell|slider)$/.test(getRole(elm))) {
 				return true;
 			}
 
@@ -28124,6 +28265,10 @@ define("tinymce/ui/KeyboardNavigation", [
 			function handleNonTabOrEscEvent(e, handler) {
 				// Ignore non tab keys for text elements
 				if (isTextInputElement(focusedElement)) {
+					return;
+				}
+
+				if (getRole(focusedElement) === 'slider') {
 					return;
 				}
 
@@ -29591,6 +29736,10 @@ define("tinymce/ui/FloatPanel", [
 				self._preBodyHtml = '<div class="' + self.classPrefix + 'arrow"></div>';
 				self.classes.add('popover').add('bottom').add(self.isRtl() ? 'end' : 'start');
 			}
+
+			self.aria('label', settings.ariaLabel);
+			self.aria('labelledby', self._id);
+			self.aria('describedby', self.describedBy || self._id + '-none');
 		},
 
 		fixed: function(state) {
@@ -29805,24 +29954,26 @@ define("tinymce/ui/Window", [
 	}
 
 	function handleWindowResize() {
-		var lastSize = {
-			w: window.innerWidth,
-			h: window.innerHeight
-		};
+		if (!Env.desktop) {
+			var lastSize = {
+				w: window.innerWidth,
+				h: window.innerHeight
+			};
 
-		Delay.setInterval(function() {
-			var w = window.innerWidth,
-				h = window.innerHeight;
+			Delay.setInterval(function() {
+				var w = window.innerWidth,
+					h = window.innerHeight;
 
-			if (lastSize.w != w || lastSize.h != h) {
-				lastSize = {
-					w: w,
-					h: h
-				};
+				if (lastSize.w != w || lastSize.h != h) {
+					lastSize = {
+						w: w,
+						h: h
+					};
 
-				$(window).trigger('resize');
-			}
-		}, 100);
+					$(window).trigger('resize');
+				}
+			}, 100);
+		}
 
 		function reposition() {
 			var i, rect = DomUtils.getWindowSize(), layoutRect;
@@ -29900,7 +30051,7 @@ define("tinymce/ui/Window", [
 			self.on('click', function(e) {
 				var closeClass = self.classPrefix + 'close';
 
-				if (e.target.className.indexOf(closeClass) != -1 || e.target.parentNode.className.indexOf(closeClass) != -1) {
+				if (DomUtils.hasClass(e.target, closeClass) || DomUtils.hasClass(e.target.parentNode, closeClass)) {
 					self.close();
 				}
 			});
@@ -30209,9 +30360,7 @@ define("tinymce/ui/Window", [
 		}
 	});
 
-	if (!Env.desktop) {
-		handleWindowResize();
-	}
+	handleWindowResize();
 
 	return Window;
 });
@@ -31464,7 +31613,7 @@ define("tinymce/util/Quirks", [
 		 * @private
 		 * @param {DragEvent} e Event object
 		 */
-		function setMceInteralContent(e) {
+		function setMceInternalContent(e) {
 			var selectionHtml, internalContent;
 
 			if (e.dataTransfer) {
@@ -32084,7 +32233,7 @@ define("tinymce/util/Quirks", [
 
 			editor.on('dragstart', function(e) {
 				dragStartRng = selection.getRng();
-				setMceInteralContent(e);
+				setMceInternalContent(e);
 			});
 
 			editor.on('drop', function(e) {
@@ -32555,7 +32704,7 @@ define("tinymce/util/Quirks", [
 		 */
 		function setGeckoEditingOptions() {
 			function setOpts() {
-				editor._refreshContentEditable();
+				refreshContentEditable();
 
 				setEditorCommandState("StyleWithCSS", false);
 				setEditorCommandState("enableInlineTableEditing", false);
@@ -33003,7 +33152,7 @@ define("tinymce/util/Quirks", [
 		 */
 		function ieInternalDragAndDrop() {
 			editor.on('dragstart', function(e) {
-				setMceInteralContent(e);
+				setMceInternalContent(e);
 			});
 
 			editor.on('drop', function(e) {
@@ -33019,6 +33168,33 @@ define("tinymce/util/Quirks", [
 					}
 				}
 			});
+		}
+
+		function refreshContentEditable() {
+			var body, parent;
+
+			// Check if the editor was hidden and the re-initialize contentEditable mode by removing and adding the body again
+			if (isHidden()) {
+				body = editor.getBody();
+				parent = body.parentNode;
+
+				parent.removeChild(body);
+				parent.appendChild(body);
+
+				body.focus();
+			}
+		}
+
+		function isHidden() {
+			var sel;
+
+			if (!isGecko) {
+				return 0;
+			}
+
+			// Weird, wheres that cursor selection?
+			sel = editor.selection.getSel();
+			return (!sel || !sel.rangeCount || sel.rangeCount === 0);
 		}
 
 		// All browsers
@@ -33086,6 +33262,11 @@ define("tinymce/util/Quirks", [
 			blockCmdArrowNavigation();
 			disableBackspaceIntoATable();
 		}
+
+		return {
+			refreshContentEditable: refreshContentEditable,
+			isHidden: isHidden
+		};
 	};
 });
 
@@ -33426,16 +33607,10 @@ define("tinymce/Shortcuts", [
 	var modifierNames = Tools.makeMap('alt,ctrl,shift,meta,access');
 
 	return function(editor) {
-		var self = this, shortcuts = {};
+		var self = this, shortcuts = {}, pendingPatterns = [];
 
-		function createShortcut(pattern, desc, cmdFunc, scope) {
-			var id, key, shortcut;
-
-			shortcut = {
-				func: cmdFunc,
-				scope: scope || editor,
-				desc: editor.translate(desc)
-			};
+		function parseShortcut(pattern) {
+			var id, key, shortcut = {};
 
 			// Parse modifiers and keys ctrl+alt+b for example
 			each(explode(pattern, '+'), function(value) {
@@ -33487,27 +33662,77 @@ define("tinymce/Shortcuts", [
 			return shortcut;
 		}
 
+		function createShortcut(pattern, desc, cmdFunc, scope) {
+			var shortcuts;
+
+			shortcuts = Tools.map(explode(pattern, '>'), parseShortcut);
+			shortcuts[shortcuts.length - 1] = Tools.extend(shortcuts[shortcuts.length - 1], {
+				func: cmdFunc,
+				scope: scope || editor
+			});
+
+			return Tools.extend(shortcuts[0], {
+				desc: editor.translate(desc),
+				subpatterns: shortcuts.slice(1)
+			});
+		}
+
+		function hasModifier(e) {
+			return e.altKey || e.ctrlKey || e.metaKey;
+		}
+
+		function isFunctionKey(e) {
+			return e.keyCode >= 112 && e.keyCode <= 123;
+		}
+
+		function matchShortcut(e, shortcut) {
+			if (!shortcut) {
+				return false;
+			}
+
+			if (shortcut.ctrl != e.ctrlKey || shortcut.meta != e.metaKey) {
+				return false;
+			}
+
+			if (shortcut.alt != e.altKey || shortcut.shift != e.shiftKey) {
+				return false;
+			}
+
+			if (e.keyCode == shortcut.keyCode || (e.charCode && e.charCode == shortcut.charCode)) {
+				e.preventDefault();
+				return true;
+			}
+
+			return false;
+		}
+
+		function executeShortcutAction(shortcut) {
+			return shortcut.func ? shortcut.func.call(shortcut.scope) : null;
+		}
+
 		editor.on('keyup keypress keydown', function(e) {
-			if ((e.altKey || e.ctrlKey || e.metaKey) && !e.isDefaultPrevented()) {
+			if ((hasModifier(e) || isFunctionKey(e)) && !e.isDefaultPrevented()) {
 				each(shortcuts, function(shortcut) {
-					if (shortcut.ctrl != e.ctrlKey || shortcut.meta != e.metaKey) {
-						return;
-					}
-
-					if (shortcut.alt != e.altKey || shortcut.shift != e.shiftKey) {
-						return;
-					}
-
-					if (e.keyCode == shortcut.keyCode || (e.charCode && e.charCode == shortcut.charCode)) {
-						e.preventDefault();
+					if (matchShortcut(e, shortcut)) {
+						pendingPatterns = shortcut.subpatterns.slice(0);
 
 						if (e.type == "keydown") {
-							shortcut.func.call(shortcut.scope);
+							executeShortcutAction(shortcut);
 						}
 
 						return true;
 					}
 				});
+
+				if (matchShortcut(e, pendingPatterns[0])) {
+					if (pendingPatterns.length === 1) {
+						if (e.type == "keydown") {
+							executeShortcutAction(pendingPatterns[0]);
+						}
+					}
+
+					pendingPatterns.shift();
+				}
 			}
 		});
 
@@ -33536,7 +33761,7 @@ define("tinymce/Shortcuts", [
 				};
 			}
 
-			each(explode(pattern.toLowerCase()), function(pattern) {
+			each(explode(Tools.trim(pattern.toLowerCase())), function(pattern) {
 				var shortcut = createShortcut(pattern, desc, cmdFunc, scope);
 				shortcuts[shortcut.id] = shortcut;
 			});
@@ -35514,8 +35739,39 @@ define("tinymce/SelectionOverrides", [
 			return null;
 		}
 
+		function mergeTextBlocks(direction, fromCaretPosition, toCaretPosition) {
+			var dom = editor.dom, fromBlock, toBlock, node, textBlocks;
+
+			if (direction === -1) {
+				if (isAfterContentEditableFalse(toCaretPosition) && isBlock(toCaretPosition.getNode(true))) {
+					return deleteContentEditableNode(toCaretPosition.getNode(true));
+				}
+			} else {
+				if (isBeforeContentEditableFalse(fromCaretPosition) && isBlock(fromCaretPosition.getNode())) {
+					return deleteContentEditableNode(fromCaretPosition.getNode());
+				}
+			}
+
+			textBlocks = editor.schema.getTextBlockElements();
+			fromBlock = dom.getParent(fromCaretPosition.getNode(), dom.isBlock);
+			toBlock = dom.getParent(toCaretPosition.getNode(), dom.isBlock);
+
+			// Verify that both blocks are text blocks
+			if (fromBlock === toBlock || !textBlocks[fromBlock.nodeName] || !textBlocks[toBlock.nodeName]) {
+				return null;
+			}
+
+			while ((node = fromBlock.firstChild)) {
+				toBlock.appendChild(node);
+			}
+
+			editor.dom.remove(fromBlock);
+
+			return toCaretPosition.toRange();
+		}
+
 		function backspaceDelete(direction, beforeFn, range) {
-			var node, caretPosition;
+			var node, caretPosition, peekCaretPosition;
 
 			if (!range.collapsed) {
 				node = getSelectedNode(range);
@@ -35528,6 +35784,15 @@ define("tinymce/SelectionOverrides", [
 
 			if (beforeFn(caretPosition)) {
 				return renderRangeCaret(deleteContentEditableNode(caretPosition.getNode(direction == -1)));
+			}
+
+			peekCaretPosition = direction == -1 ? caretWalker.prev(caretPosition) : caretWalker.next(caretPosition);
+			if (beforeFn(peekCaretPosition)) {
+				if (direction === -1) {
+					return mergeTextBlocks(direction, caretPosition, peekCaretPosition);
+				}
+
+				return mergeTextBlocks(direction, peekCaretPosition, caretPosition);
 			}
 		}
 
@@ -35579,6 +35844,18 @@ define("tinymce/SelectionOverrides", [
 
 				if (range.collapsed) {
 					setRange(renderCaretAtRange(range));
+				}
+			});
+
+			editor.on('click', function(e) {
+				var contentEditableRoot;
+
+				// Prevent clicks on links in a cE=false element
+				contentEditableRoot	= getContentEditableRoot(e.target);
+				if (contentEditableRoot) {
+					if (isContentEditableFalse(contentEditableRoot)) {
+						e.preventDefault();
+					}
 				}
 			});
 
@@ -35753,8 +36030,8 @@ define("tinymce/SelectionOverrides", [
 				rootClass + ' .mce-offscreen-selection {' +
 					'position: absolute;' +
 					'left: -9999999999px;' +
-					'width: 100px' +
-					'height: 100px' +
+					'width: 100px;' +
+					'height: 100px;' +
 				'}' +
 				rootClass + ' *[contentEditable=false] {' +
 					'cursor: default;' +
@@ -36871,9 +37148,8 @@ define("tinymce/Editor", [
 				DOM.setAttrib(body, "spellcheck", "false");
 			}
 
-			self.fire('PostRender');
-
 			self.quirks = new Quirks(self);
+			self.fire('PostRender');
 
 			if (settings.directionality) {
 				body.dir = settings.directionality;
@@ -36993,7 +37269,7 @@ define("tinymce/Editor", [
 					controlElm = rng.item(0);
 				}
 
-				self._refreshContentEditable();
+				self.quirks.refreshContentEditable();
 
 				// Move focus to contentEditable=true child if needed
 				contentEditableHost = getContentEditableHost(selection.getNode());
@@ -37081,7 +37357,7 @@ define("tinymce/Editor", [
 
 		/**
 		 * Translates the specified string by replacing variables with language pack items it will also check if there is
-		 * a key mathcin the input.
+		 * a key matching the input.
 		 *
 		 * @method translate
 		 * @param {String} text String to translate by the language pack data.
@@ -37094,9 +37370,11 @@ define("tinymce/Editor", [
 				return '';
 			}
 
-			return i18n.data[lang + '.' + text] || text.replace(/\{\#([^\}]+)\}/g, function(a, b) {
+			text = i18n.data[lang + '.' + text] || text.replace(/\{\#([^\}]+)\}/g, function(a, b) {
 				return i18n.data[lang + '.' + b] || '{#' + b + '}';
 			});
+
+			return this.editorManager.translate(text);
 		},
 
 		/**
@@ -37104,7 +37382,7 @@ define("tinymce/Editor", [
 		 *
 		 * @method getLang
 		 * @param {String} name Name/key to get from the language pack.
-		 * @param {String} defaultVal Optional default value to retrive.
+		 * @param {String} defaultVal Optional default value to retrieve.
 		 */
 		getLang: function(name, defaultVal) {
 			return (
@@ -37117,7 +37395,7 @@ define("tinymce/Editor", [
 		 * Returns a configuration parameter by name.
 		 *
 		 * @method getParam
-		 * @param {String} name Configruation parameter to retrive.
+		 * @param {String} name Configruation parameter to retrieve.
 		 * @param {String} defaultVal Optional default value to return.
 		 * @param {String} type Optional type parameter.
 		 * @return {String} Configuration parameter value or default value.
@@ -38090,33 +38368,6 @@ define("tinymce/Editor", [
 
 		_scanForImages: function() {
 			return this.editorUpload.scanForImages();
-		},
-
-		_refreshContentEditable: function() {
-			var self = this, body, parent;
-
-			// Check if the editor was hidden and the re-initialize contentEditable mode by removing and adding the body again
-			if (self._isHidden()) {
-				body = self.getBody();
-				parent = body.parentNode;
-
-				parent.removeChild(body);
-				parent.appendChild(body);
-
-				body.focus();
-			}
-		},
-
-		_isHidden: function() {
-			var sel;
-
-			if (!isGecko) {
-				return 0;
-			}
-
-			// Weird, wheres that cursor selection?
-			sel = this.selection.getSel();
-			return (!sel || !sel.rangeCount || sel.rangeCount === 0);
 		}
 	};
 
@@ -38441,17 +38692,19 @@ define("tinymce/FocusManager", [
 			// isn't within the body of the activeEditor nor a UI element such as a dialog child control
 			if (!documentFocusInHandler) {
 				documentFocusInHandler = function(e) {
-					var activeEditor = editorManager.activeEditor;
+					var activeEditor = editorManager.activeEditor, target;
 
-					if (activeEditor && e.target.ownerDocument == document) {
+					target = e.target;
+
+					if (activeEditor && target.ownerDocument == document) {
 						// Check to make sure we have a valid selection don't update the bookmark if it's
 						// a focusin to the body of the editor see #7025
-						if (activeEditor.selection && e.target != activeEditor.getBody()) {
+						if (activeEditor.selection && target != activeEditor.getBody()) {
 							activeEditor.selection.lastFocusBookmark = createBookmark(activeEditor.dom, activeEditor.lastRng);
 						}
 
 						// Fire a blur event if the element isn't a UI element
-						if (e.target != document.body && !isUIElement(e.target) && editorManager.focusedEditor == activeEditor) {
+						if (target != document.body && !isUIElement(target) && editorManager.focusedEditor == activeEditor) {
 							activeEditor.fire('blur', {focusedEditor: null});
 							editorManager.focusedEditor = null;
 						}
@@ -38605,6 +38858,7 @@ define("tinymce/EditorManager", [
 			removeEditorFromList(editor);
 			editor.unbindAllNativeEvents();
 			editor.destroy(true);
+			editor.removed = true;
 			editor = null;
 		}
 
@@ -38634,7 +38888,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion: '3.8',
+		minorVersion: '3.12',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -38642,7 +38896,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2016-03-15',
+		releaseDate: '2016-05-10',
 
 		/**
 		 * Collection of editor instances.
@@ -38678,7 +38932,7 @@ define("tinymce/EditorManager", [
 			var self = this, baseURL, documentBaseURL, suffix = "", preInit, src;
 
 			// Get base URL for the current document
-			documentBaseURL = document.location.href;
+			documentBaseURL = URI.getDocumentBaseUrl(document.location);
 
 			// Check if the URL is a document based format like: http://site/dir/file and file:///
 			// leave other formats like applewebdata://... intact
@@ -39472,6 +39726,7 @@ define("tinymce/util/JSON", [], function() {
 		if (t == 'string') {
 			v = '\bb\tt\nn\ff\rr\""\'\'\\\\';
 
+			/*eslint no-control-regex:0 */
 			return quote + o.replace(/([\u0080-\uFFFF\x00-\x1f\"\'\\])/g, function(a, b) {
 				// Make sure single quotes never get encoded inside double quotes for JSON compatibility
 				if (quote === '"' && a === "'") {
@@ -39869,7 +40124,7 @@ define("tinymce/util/LocalStorage", [], function() {
 		 * Returns the value if the specified key or null if it wasn't found.
 		 *
 		 * @method getItem
-		 * @param {String} key Key of item to retrive.
+		 * @param {String} key Key of item to retrieve.
 		 * @return {String} Value of the specified item or null if it wasn't found.
 		 */
 		getItem: function(key) {
@@ -41003,7 +41258,7 @@ define("tinymce/ui/ColorBox", [
 			var self = this;
 
 			self.state.on('change:value', function(e) {
-				if (self._rendered) {
+				if (self.state.get('rendered')) {
 					self.repaintColor(e.value);
 				}
 			});
@@ -45172,8 +45427,12 @@ define("tinymce/ui/Slider", [
 		return value;
 	}
 
+	function setAriaProp(el, name, value) {
+		el.setAttribute('aria-' + name, value);
+	}
+
 	function updateSliderHandle(ctrl, value) {
-		var maxHandlePos, shortSizeName, sizeName, stylePosName, styleValue;
+		var maxHandlePos, shortSizeName, sizeName, stylePosName, styleValue, handleEl;
 
 		if (ctrl.settings.orientation == "v") {
 			stylePosName = "top";
@@ -45185,11 +45444,17 @@ define("tinymce/ui/Slider", [
 			shortSizeName = "w";
 		}
 
-		maxHandlePos = (ctrl.layoutRect()[shortSizeName] || 100) - DomUtils.getSize(ctrl.getEl('handle'))[sizeName];
+		handleEl = ctrl.getEl('handle');
+		maxHandlePos = (ctrl.layoutRect()[shortSizeName] || 100) - DomUtils.getSize(handleEl)[sizeName];
 
 		styleValue = (maxHandlePos * ((value - ctrl._minValue) / (ctrl._maxValue - ctrl._minValue))) + 'px';
-		ctrl.getEl('handle').style[stylePosName] = styleValue;
-		ctrl.getEl('handle').style.height = ctrl.layoutRect().h + 'px';
+		handleEl.style[stylePosName] = styleValue;
+		handleEl.style.height = ctrl.layoutRect().h + 'px';
+
+		setAriaProp(handleEl, 'valuenow', value);
+		setAriaProp(handleEl, 'valuetext', '' + ctrl.settings.previewFilter(value));
+		setAriaProp(handleEl, 'valuemin', ctrl._minValue);
+		setAriaProp(handleEl, 'valuemax', ctrl._maxValue);
 	}
 
 	return Widget.extend({
@@ -45219,7 +45484,7 @@ define("tinymce/ui/Slider", [
 
 			return (
 				'<div id="' + id + '" class="' + self.classes + '">' +
-					'<div id="' + id + '-handle" class="' + prefix + 'slider-handle"></div>' +
+					'<div id="' + id + '-handle" class="' + prefix + 'slider-handle" role="slider" tabindex="-1"></div>' +
 				'</div>'
 			);
 		},
@@ -45229,12 +45494,83 @@ define("tinymce/ui/Slider", [
 		},
 
 		postRender: function() {
-			var self = this, startPos, startHandlePos, handlePos = 0, value, minValue, maxValue, maxHandlePos;
-			var screenCordName, stylePosName, sizeName, shortSizeName;
+			var self = this, minValue, maxValue, screenCordName,
+					stylePosName, sizeName, shortSizeName;
+
+			function toFraction(min, max, val) {
+				return (val + min) / (max - min);
+			}
+
+			function fromFraction(min, max, val) {
+				return (val * (max - min)) - min;
+			}
+
+			function handleKeyboard(minValue, maxValue) {
+				function alter(delta) {
+					var value;
+
+					value = self.value();
+					value = fromFraction(minValue, maxValue, toFraction(minValue, maxValue, value) + (delta * 0.05));
+					value = constrain(value, minValue, maxValue);
+
+					self.value(value);
+
+					self.fire('dragstart', {value: value});
+					self.fire('drag', {value: value});
+					self.fire('dragend', {value: value});
+				}
+
+				self.on('keydown', function(e) {
+					switch (e.keyCode) {
+						case 37:
+						case 38:
+							alter(-1);
+							break;
+
+						case 39:
+						case 40:
+							alter(1);
+							break;
+					}
+				});
+			}
+
+			function handleDrag(minValue, maxValue, handleEl) {
+				var startPos, startHandlePos, maxHandlePos, handlePos, value;
+
+				self._dragHelper = new DragHelper(self._id, {
+					handle: self._id + "-handle",
+
+					start: function(e) {
+						startPos = e[screenCordName];
+						startHandlePos = parseInt(self.getEl('handle').style[stylePosName], 10);
+						maxHandlePos = (self.layoutRect()[shortSizeName] || 100) - DomUtils.getSize(handleEl)[sizeName];
+						self.fire('dragstart', {value: value});
+					},
+
+					drag: function(e) {
+						var delta = e[screenCordName] - startPos;
+
+						handlePos = constrain(startHandlePos + delta, 0, maxHandlePos);
+						handleEl.style[stylePosName] = handlePos + 'px';
+
+						value = minValue + (handlePos / maxHandlePos) * (maxValue - minValue);
+						self.value(value);
+
+						self.tooltip().text('' + self.settings.previewFilter(value)).show().moveRel(handleEl, 'bc tc');
+
+						self.fire('drag', {value: value});
+					},
+
+					stop: function() {
+						self.tooltip().hide();
+						self.fire('dragend', {value: value});
+					}
+				});
+			}
 
 			minValue = self._minValue;
 			maxValue = self._maxValue;
-			value = self.value();
 
 			if (self.settings.orientation == "v") {
 				screenCordName = "screenY";
@@ -45250,35 +45586,8 @@ define("tinymce/ui/Slider", [
 
 			self._super();
 
-			self._dragHelper = new DragHelper(self._id, {
-				handle: self._id + "-handle",
-
-				start: function(e) {
-					startPos = e[screenCordName];
-					startHandlePos = parseInt(self.getEl('handle').style[stylePosName], 10);
-					maxHandlePos = (self.layoutRect()[shortSizeName] || 100) - DomUtils.getSize(self.getEl('handle'))[sizeName];
-					self.fire('dragstart', {value: value});
-				},
-
-				drag: function(e) {
-					var delta = e[screenCordName] - startPos, handleEl = self.getEl('handle');
-
-					handlePos = constrain(startHandlePos + delta, 0, maxHandlePos);
-					handleEl.style[stylePosName] = handlePos + 'px';
-
-					value = minValue + (handlePos / maxHandlePos) * (maxValue - minValue);
-					self.value(value);
-
-					self.tooltip().text('' + self.settings.previewFilter(value)).show().moveRel(handleEl, 'bc tc');
-
-					self.fire('drag', {value: value});
-				},
-
-				stop: function() {
-					self.tooltip().hide();
-					self.fire('dragend', {value: value});
-				}
-			});
+			handleKeyboard(minValue, maxValue, self.getEl('handle'));
+			handleDrag(minValue, maxValue, self.getEl('handle'));
 		},
 
 		repaint: function() {
@@ -45727,10 +46036,10 @@ define("tinymce/ui/TabPanel", [
  * @extends tinymce.ui.Widget
  */
 define("tinymce/ui/TextBox", [
-	"tinymce/ui/Widget"
-], function(Widget) {
-	"use strict";
-
+	"tinymce/ui/Widget",
+	"tinymce/util/Tools",
+	"tinymce/ui/DomUtils"
+], function(Widget, Tools, DomUtils) {
 	return Widget.extend({
 		/**
 		 * Constructs a instance with the specified settings.
@@ -45831,38 +46140,33 @@ define("tinymce/ui/TextBox", [
 		 * @return {String} HTML representing the control.
 		 */
 		renderHtml: function() {
-			var self = this, id = self._id, settings = self.settings, value = self.encode(self.state.get('value'), false), extraAttrs = '';
+			var self = this, settings = self.settings, attrs, elm;
 
-			if ("spellcheck" in settings) {
-				extraAttrs += ' spellcheck="' + settings.spellcheck + '"';
-			}
+			attrs = {
+				id: self._id,
+				hidefocus: '1'
+			};
 
-			if (settings.maxLength) {
-				extraAttrs += ' maxlength="' + settings.maxLength + '"';
-			}
+			Tools.each([
+				'rows',	'spellcheck',	'maxLength', 'size', 'readonly', 'min',
+				'max', 'step', 'list', 'pattern', 'placeholder', 'required', 'multiple'
+			], function(name) {
+				attrs[name] = settings[name];
+			});
 
-			if (settings.size) {
-				extraAttrs += ' size="' + settings.size + '"';
+			if (self.disabled()) {
+				attrs.disabled = 'disabled';
 			}
 
 			if (settings.subtype) {
-				extraAttrs += ' type="' + settings.subtype + '"';
+				attrs.type = settings.subtype;
 			}
 
-			if (self.disabled()) {
-				extraAttrs += ' disabled="disabled"';
-			}
+			elm = DomUtils.create(settings.multiline ? 'textarea' : 'input', attrs);
+			elm.value = self.state.get('value');
+			elm.className = self.classes;
 
-			if (settings.multiline) {
-				return (
-					'<textarea id="' + id + '" class="' + self.classes + '" ' +
-					(settings.rows ? ' rows="' + settings.rows + '"' : '') +
-					' hidefocus="1"' + extraAttrs + '>' + value +
-					'</textarea>'
-				);
-			}
-
-			return '<input id="' + id + '" class="' + self.classes + '" value="' + value + '" hidefocus="1"' + extraAttrs + ' />';
+			return elm.outerHTML;
 		},
 
 		value: function(value) {
@@ -45887,6 +46191,7 @@ define("tinymce/ui/TextBox", [
 		postRender: function() {
 			var self = this;
 
+			self.getEl().value = self.state.get('value');
 			self._super();
 
 			self.$el.on('change', function(e) {
@@ -45955,5 +46260,5 @@ define("tinymce/Register", [
 	return {};
 });
 
-expose(["tinymce/geom/Rect","tinymce/util/Promise","tinymce/util/Delay","tinymce/dom/EventUtils","tinymce/dom/Sizzle","tinymce/Env","tinymce/util/Tools","tinymce/dom/DomQuery","tinymce/html/Styles","tinymce/dom/TreeWalker","tinymce/html/Entities","tinymce/dom/DOMUtils","tinymce/dom/ScriptLoader","tinymce/AddOnManager","tinymce/dom/RangeUtils","tinymce/html/Node","tinymce/html/Schema","tinymce/html/SaxParser","tinymce/html/DomParser","tinymce/html/Writer","tinymce/html/Serializer","tinymce/dom/Serializer","tinymce/util/VK","tinymce/dom/ControlSelection","tinymce/dom/BookmarkManager","tinymce/dom/Selection","tinymce/Formatter","tinymce/UndoManager","tinymce/EditorCommands","tinymce/util/URI","tinymce/util/Class","tinymce/util/EventDispatcher","tinymce/util/Observable","tinymce/ui/Selector","tinymce/ui/Collection","tinymce/ui/ReflowQueue","tinymce/ui/Control","tinymce/ui/Factory","tinymce/ui/KeyboardNavigation","tinymce/ui/Container","tinymce/ui/DragHelper","tinymce/ui/Scrollable","tinymce/ui/Panel","tinymce/ui/Movable","tinymce/ui/Resizable","tinymce/ui/FloatPanel","tinymce/ui/Window","tinymce/ui/MessageBox","tinymce/WindowManager","tinymce/ui/Tooltip","tinymce/ui/Widget","tinymce/ui/Progress","tinymce/ui/Notification","tinymce/NotificationManager","tinymce/EditorObservable","tinymce/Shortcuts","tinymce/Editor","tinymce/util/I18n","tinymce/FocusManager","tinymce/EditorManager","tinymce/util/XHR","tinymce/util/JSON","tinymce/util/JSONRequest","tinymce/util/JSONP","tinymce/util/LocalStorage","tinymce/Compat","tinymce/ui/Layout","tinymce/ui/AbsoluteLayout","tinymce/ui/Button","tinymce/ui/ButtonGroup","tinymce/ui/Checkbox","tinymce/ui/ComboBox","tinymce/ui/ColorBox","tinymce/ui/PanelButton","tinymce/ui/ColorButton","tinymce/util/Color","tinymce/ui/ColorPicker","tinymce/ui/Path","tinymce/ui/ElementPath","tinymce/ui/FormItem","tinymce/ui/Form","tinymce/ui/FieldSet","tinymce/ui/FilePicker","tinymce/ui/FitLayout","tinymce/ui/FlexLayout","tinymce/ui/FlowLayout","tinymce/ui/FormatControls","tinymce/ui/GridLayout","tinymce/ui/Iframe","tinymce/ui/InfoBox","tinymce/ui/Label","tinymce/ui/Toolbar","tinymce/ui/MenuBar","tinymce/ui/MenuButton","tinymce/ui/MenuItem","tinymce/ui/Throbber","tinymce/ui/Menu","tinymce/ui/ListBox","tinymce/ui/Radio","tinymce/ui/ResizeHandle","tinymce/ui/SelectBox","tinymce/ui/Slider","tinymce/ui/Spacer","tinymce/ui/SplitButton","tinymce/ui/StackLayout","tinymce/ui/TabPanel","tinymce/ui/TextBox"]);
+expose(["tinymce/geom/Rect","tinymce/util/Promise","tinymce/util/Delay","tinymce/Env","tinymce/dom/EventUtils","tinymce/dom/Sizzle","tinymce/util/Tools","tinymce/dom/DomQuery","tinymce/html/Styles","tinymce/dom/TreeWalker","tinymce/html/Entities","tinymce/dom/DOMUtils","tinymce/dom/ScriptLoader","tinymce/AddOnManager","tinymce/dom/RangeUtils","tinymce/html/Node","tinymce/html/Schema","tinymce/html/SaxParser","tinymce/html/DomParser","tinymce/html/Writer","tinymce/html/Serializer","tinymce/dom/Serializer","tinymce/util/VK","tinymce/dom/ControlSelection","tinymce/dom/BookmarkManager","tinymce/dom/Selection","tinymce/Formatter","tinymce/UndoManager","tinymce/EditorCommands","tinymce/util/URI","tinymce/util/Class","tinymce/util/EventDispatcher","tinymce/util/Observable","tinymce/ui/Selector","tinymce/ui/Collection","tinymce/ui/ReflowQueue","tinymce/ui/Control","tinymce/ui/Factory","tinymce/ui/KeyboardNavigation","tinymce/ui/Container","tinymce/ui/DragHelper","tinymce/ui/Scrollable","tinymce/ui/Panel","tinymce/ui/Movable","tinymce/ui/Resizable","tinymce/ui/FloatPanel","tinymce/ui/Window","tinymce/ui/MessageBox","tinymce/WindowManager","tinymce/ui/Tooltip","tinymce/ui/Widget","tinymce/ui/Progress","tinymce/ui/Notification","tinymce/NotificationManager","tinymce/EditorObservable","tinymce/Shortcuts","tinymce/Editor","tinymce/util/I18n","tinymce/FocusManager","tinymce/EditorManager","tinymce/util/XHR","tinymce/util/JSON","tinymce/util/JSONRequest","tinymce/util/JSONP","tinymce/util/LocalStorage","tinymce/Compat","tinymce/ui/Layout","tinymce/ui/AbsoluteLayout","tinymce/ui/Button","tinymce/ui/ButtonGroup","tinymce/ui/Checkbox","tinymce/ui/ComboBox","tinymce/ui/ColorBox","tinymce/ui/PanelButton","tinymce/ui/ColorButton","tinymce/util/Color","tinymce/ui/ColorPicker","tinymce/ui/Path","tinymce/ui/ElementPath","tinymce/ui/FormItem","tinymce/ui/Form","tinymce/ui/FieldSet","tinymce/ui/FilePicker","tinymce/ui/FitLayout","tinymce/ui/FlexLayout","tinymce/ui/FlowLayout","tinymce/ui/FormatControls","tinymce/ui/GridLayout","tinymce/ui/Iframe","tinymce/ui/InfoBox","tinymce/ui/Label","tinymce/ui/Toolbar","tinymce/ui/MenuBar","tinymce/ui/MenuButton","tinymce/ui/MenuItem","tinymce/ui/Throbber","tinymce/ui/Menu","tinymce/ui/ListBox","tinymce/ui/Radio","tinymce/ui/ResizeHandle","tinymce/ui/SelectBox","tinymce/ui/Slider","tinymce/ui/Spacer","tinymce/ui/SplitButton","tinymce/ui/StackLayout","tinymce/ui/TabPanel","tinymce/ui/TextBox"]);
 })(this);
