@@ -5,8 +5,9 @@ gem 'jquery-rails'
 gem 'rake', '< 11'
 
 group :test do
+  gem "test-unit",   "~> 3.0"
   gem "rspec-rails", "~> 2.0"
-  gem "capybara", "~> 2.3.0"
+  gem "capybara",    "~> 2.3.0"
 end
 
 gemspec :path => "../"
