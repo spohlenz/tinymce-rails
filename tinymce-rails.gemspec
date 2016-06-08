@@ -10,6 +10,6 @@ Gem::Specification.new do |s|
   s.email = "sam@sampohlenz.com"
   s.homepage = "https://github.com/spohlenz/tinymce-rails"
   s.license = "MIT"
-  
-  s.add_dependency "railties",  ">= 3.1.1"
+
+  s.add_dependency "railties", '~> 3.1', '>= 3.1.1'
 end
