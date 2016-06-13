@@ -58,7 +58,7 @@ alternate:
     - table
 ```
 
-See the [TinyMCE 3 Documentation](http://www.tinymce.com/wiki.php/Configuration3x) for a full list of configuration options.
+See the [TinyMCE 3 Documentation](http://archive.tinymce.com/wiki.php/Configuration3x) for a full list of configuration options.
 
 
 **3. Include the TinyMCE assets**
