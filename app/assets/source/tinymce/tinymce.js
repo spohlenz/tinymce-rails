@@ -1,4 +1,4 @@
-// 4.4.2 (2016-08-25)
+// 4.4.3 (2016-09-01)
 
 /**
  * Compiled inline version. (Library mode)
@@ -887,6 +887,11 @@ define("tinymce/Env", [], function() {
 		 * @type Boolean
 		 */
 		ceFalse: (ie === false || ie > 8),
+
+		/**
+		 * Constant if CSP mode is possible or not. Meaning we can't use script urls for the iframe.
+		 */
+		canHaveCSP: (ie === false || ie > 11),
 
 		desktop: !phone && !tablet,
 		windowsPhone: windowsPhone
@@ -36050,7 +36055,7 @@ define("tinymce/SelectionOverrides", [
 
 		function getRealSelectionElement() {
 			var container = editor.dom.get(realSelectionId);
-			return container.getElementsByTagName('*')[0];
+			return container ? container.getElementsByTagName('*')[0] : container;
 		}
 
 		function isBlock(node) {
@@ -39714,7 +39719,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion: '4.2',
+		minorVersion: '4.3',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -39722,7 +39727,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2016-08-25',
+		releaseDate: '2016-09-01',
 
 		/**
 		 * Collection of editor instances.
