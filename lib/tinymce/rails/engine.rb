@@ -7,11 +7,11 @@ module TinyMCE::Rails
 
     # Set default configuration file path (defaults to config/tinymce.yml within the Rails root if unset)
     config.tinymce.config_path = nil
-    
+
     # Set default installation method (:compile or :copy) for TinyMCE assets
     #   :compile - adds TinyMCE to the Sprockets load paths and creates non-digested symlinks to the digested versions
     #   :copy    - copies across the TinyMCE assets statically
-    config.tinymce.install = :copy
+    config.tinymce.install = :compile
 
     initializer "precompile", :group => :all do |app|
       app.config.assets.precompile << "tinymce/*" if config.tinymce.install == :compile
@@ -47,7 +47,7 @@ module TinyMCE::Rails
 
     def self.asset_host
       host = Rails.application.config.action_controller.asset_host
-      
+
       if host.respond_to?(:call)
         # Callable asset hosts cannot be supported during
         # precompilation as there is no request object
@@ -59,7 +59,7 @@ module TinyMCE::Rails
         normalize_host(host)
       end
     end
-    
+
     def self.normalize_host(host)
       if host =~ /^https?:\/\// || host =~ /^\/\//
         host
