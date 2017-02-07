@@ -7,6 +7,7 @@ gem 'rails', '~> 5.0.0'
 #gem 'rails', '~> 3.2.22'
 
 gem 'jquery-rails'
+gem 'turbolinks'
 gem 'uglifier'
 
 group :test do

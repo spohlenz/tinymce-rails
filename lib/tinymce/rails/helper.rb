@@ -25,6 +25,7 @@ module TinyMCE::Rails
       (function() {
         function initTinyMCE() {
           if (typeof tinyMCE != 'undefined') {
+            tinymce.remove();
             tinyMCE.init(#{tinymce_configuration(config, options).to_javascript.gsub(/^/, ' ' * 12).sub(/\A\s+/, "")});
           } else {
             setTimeout(initTinyMCE, 50);
