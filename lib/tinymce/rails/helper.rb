@@ -18,32 +18,36 @@ module TinyMCE::Rails
     def tinymce(config=:default, options={})
       javascript_tag { tinymce_javascript(config, options) }
     end
-    
+
     # Returns the JavaScript code required to initialize TinyMCE.
     def tinymce_javascript(config=:default, options={})
       <<-JAVASCRIPT.strip_heredoc.html_safe
       (function() {
-        if (typeof tinyMCE != 'undefined') {
-          tinyMCE.init(#{tinymce_configuration(config, options).to_javascript.gsub(/^/, ' ' * 10).sub(/\A\s+/, "")});
-        } else {
-          setTimeout(arguments.callee, 50);
+        function initTinyMCE() {
+          if (typeof tinyMCE != 'undefined') {
+            tinyMCE.init(#{tinymce_configuration(config, options).to_javascript.gsub(/^/, ' ' * 12).sub(/\A\s+/, "")});
+          } else {
+            setTimeout(initTinyMCE, 50);
+          }
         }
+
+        initTinyMCE();
       })();
       JAVASCRIPT
     end
-    
+
     # Returns the TinyMCE configuration object.
     # It should be converted to JavaScript (via #to_javascript) for use within JavaScript.
     def tinymce_configuration(config=:default, options={})
       options, config = config, :default if config.is_a?(Hash)
       options.stringify_keys!
-      
+
       base_configuration = TinyMCE::Rails.configuration
-      
+
       if base_configuration.is_a?(MultipleConfiguration)
         base_configuration = base_configuration.fetch(config)
       end
-      
+
       base_configuration.merge(options)
     end
 
