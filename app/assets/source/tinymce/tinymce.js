@@ -1,4 +1,4 @@
-// 4.5.4 (2017-02-23)
+// 4.5.5 (2017-03-07)
 
 /**
  * Compiled inline version. (Library mode)
@@ -19886,15 +19886,6 @@ define("tinymce/Formatter", [
 						return;
 					}
 
-					// fontSize defines the line height for the whole branch of nested style wrappers,
-					// therefore it should be set on the outermost wrapper
-					if (!isBlock(node) && !getStyle(node, 'fontSize')) {
-						var styleNode = matchNestedWrapper(node, hasStyle('fontSize'));
-						if (styleNode) {
-							apply('fontsize', {value: getStyle(styleNode, 'fontSize')}, node);
-						}
-					}
-
 					if (format.inline || format.wrapper) {
 						// Merges the current node with it's children of similar type to reduce the number of elements
 						if (!format.exact && childCount === 1) {
@@ -19932,6 +19923,15 @@ define("tinymce/Formatter", [
 									return TRUE;
 								}
 							});
+						}
+
+						// fontSize defines the line height for the whole branch of nested style wrappers,
+						// therefore it should be set on the outermost wrapper
+						if (!isBlock(node) && !getStyle(node, 'fontSize')) {
+							var styleNode = matchNestedWrapper(node, hasStyle('fontSize'));
+							if (styleNode) {
+								apply('fontsize', {value: getStyle(styleNode, 'fontSize')}, node);
+							}
 						}
 
 						// Merge next and previous siblings if they are similar <b>text</b><b>text</b> becomes <b>texttext</b>
@@ -40984,7 +40984,7 @@ define("tinymce/EditorManager", [
 		 * @property minorVersion
 		 * @type String
 		 */
-		minorVersion: '5.4',
+		minorVersion: '5.5',
 
 		/**
 		 * Release date of TinyMCE build.
@@ -40992,7 +40992,7 @@ define("tinymce/EditorManager", [
 		 * @property releaseDate
 		 * @type String
 		 */
-		releaseDate: '2017-02-23',
+		releaseDate: '2017-03-07',
 
 		/**
 		 * Collection of editor instances.
