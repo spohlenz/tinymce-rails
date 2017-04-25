@@ -26,7 +26,7 @@ module TinyMCE
         end
         
         def copy_assets
-          logger.info "Copying assets to #{File.join(target, "tinymce")}"
+          logger.info "Copying assets (preserving modes) to #{File.join(target, "tinymce")}"
           FileUtils.cp_r(assets, target, :preserve => true)
         end
         

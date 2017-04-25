@@ -1,6 +1,7 @@
 require "tinymce/rails/asset_manifest"
 
 require "tinymce/rails/asset_installer/copy"
+require "tinymce/rails/asset_installer/copy_no_preserve"
 require "tinymce/rails/asset_installer/compile"
 
 module TinyMCE
