@@ -146,7 +146,7 @@ The default method (as of 4.5.2), `compile`, adds the TinyMCE paths to the Sproc
 config.tinymce.install = :compile
 ```
 
-If you experience issues with the `compile` method, you may wish to use the `copy` method instead, which copies the TinyMCE assets directly into `public/assets` and appends the file information into the asset manifest.
+If you experience issues with the `compile` method, you may wish to use the `copy` method instead, which copies the TinyMCE assets directly into `public/assets` and appends the file information into the asset manifest. The `copy_no_preserve` method is also available of you do not wish to or cannot preserve file modes on your filesystem.
 
 ```ruby
 config.tinymce.install = :copy

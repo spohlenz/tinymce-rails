@@ -1,6 +1,7 @@
 require "tinymce/rails/asset_manifest"
 
 require "tinymce/rails/asset_installer/copy"
+require "tinymce/rails/asset_installer/copy_no_preserve"
 require "tinymce/rails/asset_installer/compile"
 
 module TinyMCE
@@ -38,7 +39,7 @@ module TinyMCE
         if strategy.is_a?(Class)
           @strategy = strategy
         else
-          @strategy = self.class.const_get(strategy.to_s.titlecase)
+          @strategy = self.class.const_get(strategy.to_s.classify)
         end
       end
       
