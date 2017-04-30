@@ -59,5 +59,6 @@ module TinyMCE::Rails
     # Allow methods to be called as module functions:
     #  e.g. TinyMCE::Rails.tinymce_javascript
     module_function :tinymce, :tinymce_javascript, :tinymce_configuration
+    public :tinymce, :tinymce_javascript, :tinymce_configuration
   end
 end
