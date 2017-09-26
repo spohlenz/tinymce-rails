@@ -16,8 +16,8 @@ desc "Update TinyMCE to version #{TinyMCE::Rails::TINYMCE_VERSION}"
 task :update => [ :fetch, :extract, :process ]
 
 task :fetch do
-  download("http://download.moxiecode.com/tinymce/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}.zip", "tinymce.zip")
-  download("http://download.moxiecode.com/tinymce/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}_jquery.zip", "tinymce.jquery.zip")
+  download("http://download.ephox.com/tinymce/community/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}.zip", "tinymce.zip")
+  download("http://download.ephox.com/tinymce/community/tinymce_#{TinyMCE::Rails::TINYMCE_VERSION}_dev.zip", "tinymce_dev.zip")
 end
 
 task :extract do
@@ -28,10 +28,10 @@ task :extract do
     `mkdir -p vendor/assets/javascripts/tinymce`
     `mv tmp/tinymce/jscripts/tiny_mce/* vendor/assets/javascripts/tinymce/`
   end
-  
+
   step "Extracting jQuery files" do
     `rm -rf tmp/tinymce`
-    `unzip -u tmp/tinymce.jquery.zip -d tmp`
+    `unzip -u tmp/tinymce_dev.zip -d tmp`
     `mv tmp/tinymce/jscripts/tiny_mce/jquery.tinymce.js vendor/assets/javascripts/tinymce/jquery.tinymce.js`
     `mv tmp/tinymce/jscripts/tiny_mce/tiny_mce.js vendor/assets/javascripts/tinymce/tiny_mce_jquery.js`
     `mv tmp/tinymce/jscripts/tiny_mce/tiny_mce_src.js vendor/assets/javascripts/tinymce/tiny_mce_jquery_src.js`
