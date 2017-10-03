@@ -40,6 +40,16 @@ module TinyMCE::Rails
       "spellchecker_languages"        => COMMA
     }
 
+    OPTION_TRANSFORMERS = {
+      # Check for files provided in the content_css option to replace them with their actual path.
+      # If no corresponding stylesheet is found for a file, it will remain unchanged.
+      "content_css" => -> (value) {
+        value.split(OPTION_SEPARATORS["content_css"]).map do |file|
+          ActionController::Base.helpers.stylesheet_path(file.strip) || file
+        end.join(OPTION_SEPARATORS["content_css"])
+      }
+    }
+
     attr_reader :options
 
     def initialize(options)
@@ -62,6 +72,10 @@ module TinyMCE::Rails
           result[key] = Function.new(value)
         else
           result[key] = value
+        end
+
+        if OPTION_TRANSFORMERS[key]
+          result[key] = OPTION_TRANSFORMERS[key].call result[key]
         end
       end
 
