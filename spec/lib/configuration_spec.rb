@@ -47,6 +47,22 @@ module TinyMCE::Rails
         config = Configuration.new("oninit" => "function() {}")
         expect(config.options_for_tinymce["oninit"]).to be_a(Configuration::Function)
       end
+
+      it "converts content_css values to asset paths (when passed as comma-separated string)" do
+        config = Configuration.new("content_css" => "editor1.css, editor2.css,missing.css")
+        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("editor1.css").and_return("/assets/editor1-1234.css")
+        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("editor2.css").and_return("/assets/editor2-1234.css")
+        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("missing.css").and_return(nil)
+        expect(config.options_for_tinymce["content_css"]).to eq("/assets/editor1-1234.css,/assets/editor2-1234.css,missing.css")
+      end
+
+      it "converts content_css values to asset paths (when passed as array)" do
+        config = Configuration.new("content_css" => ["editor1.css", "editor2.css", "missing.css"])
+        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("editor1.css").and_return("/assets/editor1-1234.css")
+        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("editor2.css").and_return("/assets/editor2-1234.css")
+        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("missing.css").and_return(nil)
+        expect(config.options_for_tinymce["content_css"]).to eq("/assets/editor1-1234.css,/assets/editor2-1234.css,missing.css")
+      end
     end
 
     describe "#merge" do
