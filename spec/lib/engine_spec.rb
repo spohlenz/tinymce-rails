@@ -22,32 +22,32 @@ module TinyMCE::Rails
         Rails.application.config.relative_url_root = "/prefix"
         expect(TinyMCE::Rails::Engine.default_base).to eq "/prefix/assets/tinymce"
       end
-      
+
       it "includes the asset host if it is a string" do
         Rails.application.config.action_controller.asset_host = "http://assets.example.com"
         expect(TinyMCE::Rails::Engine.default_base).to eq "http://assets.example.com/assets/tinymce"
       end
-      
+
       it "interpolates the asset host if it is a string containing %d" do
         Rails.application.config.action_controller.asset_host = "http://assets%d.example.com"
         expect(TinyMCE::Rails::Engine.default_base).to eq "http://assets0.example.com/assets/tinymce"
       end
-      
+
       it "does not include the asset host if it is a callable" do
         Rails.application.config.action_controller.asset_host = ->(request) { "http://assets.example.com" }
         expect(TinyMCE::Rails::Engine.default_base).to eq "/assets/tinymce"
       end
-      
+
       it "uses a protocol relative address if asset host does not include a protocol" do
         Rails.application.config.action_controller.asset_host = "assets.example.com"
         expect(TinyMCE::Rails::Engine.default_base).to eq "//assets.example.com/assets/tinymce"
       end
-      
+
       it "includes the asset host as is if it is already a protocol relative address" do
         Rails.application.config.action_controller.asset_host = "//assets.example.com"
         expect(TinyMCE::Rails::Engine.default_base).to eq "//assets.example.com/assets/tinymce"
       end
-      
+
       it "interpolates and uses a protocol relative address if asset host includes %d and no protocol" do
         Rails.application.config.action_controller.asset_host = "assets%d.example.com"
         expect(TinyMCE::Rails::Engine.default_base).to eq "//assets0.example.com/assets/tinymce"

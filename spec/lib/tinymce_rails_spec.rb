@@ -10,7 +10,7 @@ module TinyMCE
 
       let(:configuration_file) { double(:configuration => configuration) }
       let(:configuration) { double }
-      
+
       it "loads the tinymce.yml config file" do
         path = ::Rails.root.join("config/tinymce.yml")
         expect(TinyMCE::Rails::ConfigurationFile).to receive(:new).with(path).and_return(configuration_file)
