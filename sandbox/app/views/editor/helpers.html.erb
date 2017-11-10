@@ -14,6 +14,9 @@
   <% end %>
 </ul>
 
-<%= text_area_tag :editor, "", :class => "tinymce", :rows => 20, :cols => 60 %>
+<%= text_area_tag :editor1, "", :class => "tinymce", :rows => 20, :cols => 60 %>
 
-<%= tinymce :language => I18n.locale %>
+<div id="editor2" style="border: 1px solid #ccc; height: 250px; padding: 15px; margin-top: 20px;"></div>
+
+<%= tinymce :selector => "#editor1", :language => I18n.locale %>
+<%= tinymce :selector => "#editor2", :language => I18n.locale, :theme => "inlite", :inline => true %>

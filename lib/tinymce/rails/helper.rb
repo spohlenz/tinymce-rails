@@ -14,26 +14,35 @@ module TinyMCE::Rails
     # override these defaults.
     #
     # @example
-    #   <%= tinymce(:theme => "advanced", :editor_selector => "editorClass") %>
+    #   <%= tinymce(selector: "editorClass", theme: "inlite") %>
     def tinymce(config=:default, options={})
-      javascript_tag { tinymce_javascript(config, options) }
+      javascript_tag do
+        unless @_tinymce_configurations_added
+          concat tinymce_configurations_javascript
+          @_tinymce_configurations_added = true
+        end
+
+        concat tinymce_javascript(config, options)
+      end
     end
 
     # Returns the JavaScript code required to initialize TinyMCE.
     def tinymce_javascript(config=:default, options={})
-      <<-JAVASCRIPT.strip_heredoc.html_safe
-      (function() {
-        function initTinyMCE() {
-          if (typeof tinyMCE != 'undefined') {
-            tinyMCE.init(#{tinymce_configuration(config, options).to_javascript.gsub(/^/, ' ' * 12).sub(/\A\s+/, "")});
-          } else {
-            setTimeout(initTinyMCE, 50);
-          }
-        }
+      options, config = config, :default if config.is_a?(Hash)
+      options = Configuration.new(options)
 
-        initTinyMCE();
-      })();
-      JAVASCRIPT
+      "TinyMCERails.initialize('#{config}', #{options.to_javascript});".html_safe
+    end
+
+    # Returns the JavaScript code for initializing each configuration defined within tinymce.yml.
+    def tinymce_configurations_javascript
+      javascript = []
+
+      TinyMCE::Rails.each_configuration do |name, config|
+        javascript << "TinyMCERails.configuration.#{name} = #{config.to_javascript};".html_safe
+      end
+
+      safe_join(javascript, "\n")
     end
 
     # Returns the TinyMCE configuration object.
@@ -58,7 +67,7 @@ module TinyMCE::Rails
 
     # Allow methods to be called as module functions:
     #  e.g. TinyMCE::Rails.tinymce_javascript
-    module_function :tinymce, :tinymce_javascript, :tinymce_configuration
-    public :tinymce, :tinymce_javascript, :tinymce_configuration
+    module_function :tinymce, :tinymce_javascript, :tinymce_configurations_javascript, :tinymce_configuration
+    public :tinymce, :tinymce_javascript, :tinymce_configurations_javascript, :tinymce_configuration
   end
 end

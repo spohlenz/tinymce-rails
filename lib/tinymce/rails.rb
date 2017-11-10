@@ -15,5 +15,13 @@ module TinyMCE
     def self.configuration=(configuration)
       @configuration = configuration
     end
+
+    def self.each_configuration(&block)
+      if configuration.is_a?(MultipleConfiguration)
+        configuration.each(&block)
+      else
+        yield :default, configuration
+      end
+    end
   end
 end

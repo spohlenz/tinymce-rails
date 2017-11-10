@@ -38,10 +38,10 @@ module TinyMCE::Rails
         it "initializes TinyMCE using global configuration" do
           result = tinymce
           expect(result).to have_selector("script", :visible => false)
-          expect(result).to include('tinyMCE.init({')
+          expect(result).to include('TinyMCERails.configuration.default = {')
           expect(result).to include('theme: "advanced"')
           expect(result).to include('plugins: "paste,table,fullscreen"')
-          expect(result).to include('});')
+          expect(result).to include('};')
         end
 
         it "initializes TinyMCE with passed in options" do
@@ -85,10 +85,6 @@ module TinyMCE::Rails
           result = tinymce(:alternate, :theme => "simple")
           expect(result).to include('theme: "simple"')
           expect(result).to include('skin: "alternate"')
-        end
-
-        it "raises an error when given an invalid configuration" do
-          expect { tinymce(:missing) }.to raise_error(IndexError)
         end
       end
     end
