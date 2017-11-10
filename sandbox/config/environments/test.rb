@@ -14,7 +14,10 @@ Sandbox::Application.configure do
 
   # Configure static asset server for tests with Cache-Control for performance
   config.serve_static_assets = true
-  config.public_file_server.headers = { 'Cache-Control' => 'public, max-age=3600' }
+
+  if config.respond_to?(:public_file_server)
+    config.public_file_server.headers = { 'Cache-Control' => 'public, max-age=3600' }
+  end
 
   # Show full error reports and disable caching
   config.consider_all_requests_local       = true
