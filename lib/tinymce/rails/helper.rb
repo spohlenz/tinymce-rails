@@ -35,10 +35,11 @@ module TinyMCE::Rails
     end
 
     # Returns the JavaScript code for initializing each configuration defined within tinymce.yml.
-    def tinymce_configurations_javascript
+    def tinymce_configurations_javascript(options={})
       javascript = []
 
       TinyMCE::Rails.each_configuration do |name, config|
+        config = config.merge(options) if options.present?
         javascript << "TinyMCERails.configuration.#{name} = #{config.to_javascript};".html_safe
       end
 
