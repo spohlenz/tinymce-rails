@@ -39,6 +39,8 @@ module TinyMCE
         def move_asset(src, dest)
           with_asset(src, dest) do |src, dest|
             logger.info "Removing digest from #{src}"
+
+            FileUtils.rm dest if File.exists?(dest)
             FileUtils.mv(src, dest, :force => true)
           end
         end

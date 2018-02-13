@@ -49,6 +49,7 @@ module TinyMCE
         before(:each) do
           allow(FileUtils).to receive(:cp_r)
           allow(FileUtils).to receive(:mv)
+          allow(FileUtils).to receive(:rm)
         end
 
         it "removes digests from existing TinyMCE assets in the manifest" do
