@@ -14,6 +14,8 @@ module TinyMCE::Rails
       }
     end
 
+    RELATIVE_PATH_REGEX = /^(\/|\.{1,2})\S*/
+
     COMMA = ",".freeze
     SPACE = " ".freeze
     SEMICOLON = ";".freeze
@@ -45,7 +47,9 @@ module TinyMCE::Rails
       # If no corresponding stylesheet is found for a file, it will remain unchanged.
       "content_css" => ->(value) {
         value.split(OPTION_SEPARATORS["content_css"]).map do |file|
-          ActionController::Base.helpers.stylesheet_path(file.strip) || file
+          RELATIVE_PATH_REGEX.match(file) ||
+            ActionController::Base.helpers.stylesheet_path(file.strip) ||
+            file
         end.join(OPTION_SEPARATORS["content_css"])
       }
     }
