@@ -61,7 +61,7 @@ module TinyMCE::Rails
     end
 
     def self.normalize_host(host)
-      if host =~ /^https?:\/\// || host =~ /^\/\//
+      if (host =~ /^https?:\/\//).present? || (host =~ /^\/\//).present?
         host
       else
         # Use a protocol-relative URL if not otherwise specified
