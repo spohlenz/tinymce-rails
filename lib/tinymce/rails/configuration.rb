@@ -46,11 +46,13 @@ module TinyMCE::Rails
       # Check for files provided in the content_css option to replace them with their actual path.
       # If no corresponding stylesheet is found for a file, it will remain unchanged.
       "content_css" => ->(value) {
-        value.split(OPTION_SEPARATORS["content_css"]).map do |file|
-          RELATIVE_PATH_REGEX.match(file) ||
-            ActionController::Base.helpers.stylesheet_path(file.strip) ||
-            file
-        end.join(OPTION_SEPARATORS["content_css"])
+        helpers = ActionView::Base.new
+        separator = OPTION_SEPARATORS["content_css"]
+
+        value.split(separator).map { |file|
+          next file if RELATIVE_PATH_REGEX =~ file
+          helpers.stylesheet_path(file.strip) || file
+        }.join(separator)
       }
     }
 
@@ -79,7 +81,7 @@ module TinyMCE::Rails
         end
 
         if OPTION_TRANSFORMERS[key]
-          result[key] = OPTION_TRANSFORMERS[key].call result[key]
+          result[key] = OPTION_TRANSFORMERS[key].call(result[key])
         end
       end
 

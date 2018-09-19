@@ -48,38 +48,46 @@ module TinyMCE::Rails
         expect(config.options_for_tinymce["oninit"]).to be_a(Configuration::Function)
       end
 
-      it "does not convert relative content_css values to asset paths" do
-        config = Configuration.new("content_css" => "./relative_styles.css")
-        expect(ActionController::Base.helpers).to_not receive(:stylesheet_path)
-        expect(config.options_for_tinymce["content_css"]).to eq("./relative_styles.css")
-      end
+      describe "content_css option" do
+        let(:helpers) { double }
 
-      it "does not convert relative content_css values to asset paths (when passed as comma-separated string)" do
-        config = Configuration.new("content_css" => "/layout.css,./custom1.css,../custom2.css")
-        expect(ActionController::Base.helpers).to_not receive(:stylesheet_path)
-        expect(config.options_for_tinymce["content_css"]).to eq("/layout.css,./custom1.css,../custom2.css")
-      end
+        before(:each) do
+          allow(ActionView::Base).to receive(:new).and_return(helpers)
+        end
 
-      it "does not convert relative content_css values to asset paths (when passed as array)" do
-        config = Configuration.new("content_css" => ["/layout.css", "./custom1.css", "../custom2.css"])
-        expect(ActionController::Base.helpers).to_not receive(:stylesheet_path)
-        expect(config.options_for_tinymce["content_css"]).to eq("/layout.css,./custom1.css,../custom2.css")
-      end
+        it "does not convert relative content_css values to asset paths" do
+          config = Configuration.new("content_css" => "./relative_styles.css")
+          expect(helpers).to_not receive(:stylesheet_path)
+          expect(config.options_for_tinymce["content_css"]).to eq("./relative_styles.css")
+        end
 
-      it "converts content_css values to asset paths (when passed as comma-separated string)" do
-        config = Configuration.new("content_css" => "editor1.css, editor2.css,missing.css")
-        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("editor1.css").and_return("/assets/editor1-1234.css")
-        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("editor2.css").and_return("/assets/editor2-1234.css")
-        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("missing.css").and_return(nil)
-        expect(config.options_for_tinymce["content_css"]).to eq("/assets/editor1-1234.css,/assets/editor2-1234.css,missing.css")
-      end
+        it "does not convert relative content_css values to asset paths (when passed as comma-separated string)" do
+          config = Configuration.new("content_css" => "/layout.css,./custom1.css,../custom2.css")
+          expect(helpers).to_not receive(:stylesheet_path)
+          expect(config.options_for_tinymce["content_css"]).to eq("/layout.css,./custom1.css,../custom2.css")
+        end
 
-      it "converts content_css values to asset paths (when passed as array)" do
-        config = Configuration.new("content_css" => ["editor1.css", "editor2.css", "missing.css"])
-        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("editor1.css").and_return("/assets/editor1-1234.css")
-        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("editor2.css").and_return("/assets/editor2-1234.css")
-        expect(ActionController::Base.helpers).to receive(:stylesheet_path).with("missing.css").and_return(nil)
-        expect(config.options_for_tinymce["content_css"]).to eq("/assets/editor1-1234.css,/assets/editor2-1234.css,missing.css")
+        it "does not convert relative content_css values to asset paths (when passed as array)" do
+          config = Configuration.new("content_css" => ["/layout.css", "./custom1.css", "../custom2.css"])
+          expect(helpers).to_not receive(:stylesheet_path)
+          expect(config.options_for_tinymce["content_css"]).to eq("/layout.css,./custom1.css,../custom2.css")
+        end
+
+        it "converts content_css values to asset paths (when passed as comma-separated string)" do
+          config = Configuration.new("content_css" => "editor1.css, editor2.css,missing.css")
+          expect(helpers).to receive(:stylesheet_path).with("editor1.css").and_return("/assets/editor1-1234.css")
+          expect(helpers).to receive(:stylesheet_path).with("editor2.css").and_return("/assets/editor2-1234.css")
+          expect(helpers).to receive(:stylesheet_path).with("missing.css").and_return(nil)
+          expect(config.options_for_tinymce["content_css"]).to eq("/assets/editor1-1234.css,/assets/editor2-1234.css,missing.css")
+        end
+
+        it "converts content_css values to asset paths (when passed as array)" do
+          config = Configuration.new("content_css" => ["editor1.css", "editor2.css", "missing.css"])
+          expect(helpers).to receive(:stylesheet_path).with("editor1.css").and_return("/assets/editor1-1234.css")
+          expect(helpers).to receive(:stylesheet_path).with("editor2.css").and_return("/assets/editor2-1234.css")
+          expect(helpers).to receive(:stylesheet_path).with("missing.css").and_return(nil)
+          expect(config.options_for_tinymce["content_css"]).to eq("/assets/editor1-1234.css,/assets/editor2-1234.css,missing.css")
+        end
       end
     end
 
