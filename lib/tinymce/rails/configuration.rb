@@ -14,6 +14,7 @@ module TinyMCE::Rails
       }
     end
 
+    FUNCTION_REGEX = /^function\s*\(/
     RELATIVE_PATH_REGEX = /^(\/|\.{1,2})\S*/
 
     COMMA = ",".freeze
@@ -72,9 +73,9 @@ module TinyMCE::Rails
       result = {}
 
       options.each do |key, value|
-        if OPTION_SEPARATORS[key] && value.is_a?(Array)
+        if array_option?(key, value)
           result[key] = value.join(OPTION_SEPARATORS[key])
-        elsif value.to_s.starts_with?("function(")
+        elsif function_option?(value)
           result[key] = Function.new(value)
         else
           result[key] = value
@@ -104,6 +105,15 @@ module TinyMCE::Rails
 
     def merge(options)
       self.class.new(self.options.merge(options))
+    end
+
+  private
+    def array_option?(key, value)
+      value.is_a?(Array) && OPTION_SEPARATORS[key]
+    end
+
+    def function_option?(value)
+      FUNCTION_REGEX =~ value.to_s
     end
   end
 

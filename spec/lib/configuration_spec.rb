@@ -44,8 +44,9 @@ module TinyMCE::Rails
       end
 
       it "converts javascript function strings to Function objects" do
-        config = Configuration.new("oninit" => "function() {}")
+        config = Configuration.new("oninit" => "function() {}", "setup" => "function (editor) {}")
         expect(config.options_for_tinymce["oninit"]).to be_a(Configuration::Function)
+        expect(config.options_for_tinymce["setup"]).to be_a(Configuration::Function)
       end
 
       describe "content_css option" do
