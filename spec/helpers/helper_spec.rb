@@ -54,6 +54,11 @@ module TinyMCE::Rails
           result = tinymce(:oninit => "function() { alert('Hello'); }")
           expect(result).to include('oninit: function() { alert(\'Hello\'); }')
         end
+
+        it "outputs nested function strings without quotes" do
+          result = tinymce(:nested => { :oninit => "function() { alert('Hello'); }" })
+          expect(result).to include('oninit: function() { alert(\'Hello\'); }')
+        end
       end
 
       context "multiple-configuration" do

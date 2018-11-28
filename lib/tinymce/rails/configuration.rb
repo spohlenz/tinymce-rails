@@ -69,38 +69,19 @@ module TinyMCE::Rails
       config
     end
 
-    def options_for_tinymce
-      result = {}
-
-      options.each do |key, value|
-        if array_option?(key, value)
-          result[key] = value.join(OPTION_SEPARATORS[key])
-        elsif function_option?(value)
-          result[key] = Function.new(value)
-        else
-          result[key] = value
-        end
-
-        if OPTION_TRANSFORMERS[key]
-          result[key] = OPTION_TRANSFORMERS[key].call(result[key])
-        end
-      end
-
-      result
+    # Converts options into a String representing a JavaScript object
+    # that can be passed directly to tinyMCE.init
+    def to_javascript
+      options_to_javascript(options_for_tinymce)
     end
 
-    def to_javascript
-      pairs = options_for_tinymce.inject([]) do |result, (k, v)|
-        if v.respond_to?(:to_javascript)
-          v = v.to_javascript
-        elsif v.respond_to?(:to_json)
-          v = v.to_json
-        end
-
-        result << [k, v].join(": ")
-      end
-
-      "{\n  #{pairs.join(",\n  ")}\n}"
+    # Converts options into a TinyMCE-friendly format.
+    #
+    #  1. Joins array values using OPTION_SEPARATORS
+    #  2. Converts JavaScript function() strings to Function objects
+    #  3. Applies transformations from OPTION_TRANSFORMERS
+    def options_for_tinymce
+      preprocess_options(options)
     end
 
     def merge(options)
@@ -114,6 +95,52 @@ module TinyMCE::Rails
 
     def function_option?(value)
       FUNCTION_REGEX =~ value.to_s
+    end
+
+    def preprocess_options(options)
+      result = {}
+
+      options.each do |key, value|
+        result[key] = preprocess_option(key, value)
+      end
+
+      result
+    end
+
+    def preprocess_option(key, value)
+      result = value
+
+      if result.is_a?(Hash)
+        result = preprocess_options(value)
+      elsif array_option?(key, value)
+        result = value.join(OPTION_SEPARATORS[key])
+      elsif function_option?(value)
+        result = Function.new(value)
+      end
+
+      if transformer = OPTION_TRANSFORMERS[key]
+        result = transformer.call(result)
+      end
+
+      result
+    end
+
+    def options_to_javascript(options, indent="")
+      next_indent = indent + "  "
+
+      pairs = options.inject([]) do |result, (k, v)|
+        if v.is_a?(Hash)
+          v = options_to_javascript(v, next_indent)
+        elsif v.respond_to?(:to_javascript)
+          v = v.to_javascript
+        elsif v.respond_to?(:to_json)
+          v = v.to_json
+        end
+
+        result << [k, v].join(": ")
+      end
+
+      "{\n#{next_indent}#{pairs.join(",\n#{next_indent}")}\n#{indent}}"
     end
   end
 
