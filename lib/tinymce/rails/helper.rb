@@ -19,6 +19,7 @@ module TinyMCE::Rails
       javascript_tag do
         unless @_tinymce_configurations_added
           concat tinymce_configurations_javascript
+          concat "\n"
           @_tinymce_configurations_added = true
         end
 
