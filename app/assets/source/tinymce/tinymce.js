@@ -1,4 +1,4 @@
-// 4.9.0 (2018-11-27)
+// 4.9.1 (2018-12-04)
 (function () {
 (function () {
     'use strict';
@@ -4119,6 +4119,9 @@
       var map = function (f) {
         return value$1(f(o));
       };
+      var mapError = function (f) {
+        return value$1(o);
+      };
       var each = function (f) {
         f(o);
       };
@@ -4148,6 +4151,7 @@
         orThunk: orThunk,
         fold: fold,
         map: map,
+        mapError: mapError,
         each: each,
         bind: bind,
         exists: exists,
@@ -4171,6 +4175,9 @@
       var map = function (f) {
         return error(message);
       };
+      var mapError = function (f) {
+        return error(f(message));
+      };
       var bind = function (f) {
         return error(message);
       };
@@ -4188,6 +4195,7 @@
         orThunk: orThunk,
         fold: fold,
         map: map,
+        mapError: mapError,
         each: noop,
         bind: bind,
         exists: never,
@@ -20981,12 +20989,30 @@
     };
     var FragmentReader = { read: read$4 };
 
-    var getContent = function (editor, args) {
+    var getTextContent = function (editor) {
+      return Option.from(editor.selection.getRng()).map(function (r) {
+        return Zwsp.trim(r.toString());
+      }).getOr('');
+    };
+    var getHtmlContent = function (editor, args) {
       var rng = editor.selection.getRng(), tmpElm = editor.dom.create('body');
       var sel = editor.selection.getSel();
       var fragment;
       var ranges = EventProcessRanges.processRanges(editor, MultiRange.getRanges(sel));
-      args = args || {};
+      if (rng.cloneContents) {
+        fragment = args.contextual ? FragmentReader.read(Element$$1.fromDom(editor.getBody()), ranges).dom() : rng.cloneContents();
+        if (fragment) {
+          tmpElm.appendChild(fragment);
+        }
+      } else {
+        tmpElm.innerHTML = rng.toString();
+      }
+      return editor.selection.serializer.serialize(tmpElm, args);
+    };
+    var getContent = function (editor, args) {
+      if (args === void 0) {
+        args = {};
+      }
       args.get = true;
       args.format = args.format || 'html';
       args.selection = true;
@@ -20996,27 +21022,18 @@
         return args.content;
       }
       if (args.format === 'text') {
-        return editor.selection.isCollapsed() ? '' : Zwsp.trim(rng.text || (sel.toString ? sel.toString() : ''));
-      }
-      if (rng.cloneContents) {
-        fragment = args.contextual ? FragmentReader.read(Element$$1.fromDom(editor.getBody()), ranges).dom() : rng.cloneContents();
-        if (fragment) {
-          tmpElm.appendChild(fragment);
-        }
-      } else if (rng.item !== undefined || rng.htmlText !== undefined) {
-        tmpElm.innerHTML = '<br>' + (rng.item ? rng.item(0).outerHTML : rng.htmlText);
-        tmpElm.removeChild(tmpElm.firstChild);
+        return getTextContent(editor);
       } else {
-        tmpElm.innerHTML = rng.toString();
+        args.getInner = true;
+        var content = getHtmlContent(editor, args);
+        if (args.format === 'tree') {
+          return content;
+        } else {
+          args.content = editor.selection.isCollapsed() ? '' : content;
+          editor.fire('GetContent', args);
+          return args.content;
+        }
       }
-      args.getInner = true;
-      var content = editor.selection.serializer.serialize(tmpElm, args);
-      if (args.format === 'tree') {
-        return content;
-      }
-      args.content = editor.selection.isCollapsed() ? '' : content;
-      editor.fire('GetContent', args);
-      return args.content;
     };
     var GetSelectionContent = { getContent: getContent };
 
@@ -22893,7 +22910,11 @@
 
     var isAtBlockBoundary = function (forward, root, pos) {
       var parentBlocks = filter(Parents.parentsAndSelf(Element$$1.fromDom(pos.container()), root), isBlock);
-      return head(parentBlocks).exists(function (parent) {
+      return head(parentBlocks).fold(function () {
+        return CaretFinder.navigate(forward, root.dom(), pos).exists(function (newPos) {
+          return isInSameBlock(newPos, pos, root.dom()) === false;
+        });
+      }, function (parent) {
         return CaretFinder.navigate(forward, parent.dom(), pos).isNone();
       });
     };
@@ -22936,8 +22957,14 @@
         return isPreValue(get$2(elm, 'white-space'));
       });
     };
+    var isAtBeginningOfBody = function (root, pos) {
+      return CaretFinder.prevPosition(root.dom(), pos).isNone();
+    };
+    var isAtEndOfBody = function (root, pos) {
+      return CaretFinder.nextPosition(root.dom(), pos).isNone();
+    };
     var isAtLineBoundary = function (root, pos) {
-      return isAtStartOfBlock(root, pos) || isAtEndOfBlock(root, pos) || isAfterBr(root, pos) || isBeforeBr(root, pos);
+      return isAtBeginningOfBody(root, pos) || isAtEndOfBody(root, pos) || isAtStartOfBlock(root, pos) || isAtEndOfBlock(root, pos) || isAfterBr(root, pos) || isBeforeBr(root, pos);
     };
     var needsToHaveNbsp = function (root, pos) {
       if (isInPre(pos)) {
@@ -25362,8 +25389,8 @@
       defaultSettings: {},
       $: DomQuery,
       majorVersion: '4',
-      minorVersion: '9.0',
-      releaseDate: '2018-11-27',
+      minorVersion: '9.1',
+      releaseDate: '2018-12-04',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
