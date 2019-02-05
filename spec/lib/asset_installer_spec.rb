@@ -66,7 +66,7 @@ module TinyMCE
 
         it "adds TinyMCE assets to the manifest" do
           expect(manifest).to receive(:append).with("tinymce/tinymce.js", assets.parent.join("tinymce/tinymce.js"))
-          expect(manifest).to receive(:append).with("tinymce/themes/modern/theme.js", assets.parent.join("tinymce/themes/modern/theme.js"))
+          expect(manifest).to receive(:append).with("tinymce/themes/silver/theme.js", assets.parent.join("tinymce/themes/silver/theme.js"))
           install
         end
 
