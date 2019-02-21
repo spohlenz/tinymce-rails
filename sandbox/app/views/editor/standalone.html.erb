@@ -1,5 +1,5 @@
 <% content_for :javascript do %>
-  <%= javascript_include_tag "tinymce-standalone" %>
+  <%= javascript_include_tag "tinymce-standalone", "data-turbolinks-track": :reload %>
 <% end %>
 
 <h1>TinyMCE Standalone</h1>
@@ -8,8 +8,8 @@
 
 <%= text_area_tag :editor, "", :rows => 20, :cols => 60 %>
 
-<script type="text/javascript" charset="utf-8">
+<%= javascript_tag nonce: true do %>
   tinyMCE.init({
     mode: 'textareas'
   });
-</script>
+<% end %>

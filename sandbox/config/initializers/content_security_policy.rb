@@ -17,7 +17,14 @@ Rails.application.config.content_security_policy do |policy|
 end
 
 # If you are using UJS then enable automatic nonce generation
-Rails.application.config.content_security_policy_nonce_generator = -> request { SecureRandom.base64(16) }
+Rails.application.config.content_security_policy_nonce_generator = -> (request) do
+  # use the same csp nonce for turbolinks requests
+  if request.env['HTTP_TURBOLINKS_REFERRER'].present?
+    request.env['HTTP_X_TURBOLINKS_NONCE']
+  else
+    SecureRandom.base64(16)
+  end
+end
 
 # Report CSP violations to a specified URI
 # For further information see the following documentation:
