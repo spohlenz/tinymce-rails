@@ -2,7 +2,11 @@
 <html>
 <head>
   <title>Sandbox</title>
-  <%= javascript_include_tag :application %>
+
+  <meta name="turbolinks-cache-control" content="no-cache">
+  <%= csp_meta_tag %>
+
+  <%= javascript_include_tag "application" %>
   <%= yield :javascript %>
 </head>
 <body>
