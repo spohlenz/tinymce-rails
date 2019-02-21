@@ -19,6 +19,8 @@ module TinyMCE::Rails
       include Sprockets::Helpers::RailsHelper
     end
 
+    let(:content_security_policy_nonce) { "nonce" }
+
     describe "#tinymce_assets" do
       it "returns a TinyMCE javascript tag" do
         expect(tinymce_assets).to have_selector("script[src='/assets/tinymce.js']", :visible => false)
