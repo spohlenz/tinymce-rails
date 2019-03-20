@@ -45,11 +45,10 @@ task :rename do
     end
 
     Dir["vendor/assets/javascripts/tinymce/**/*.min.css"].each do |file|
-      FileUtils.ln_s(File.basename(file), file.sub(/\.min\.css$/, '.css'))
+      FileUtils.cp(file, file.sub(/\.min\.css$/, '.css'))
     end
   end
 end
-
 
 require 'rspec/core/rake_task'
 RSpec::Core::RakeTask.new(:spec)
