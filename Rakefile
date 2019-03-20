@@ -43,6 +43,10 @@ task :rename do
     Dir["vendor/assets/javascripts/tinymce/**/*.min.js"].each do |file|
       FileUtils.mv(file, file.sub(/\.min\.js$/, '.js'))
     end
+
+    Dir["vendor/assets/javascripts/tinymce/**/*.min.css"].each do |file|
+      FileUtils.ln_s(File.basename(file), file.sub(/\.min\.css$/, '.css'))
+    end
   end
 end
 
