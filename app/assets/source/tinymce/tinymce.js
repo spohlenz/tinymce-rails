@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.0.3 (2019-03-19)
+ * Version: 5.0.4 (2019-04-23)
  */
 (function () {
 (function (domGlobals) {
@@ -15,6 +15,15 @@
       for (var _i = 0; _i < arguments.length; _i++) {
         args[_i] = arguments[_i];
       }
+    };
+    var noarg = function (f) {
+      return function () {
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+          args[_i] = arguments[_i];
+        }
+        return f();
+      };
     };
     var compose = function (fa, fb) {
       return function () {
@@ -32,6 +41,9 @@
     };
     var identity = function (x) {
       return x;
+    };
+    var tripleEquals = function (a, b) {
+      return a === b;
     };
     function curry(fn) {
       var initialArgs = [];
@@ -61,8 +73,30 @@
         throw new Error(msg);
       };
     };
+    var apply = function (f) {
+      return f();
+    };
+    var call = function (f) {
+      f();
+    };
     var never = constant(false);
     var always = constant(true);
+
+    var Fun = /*#__PURE__*/Object.freeze({
+        noop: noop,
+        noarg: noarg,
+        compose: compose,
+        constant: constant,
+        identity: identity,
+        tripleEquals: tripleEquals,
+        curry: curry,
+        not: not,
+        die: die,
+        apply: apply,
+        call: call,
+        never: never,
+        always: always
+    });
 
     var never$1 = never;
     var always$1 = always;
@@ -236,6 +270,21 @@
     var exists = function (xs, pred) {
       return findIndex(xs, pred).isSome();
     };
+    var range = function (num, f) {
+      var r = [];
+      for (var i = 0; i < num; i++) {
+        r.push(f(i));
+      }
+      return r;
+    };
+    var chunk = function (array, size) {
+      var r = [];
+      for (var i = 0; i < array.length; i += size) {
+        var s = array.slice(i, i + size);
+        r.push(s);
+      }
+      return r;
+    };
     var map = function (xs, f) {
       var len = xs.length;
       var r = new Array(len);
@@ -279,6 +328,29 @@
         }
       }
       return r;
+    };
+    var groupBy = function (xs, f) {
+      if (xs.length === 0) {
+        return [];
+      } else {
+        var wasType = f(xs[0]);
+        var r = [];
+        var group = [];
+        for (var i = 0, len = xs.length; i < len; i++) {
+          var x = xs[i];
+          var type = f(x);
+          if (type !== wasType) {
+            r.push(group);
+            group = [];
+          }
+          wasType = type;
+          group.push(x);
+        }
+        if (group.length !== 0) {
+          r.push(group);
+        }
+        return r;
+      }
     };
     var foldr = function (xs, f, acc) {
       eachr(xs, function (x) {
@@ -341,6 +413,11 @@
       }
       return true;
     };
+    var equal = function (a1, a2) {
+      return a1.length === a2.length && forall(a1, function (x, i) {
+        return x === a2[i];
+      });
+    };
     var slice = Array.prototype.slice;
     var reverse = function (xs) {
       var r = slice.call(xs, 0);
@@ -360,6 +437,9 @@
       }
       return r;
     };
+    var pure = function (x) {
+      return [x];
+    };
     var sort = function (xs, comparator) {
       var copy = slice.call(xs, 0);
       copy.sort(comparator);
@@ -374,6 +454,36 @@
     var from$1 = isFunction(Array.from) ? Array.from : function (x) {
       return slice.call(x);
     };
+
+    var Arr = /*#__PURE__*/Object.freeze({
+        indexOf: indexOf,
+        contains: contains,
+        exists: exists,
+        range: range,
+        chunk: chunk,
+        map: map,
+        each: each,
+        eachr: eachr,
+        partition: partition,
+        filter: filter,
+        groupBy: groupBy,
+        foldr: foldr,
+        foldl: foldl,
+        find: find,
+        findIndex: findIndex,
+        flatten: flatten,
+        bind: bind,
+        forall: forall,
+        equal: equal,
+        reverse: reverse,
+        difference: difference,
+        mapToObject: mapToObject,
+        pure: pure,
+        sort: sort,
+        head: head,
+        last: last,
+        from: from$1
+    });
 
     var Global = typeof domGlobals.window !== 'undefined' ? domGlobals.window : Function('return this;')();
 
@@ -671,7 +781,10 @@
     var debounce = function (callback, time) {
       var timer, func;
       func = function () {
-        var args = arguments;
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+          args[_i] = arguments[_i];
+        }
         domGlobals.clearTimeout(timer);
         timer = wrappedSetTimeout(function () {
           callback.apply(this, args);
@@ -866,55 +979,37 @@
       addEvent(win, 'load', readyHandler);
     };
     var EventUtils = function () {
-      var self = this;
-      var events = {}, count, expando, hasFocusIn, hasMouseEnterLeave, mouseEnterLeave;
-      expando = eventExpandoPrefix + (+new Date()).toString(32);
-      hasMouseEnterLeave = 'onmouseenter' in domGlobals.document.documentElement;
-      hasFocusIn = 'onfocusin' in domGlobals.document.documentElement;
-      mouseEnterLeave = {
-        mouseenter: 'mouseover',
-        mouseleave: 'mouseout'
-      };
-      count = 1;
-      self.domLoaded = false;
-      self.events = events;
-      var executeHandlers = function (evt, id) {
-        var callbackList, i, l, callback;
-        var container = events[id];
-        callbackList = container && container[evt.type];
-        if (callbackList) {
-          for (i = 0, l = callbackList.length; i < l; i++) {
-            callback = callbackList[i];
-            if (callback && callback.func.call(callback.scope, evt) === false) {
-              evt.preventDefault();
-            }
-            if (evt.isImmediatePropagationStopped()) {
-              return;
-            }
-          }
-        }
-      };
-      self.bind = function (target, names, callback, scope) {
+      function EventUtils() {
+        this.domLoaded = false;
+        this.events = {};
+        this.count = 1;
+        this.expando = eventExpandoPrefix + (+new Date()).toString(32);
+        this.hasMouseEnterLeave = 'onmouseenter' in domGlobals.document.documentElement;
+        this.hasFocusIn = 'onfocusin' in domGlobals.document.documentElement;
+        this.count = 1;
+      }
+      EventUtils.prototype.bind = function (target, names, callback, scope) {
+        var self = this;
         var id, callbackList, i, name, fakeName, nativeHandler, capture;
         var win = domGlobals.window;
         var defaultNativeHandler = function (evt) {
-          executeHandlers(fix(evt || win.event), id);
+          self.executeHandlers(fix(evt || win.event), id);
         };
         if (!target || target.nodeType === 3 || target.nodeType === 8) {
           return;
         }
-        if (!target[expando]) {
-          id = count++;
-          target[expando] = id;
-          events[id] = {};
+        if (!target[self.expando]) {
+          id = self.count++;
+          target[self.expando] = id;
+          self.events[id] = {};
         } else {
-          id = target[expando];
+          id = target[self.expando];
         }
         scope = scope || target;
-        names = names.split(' ');
-        i = names.length;
+        var namesList = names.split(' ');
+        i = namesList.length;
         while (i--) {
-          name = names[i];
+          name = namesList[i];
           nativeHandler = defaultNativeHandler;
           fakeName = capture = false;
           if (name === 'DOMContentLoaded') {
@@ -924,8 +1019,8 @@
             callback.call(scope, fix({ type: name }));
             continue;
           }
-          if (!hasMouseEnterLeave) {
-            fakeName = mouseEnterLeave[name];
+          if (!self.hasMouseEnterLeave) {
+            fakeName = self.mouseEnterLeave[name];
             if (fakeName) {
               nativeHandler = function (evt) {
                 var current, related;
@@ -942,23 +1037,23 @@
                   evt = fix(evt || win.event);
                   evt.type = evt.type === 'mouseout' ? 'mouseleave' : 'mouseenter';
                   evt.target = current;
-                  executeHandlers(evt, id);
+                  self.executeHandlers(evt, id);
                 }
               };
             }
           }
-          if (!hasFocusIn && (name === 'focusin' || name === 'focusout')) {
+          if (!self.hasFocusIn && (name === 'focusin' || name === 'focusout')) {
             capture = true;
             fakeName = name === 'focusin' ? 'focus' : 'blur';
             nativeHandler = function (evt) {
               evt = fix(evt || win.event);
               evt.type = evt.type === 'focus' ? 'focusin' : 'focusout';
-              executeHandlers(evt, id);
+              self.executeHandlers(evt, id);
             };
           }
-          callbackList = events[id][name];
+          callbackList = self.events[id][name];
           if (!callbackList) {
-            events[id][name] = callbackList = [{
+            self.events[id][name] = callbackList = [{
                 func: callback,
                 scope: scope
               }];
@@ -972,7 +1067,7 @@
             }
           } else {
             if (name === 'ready' && self.domLoaded) {
-              callback({ type: name });
+              callback(fix({ type: name }));
             } else {
               callbackList.push({
                 func: callback,
@@ -984,19 +1079,19 @@
         target = callbackList = 0;
         return callback;
       };
-      self.unbind = function (target, names, callback) {
+      EventUtils.prototype.unbind = function (target, names, callback) {
         var id, callbackList, i, ci, name, eventMap;
         if (!target || target.nodeType === 3 || target.nodeType === 8) {
-          return self;
+          return this;
         }
-        id = target[expando];
+        id = target[this.expando];
         if (id) {
-          eventMap = events[id];
+          eventMap = this.events[id];
           if (names) {
-            names = names.split(' ');
-            i = names.length;
+            var namesList = names.split(' ');
+            i = namesList.length;
             while (i--) {
-              name = names[i];
+              name = namesList[i];
               callbackList = eventMap[name];
               if (callbackList) {
                 if (callback) {
@@ -1027,73 +1122,87 @@
             eventMap = {};
           }
           for (name in eventMap) {
-            return self;
+            return this;
           }
-          delete events[id];
+          delete this.events[id];
           try {
-            delete target[expando];
+            delete target[this.expando];
           } catch (ex) {
-            target[expando] = null;
+            target[this.expando] = null;
           }
         }
-        return self;
+        return this;
       };
-      self.fire = function (target, name, args) {
+      EventUtils.prototype.fire = function (target, name, args) {
         var id;
         if (!target || target.nodeType === 3 || target.nodeType === 8) {
-          return self;
+          return this;
         }
-        args = fix(null, args);
-        args.type = name;
-        args.target = target;
+        var event = fix(null, args);
+        event.type = name;
+        event.target = target;
         do {
-          id = target[expando];
+          id = target[this.expando];
           if (id) {
-            executeHandlers(args, id);
+            this.executeHandlers(event, id);
           }
           target = target.parentNode || target.ownerDocument || target.defaultView || target.parentWindow;
-        } while (target && !args.isPropagationStopped());
-        return self;
+        } while (target && !event.isPropagationStopped());
+        return this;
       };
-      self.clean = function (target) {
+      EventUtils.prototype.clean = function (target) {
         var i, children;
-        var unbind = self.unbind;
         if (!target || target.nodeType === 3 || target.nodeType === 8) {
-          return self;
+          return this;
         }
-        if (target[expando]) {
-          unbind(target);
+        if (target[this.expando]) {
+          this.unbind(target);
         }
         if (!target.getElementsByTagName) {
           target = target.document;
         }
         if (target && target.getElementsByTagName) {
-          unbind(target);
+          this.unbind(target);
           children = target.getElementsByTagName('*');
           i = children.length;
           while (i--) {
             target = children[i];
-            if (target[expando]) {
-              unbind(target);
+            if (target[this.expando]) {
+              this.unbind(target);
             }
           }
         }
-        return self;
+        return this;
       };
-      self.destroy = function () {
-        events = {};
+      EventUtils.prototype.destroy = function () {
+        this.events = {};
       };
-      self.cancel = function (e) {
+      EventUtils.prototype.cancel = function (e) {
         if (e) {
           e.preventDefault();
           e.stopImmediatePropagation();
         }
         return false;
       };
-    };
-    EventUtils.Event = new EventUtils();
-    EventUtils.Event.bind(domGlobals.window, 'ready', function () {
-    });
+      EventUtils.prototype.executeHandlers = function (evt, id) {
+        var callbackList, i, l, callback;
+        var container = this.events[id];
+        callbackList = container && container[evt.type];
+        if (callbackList) {
+          for (i = 0, l = callbackList.length; i < l; i++) {
+            callback = callbackList[i];
+            if (callback && callback.func.call(callback.scope, evt) === false) {
+              evt.preventDefault();
+            }
+            if (evt.isImmediatePropagationStopped()) {
+              return;
+            }
+          }
+        }
+      };
+      EventUtils.Event = new EventUtils();
+      return EventUtils;
+    }();
 
     var i, support, Expr, getText, isXML, tokenize, compile, select, outermostContext, sortInput, hasDuplicate, setDocument, document, docElem, documentIsHTML, rbuggyQSA, rbuggyMatches, matches, contains$1, expando = 'sizzle' + -new Date(), preferredDoc = domGlobals.window.document, dirruns = 0, done = 0, classCache = createCache(), tokenCache = createCache(), compilerCache = createCache(), sortOrder = function (a, b) {
         if (a === b) {
@@ -1814,6 +1923,8 @@
           soFar = soFar.slice(matched.length);
         }
         for (type in Expr.filter) {
+          if (!Expr.filter.hasOwnProperty(type))
+            continue;
           if ((match = matchExpr[type].exec(soFar)) && (!preFilters[type] || (match = preFilters[type](match)))) {
             matched = match.shift();
             tokens.push({
@@ -2464,7 +2575,7 @@
     };
     var cssFix = { float: 'cssFloat' };
     var attrHooks = {}, cssHooks = {};
-    var DomQuery = function (selector, context) {
+    var DomQueryConstructor = function (selector, context) {
       return new DomQuery.fn.init(selector, context);
     };
     var inArray = function (item, array) {
@@ -2526,8 +2637,8 @@
       }
       return element.ownerDocument;
     };
-    DomQuery.fn = DomQuery.prototype = {
-      constructor: DomQuery,
+    DomQueryConstructor.fn = DomQueryConstructor.prototype = {
+      constructor: DomQueryConstructor,
       selector: '',
       context: null,
       length: 0,
@@ -2988,10 +3099,10 @@
         return this.css(offset);
       },
       push: push$2,
-      sort: [].sort,
-      splice: [].splice
+      sort: Array.prototype.sort,
+      splice: Array.prototype.splice
     };
-    Tools.extend(DomQuery, {
+    Tools.extend(DomQueryConstructor, {
       extend: Tools.extend,
       makeArray: function (object) {
         if (isWindow(object) || object.nodeType) {
@@ -3099,7 +3210,7 @@
         return Tools.toArray((node.nodeName === 'iframe' ? node.contentDocument || node.contentWindow.document : node).childNodes);
       }
     }, function (name, fn) {
-      DomQuery.fn[name] = function (selector) {
+      DomQueryConstructor.fn[name] = function (selector) {
         var self = this;
         var result = [];
         self.each(function () {
@@ -3120,11 +3231,11 @@
             result = result.reverse();
           }
         }
-        result = DomQuery(result);
+        var wrappedResult = DomQuery(result);
         if (selector) {
-          return result.filter(selector);
+          return wrappedResult.filter(selector);
         }
-        return result;
+        return wrappedResult;
       };
     });
     each$2({
@@ -3138,7 +3249,7 @@
         return sibling(node, 'previousSibling', 1, until).slice(1);
       }
     }, function (name, fn) {
-      DomQuery.fn[name] = function (selector, filter) {
+      DomQueryConstructor.fn[name] = function (selector, filter) {
         var self = this;
         var result = [];
         self.each(function () {
@@ -3157,18 +3268,18 @@
             result = result.reverse();
           }
         }
-        result = DomQuery(result);
+        var wrappedResult = DomQuery(result);
         if (filter) {
-          return result.filter(filter);
+          return wrappedResult.filter(filter);
         }
-        return result;
+        return wrappedResult;
       };
     });
-    DomQuery.fn.is = function (selector) {
+    DomQueryConstructor.fn.is = function (selector) {
       return !!selector && this.filter(selector).length > 0;
     };
-    DomQuery.fn.init.prototype = DomQuery.fn;
-    DomQuery.overrideDefaults = function (callback) {
+    DomQueryConstructor.fn.init.prototype = DomQueryConstructor.fn;
+    DomQueryConstructor.overrideDefaults = function (callback) {
       var defaults;
       var sub = function (selector, context) {
         defaults = defaults || callback();
@@ -3239,8 +3350,9 @@
         }
       });
     }
-    DomQuery.attrHooks = attrHooks;
-    DomQuery.cssHooks = cssHooks;
+    DomQueryConstructor.attrHooks = attrHooks;
+    DomQueryConstructor.cssHooks = cssHooks;
+    var DomQuery = DomQueryConstructor;
 
     var cached = function (f) {
       var called = false;
@@ -3871,6 +3983,14 @@
       }
       return ret;
     };
+    var siblings = function (element) {
+      var filterSelf = function (elements) {
+        return filter(elements, function (x) {
+          return !eq(element, x);
+        });
+      };
+      return parent(element).map(children).map(filterSelf).getOr([]);
+    };
     var prevSibling = function (element) {
       var dom = element.dom();
       return Option.from(dom.previousSibling).map(Element.fromDom);
@@ -4001,14 +4121,14 @@
         isReady: isReady
       };
     };
-    var pure = function (a) {
+    var pure$1 = function (a) {
       return nu$3(function (callback) {
         callback(a);
       });
     };
     var LazyValue = {
       nu: nu$3,
-      pure: pure
+      pure: pure$1
     };
 
     var bounce = function (f) {
@@ -4071,14 +4191,14 @@
         get: get
       };
     };
-    var pure$1 = function (a) {
+    var pure$2 = function (a) {
       return nu$4(function (callback) {
         callback(a);
       });
     };
     var Future = {
       nu: nu$4,
-      pure: pure$1
+      pure: pure$2
     };
 
     var par = function (asyncValues, nu) {
@@ -4366,20 +4486,142 @@
       };
     }
 
-    function TreeWalker (startNode, rootNode) {
-      var node = startNode;
-      var findSibling = function (node, startName, siblingName, shallow) {
+    var isNodeType = function (type) {
+      return function (node) {
+        return !!node && node.nodeType === type;
+      };
+    };
+    var isElement$1 = isNodeType(1);
+    var matchNodeNames = function (names) {
+      var items = names.toLowerCase().split(' ');
+      return function (node) {
+        var i, name;
+        if (node && node.nodeType) {
+          name = node.nodeName.toLowerCase();
+          for (i = 0; i < items.length; i++) {
+            if (name === items[i]) {
+              return true;
+            }
+          }
+        }
+        return false;
+      };
+    };
+    var matchStyleValues = function (name, values) {
+      var items = values.toLowerCase().split(' ');
+      return function (node) {
+        var i, cssValue;
+        if (isElement$1(node)) {
+          for (i = 0; i < items.length; i++) {
+            var computed = node.ownerDocument.defaultView.getComputedStyle(node, null);
+            cssValue = computed ? computed.getPropertyValue(name) : null;
+            if (cssValue === items[i]) {
+              return true;
+            }
+          }
+        }
+        return false;
+      };
+    };
+    var hasPropValue = function (propName, propValue) {
+      return function (node) {
+        return isElement$1(node) && node[propName] === propValue;
+      };
+    };
+    var hasAttribute = function (attrName, attrValue) {
+      return function (node) {
+        return isElement$1(node) && node.hasAttribute(attrName);
+      };
+    };
+    var hasAttributeValue = function (attrName, attrValue) {
+      return function (node) {
+        return isElement$1(node) && node.getAttribute(attrName) === attrValue;
+      };
+    };
+    var isBogus = function (node) {
+      return isElement$1(node) && node.hasAttribute('data-mce-bogus');
+    };
+    var isBogusAll = function (node) {
+      return isElement$1(node) && node.getAttribute('data-mce-bogus') === 'all';
+    };
+    var isTable = function (node) {
+      return isElement$1(node) && node.tagName === 'TABLE';
+    };
+    var hasContentEditableState = function (value) {
+      return function (node) {
+        if (isElement$1(node)) {
+          if (node.contentEditable === value) {
+            return true;
+          }
+          if (node.getAttribute('data-mce-contenteditable') === value) {
+            return true;
+          }
+        }
+        return false;
+      };
+    };
+    var isText$1 = isNodeType(3);
+    var isComment = isNodeType(8);
+    var isDocument = isNodeType(9);
+    var isDocumentFragment = isNodeType(11);
+    var isBr = matchNodeNames('br');
+    var isContentEditableTrue = hasContentEditableState('true');
+    var isContentEditableFalse = hasContentEditableState('false');
+    var NodeType = {
+      isText: isText$1,
+      isElement: isElement$1,
+      isComment: isComment,
+      isDocument: isDocument,
+      isDocumentFragment: isDocumentFragment,
+      isBr: isBr,
+      isContentEditableTrue: isContentEditableTrue,
+      isContentEditableFalse: isContentEditableFalse,
+      matchNodeNames: matchNodeNames,
+      hasPropValue: hasPropValue,
+      hasAttribute: hasAttribute,
+      hasAttributeValue: hasAttributeValue,
+      matchStyleValues: matchStyleValues,
+      isBogus: isBogus,
+      isBogusAll: isBogusAll,
+      isTable: isTable
+    };
+
+    var TreeWalker = function () {
+      function TreeWalker(startNode, rootNode) {
+        this.node = startNode;
+        this.rootNode = rootNode;
+        this.current = this.current.bind(this);
+        this.next = this.next.bind(this);
+        this.prev = this.prev.bind(this);
+        this.prev2 = this.prev2.bind(this);
+      }
+      TreeWalker.prototype.current = function () {
+        return this.node;
+      };
+      TreeWalker.prototype.next = function (shallow) {
+        this.node = this.findSibling(this.node, 'firstChild', 'nextSibling', shallow);
+        return this.node;
+      };
+      TreeWalker.prototype.prev = function (shallow) {
+        this.node = this.findSibling(this.node, 'lastChild', 'previousSibling', shallow);
+        return this.node;
+      };
+      TreeWalker.prototype.prev2 = function (shallow) {
+        this.node = this.findPreviousNode(this.node, 'lastChild', 'previousSibling', shallow);
+        return this.node;
+      };
+      TreeWalker.prototype.findSibling = function (node, startName, siblingName, shallow) {
         var sibling, parent;
         if (node) {
           if (!shallow && node[startName]) {
             return node[startName];
           }
-          if (node !== rootNode) {
+          if (node !== this.rootNode) {
             sibling = node[siblingName];
             if (sibling) {
               return sibling;
             }
-            for (parent = node.parentNode; parent && parent !== rootNode; parent = parent.parentNode) {
+            for (parent = node.parentNode; parent && parent !== this.rootNode; parent = parent.parentNode) {
               sibling = parent[siblingName];
               if (sibling) {
                 return sibling;
@@ -4388,11 +4630,11 @@
           }
         }
       };
-      var findPreviousNode = function (node, startName, siblingName, shallow) {
+      TreeWalker.prototype.findPreviousNode = function (node, startName, siblingName, shallow) {
         var sibling, parent, child;
         if (node) {
           sibling = node[siblingName];
-          if (rootNode && sibling === rootNode) {
+          if (this.rootNode && sibling === this.rootNode) {
             return;
           }
           if (sibling) {
@@ -4406,27 +4648,13 @@
             return sibling;
           }
           parent = node.parentNode;
-          if (parent && parent !== rootNode) {
+          if (parent && parent !== this.rootNode) {
             return parent;
           }
         }
       };
-      this.current = function () {
-        return node;
-      };
-      this.next = function (shallow) {
-        node = findSibling(node, 'firstChild', 'nextSibling', shallow);
-        return node;
-      };
-      this.prev = function (shallow) {
-        node = findSibling(node, 'lastChild', 'previousSibling', shallow);
-        return node;
-      };
-      this.prev2 = function (shallow) {
-        node = findPreviousNode(node, 'lastChild', 'previousSibling', shallow);
-        return node;
-      };
-    }
+      return TreeWalker;
+    }();
 
     var blocks = [
       'article',
@@ -4565,13 +4793,13 @@
     };
     var isHeading = lazyLookup(headings);
     var isBlock = lazyLookup(blocks);
-    var isTable = function (node) {
+    var isTable$1 = function (node) {
       return name(node) === 'table';
     };
     var isInline = function (node) {
       return isElement(node) && !isBlock(node);
     };
-    var isBr = function (node) {
+    var isBr$1 = function (node) {
       return isElement(node) && name(node) === 'br';
     };
     var isTextBlock = lazyLookup(textBlocks);
@@ -4581,106 +4809,6 @@
     var isTableSection = lazyLookup(tableSections);
     var isTableCell = lazyLookup(tableCells);
     var isWsPreserveElement = lazyLookup(wsElements);
-
-    var isNodeType = function (type) {
-      return function (node) {
-        return !!node && node.nodeType === type;
-      };
-    };
-    var isElement$1 = isNodeType(1);
-    var matchNodeNames = function (names) {
-      var items = names.toLowerCase().split(' ');
-      return function (node) {
-        var i, name;
-        if (node && node.nodeType) {
-          name = node.nodeName.toLowerCase();
-          for (i = 0; i < items.length; i++) {
-            if (name === items[i]) {
-              return true;
-            }
-          }
-        }
-        return false;
-      };
-    };
-    var matchStyleValues = function (name, values) {
-      var items = values.toLowerCase().split(' ');
-      return function (node) {
-        var i, cssValue;
-        if (isElement$1(node)) {
-          for (i = 0; i < items.length; i++) {
-            var computed = node.ownerDocument.defaultView.getComputedStyle(node, null);
-            cssValue = computed ? computed.getPropertyValue(name) : null;
-            if (cssValue === items[i]) {
-              return true;
-            }
-          }
-        }
-        return false;
-      };
-    };
-    var hasPropValue = function (propName, propValue) {
-      return function (node) {
-        return isElement$1(node) && node[propName] === propValue;
-      };
-    };
-    var hasAttribute = function (attrName, attrValue) {
-      return function (node) {
-        return isElement$1(node) && node.hasAttribute(attrName);
-      };
-    };
-    var hasAttributeValue = function (attrName, attrValue) {
-      return function (node) {
-        return isElement$1(node) && node.getAttribute(attrName) === attrValue;
-      };
-    };
-    var isBogus = function (node) {
-      return isElement$1(node) && node.hasAttribute('data-mce-bogus');
-    };
-    var isBogusAll = function (node) {
-      return isElement$1(node) && node.getAttribute('data-mce-bogus') === 'all';
-    };
-    var isTable$1 = function (node) {
-      return isElement$1(node) && node.tagName === 'TABLE';
-    };
-    var hasContentEditableState = function (value) {
-      return function (node) {
-        if (isElement$1(node)) {
-          if (node.contentEditable === value) {
-            return true;
-          }
-          if (node.getAttribute('data-mce-contenteditable') === value) {
-            return true;
-          }
-        }
-        return false;
-      };
-    };
-    var isText$1 = isNodeType(3);
-    var isComment = isNodeType(8);
-    var isDocument = isNodeType(9);
-    var isDocumentFragment = isNodeType(11);
-    var isBr$1 = matchNodeNames('br');
-    var isContentEditableTrue = hasContentEditableState('true');
-    var isContentEditableFalse = hasContentEditableState('false');
-    var NodeType = {
-      isText: isText$1,
-      isElement: isElement$1,
-      isComment: isComment,
-      isDocument: isDocument,
-      isDocumentFragment: isDocumentFragment,
-      isBr: isBr$1,
-      isContentEditableTrue: isContentEditableTrue,
-      isContentEditableFalse: isContentEditableFalse,
-      matchNodeNames: matchNodeNames,
-      hasPropValue: hasPropValue,
-      hasAttribute: hasAttribute,
-      hasAttributeValue: hasAttributeValue,
-      matchStyleValues: matchStyleValues,
-      isBogus: isBogus,
-      isBogusAll: isBogusAll,
-      isTable: isTable$1
-    };
 
     var surroundedBySpans = function (node) {
       var previousIsSpan = node.previousSibling && node.previousSibling.nodeName === 'SPAN';
@@ -5528,7 +5656,7 @@
       };
       return '#' + hex(r) + hex(g) + hex(b);
     };
-    function Styles(settings, schema) {
+    var Styles = function (settings, schema) {
       var rgbRegExp = /rgb\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/gi;
       var urlOrStrRegExp = /(?:url(?:(?:\(\s*\"([^\"]+)\"\s*\))|(?:\(\s*\'([^\']+)\'\s*\))|(?:\(\s*([^)\s]+)\s*\))))|(?:\'([^\']+)\')|(?:\"([^\"]+)\")/gi;
       var styleRegExp = /\s*([^:]+):\s*([^;]+);?/g;
@@ -5754,7 +5882,7 @@
           return css;
         }
       };
-    }
+    };
 
     var each$5 = Tools.each;
     var grep$1 = Tools.grep;
@@ -5762,7 +5890,6 @@
     var simpleSelectorRe = /^([a-z0-9],?)+$/i;
     var whiteSpaceRegExp$2 = /^[ \t\r\n]*$/;
     var setupAttrHooks = function (styles, settings, getContext) {
-      var attrHooks = {};
       var keepValues = settings.keep_values;
       var keepUrlHook = {
         set: function ($elm, value, name) {
@@ -5775,7 +5902,7 @@
           return $elm.attr('data-mce-' + name) || $elm.attr(name);
         }
       };
-      attrHooks = {
+      var attrHooks = {
         style: {
           set: function ($elm, value) {
             if (value !== null && typeof value === 'object') {
@@ -5842,7 +5969,7 @@
         url_converter: settings.url_converter,
         url_converter_scope: settings.url_converter_scope
       }, settings.schema);
-      var events = settings.ownEvents ? new EventUtils(settings.proxy) : EventUtils.Event;
+      var events = settings.ownEvents ? new EventUtils() : EventUtils.Event;
       var blockElementsMap = schema.getBlockElements();
       var $ = DomQuery.overrideDefaults(function () {
         return {
@@ -5944,7 +6071,7 @@
       var getViewPort = function (argWin) {
         var actWin = !argWin ? win : argWin;
         var doc = actWin.document;
-        var rootElm = boxModel ? doc.documentElement : doc.body;
+        var rootElm = doc.documentElement;
         return {
           x: actWin.pageXOffset || rootElm.scrollLeft,
           y: actWin.pageYOffset || rootElm.scrollTop,
@@ -5956,7 +6083,7 @@
         return Position.getPos(doc.body, get(elm), rootElm);
       };
       var setStyle = function (elm, name, value) {
-        var $elm = $$(elm).css(name, value);
+        var $elm = isString(name) ? $$(elm).css(name, value) : $$(elm).css(name);
         if (settings.update_styles) {
           updateInternalStyleAttr(styles, $elm);
         }
@@ -6376,12 +6503,12 @@
         return styles.toHex(Tools.trim(rgbVal));
       };
       var isEmpty = function (node, elements) {
-        var i, attributes, type, whitespace, walker, name, brCount = 0;
+        var i, attributes, type, name, brCount = 0;
         node = node.firstChild;
         if (node) {
-          walker = new TreeWalker(node, node.parentNode);
+          var walker = new TreeWalker(node, node.parentNode);
+          var whitespace = schema ? schema.getWhiteSpaceElements() : {};
           elements = elements || (schema ? schema.getNonEmptyElements() : null);
-          whitespace = schema ? schema.getWhiteSpaceElements() : {};
           do {
             type = node.nodeType;
             if (NodeType.isElement(node)) {
@@ -6450,10 +6577,11 @@
       var bind = function (target, name, func, scope) {
         if (Tools.isArray(target)) {
           var i = target.length;
+          var rv = [];
           while (i--) {
-            target[i] = bind(target[i], name, func, scope);
+            rv[i] = bind(target[i], name, func, scope);
           }
-          return target;
+          return rv;
         }
         if (settings.collect && (target === doc || target === win)) {
           boundEvents.push([
@@ -6469,10 +6597,11 @@
         var i;
         if (Tools.isArray(target)) {
           i = target.length;
+          var rv = [];
           while (i--) {
-            target[i] = unbind(target[i], name, func);
+            rv[i] = unbind(target[i], name, func);
           }
-          return target;
+          return rv;
         }
         if (boundEvents && (target === doc || target === win)) {
           i = boundEvents.length;
@@ -6625,20 +6754,19 @@
 
     var DOM = DOMUtils$1.DOM;
     var each$6 = Tools.each, grep$2 = Tools.grep;
-    var isFunction$1 = function (f) {
-      return typeof f === 'function';
-    };
+    var QUEUED = 0;
+    var LOADING = 1;
+    var LOADED = 2;
+    var FAILED = 3;
     var ScriptLoader = function () {
-      var QUEUED = 0;
-      var LOADING = 1;
-      var LOADED = 2;
-      var FAILED = 3;
-      var states = {};
-      var queue = [];
-      var scriptLoadedCallbacks = {};
-      var queueLoadedCallbacks = [];
-      var loading = 0;
-      var loadScript = function (url, success, failure) {
+      function ScriptLoader() {
+        this.states = {};
+        this.queue = [];
+        this.scriptLoadedCallbacks = {};
+        this.queueLoadedCallbacks = [];
+        this.loading = 0;
+      }
+      ScriptLoader.prototype.loadScript = function (url, success, failure) {
         var dom = DOM;
         var elm, id;
         var done = function () {
@@ -6649,7 +6777,7 @@
           success();
         };
         var error = function () {
-          if (isFunction$1(failure)) {
+          if (isFunction(failure)) {
             failure();
           } else {
             if (typeof domGlobals.console !== 'undefined' && domGlobals.console.log) {
@@ -6666,50 +6794,52 @@
         elm.onerror = error;
         (domGlobals.document.getElementsByTagName('head')[0] || domGlobals.document.body).appendChild(elm);
       };
-      this.loadScript = function (url, success, failure) {
-        loadScript(url, success, failure);
-      }, this.isDone = function (url) {
-        return states[url] === LOADED;
+      ScriptLoader.prototype.isDone = function (url) {
+        return this.states[url] === LOADED;
       };
-      this.markDone = function (url) {
-        states[url] = LOADED;
+      ScriptLoader.prototype.markDone = function (url) {
+        this.states[url] = LOADED;
       };
-      this.add = this.load = function (url, success, scope, failure) {
-        var state = states[url];
+      ScriptLoader.prototype.add = function (url, success, scope, failure) {
+        var state = this.states[url];
         if (state === undefined) {
-          queue.push(url);
-          states[url] = QUEUED;
+          this.queue.push(url);
+          this.states[url] = QUEUED;
         }
         if (success) {
-          if (!scriptLoadedCallbacks[url]) {
-            scriptLoadedCallbacks[url] = [];
+          if (!this.scriptLoadedCallbacks[url]) {
+            this.scriptLoadedCallbacks[url] = [];
           }
-          scriptLoadedCallbacks[url].push({
+          this.scriptLoadedCallbacks[url].push({
             success: success,
             failure: failure,
             scope: scope || this
           });
         }
       };
-      this.remove = function (url) {
-        delete states[url];
-        delete scriptLoadedCallbacks[url];
+      ScriptLoader.prototype.load = function (url, success, scope, failure) {
+        return this.add(url, success, scope, failure);
       };
-      this.loadQueue = function (success, scope, failure) {
-        this.loadScripts(queue, success, scope, failure);
+      ScriptLoader.prototype.remove = function (url) {
+        delete this.states[url];
+        delete this.scriptLoadedCallbacks[url];
       };
-      this.loadScripts = function (scripts, success, scope, failure) {
+      ScriptLoader.prototype.loadQueue = function (success, scope, failure) {
+        this.loadScripts(this.queue, success, scope, failure);
+      };
+      ScriptLoader.prototype.loadScripts = function (scripts, success, scope, failure) {
+        var self = this;
         var loadScripts;
         var failures = [];
         var execCallbacks = function (name, url) {
-          each$6(scriptLoadedCallbacks[url], function (callback) {
-            if (isFunction$1(callback[name])) {
+          each$6(self.scriptLoadedCallbacks[url], function (callback) {
+            if (isFunction(callback[name])) {
               callback[name].call(callback.scope);
             }
           });
-          scriptLoadedCallbacks[url] = undefined;
+          self.scriptLoadedCallbacks[url] = undefined;
         };
-        queueLoadedCallbacks.push({
+        self.queueLoadedCallbacks.push({
           success: success,
           failure: failure,
           scope: scope || this
@@ -6718,41 +6848,41 @@
           var loadingScripts = grep$2(scripts);
           scripts.length = 0;
           each$6(loadingScripts, function (url) {
-            if (states[url] === LOADED) {
+            if (self.states[url] === LOADED) {
               execCallbacks('success', url);
               return;
             }
-            if (states[url] === FAILED) {
+            if (self.states[url] === FAILED) {
               execCallbacks('failure', url);
               return;
             }
-            if (states[url] !== LOADING) {
-              states[url] = LOADING;
-              loading++;
-              loadScript(url, function () {
-                states[url] = LOADED;
-                loading--;
+            if (self.states[url] !== LOADING) {
+              self.states[url] = LOADING;
+              self.loading++;
+              self.loadScript(url, function () {
+                self.states[url] = LOADED;
+                self.loading--;
                 execCallbacks('success', url);
                 loadScripts();
               }, function () {
-                states[url] = FAILED;
-                loading--;
+                self.states[url] = FAILED;
+                self.loading--;
                 failures.push(url);
                 execCallbacks('failure', url);
                 loadScripts();
               });
             }
           });
-          if (!loading) {
-            var notifyCallbacks = queueLoadedCallbacks.slice(0);
-            queueLoadedCallbacks.length = 0;
+          if (!self.loading) {
+            var notifyCallbacks = self.queueLoadedCallbacks.slice(0);
+            self.queueLoadedCallbacks.length = 0;
             each$6(notifyCallbacks, function (callback) {
               if (failures.length === 0) {
-                if (isFunction$1(callback.success)) {
+                if (isFunction(callback.success)) {
                   callback.success.call(callback.scope);
                 }
               } else {
-                if (isFunction$1(callback.failure)) {
+                if (isFunction(callback.failure)) {
                   callback.failure.call(callback.scope, failures);
                 }
               }
@@ -6761,9 +6891,27 @@
         };
         loadScripts();
       };
-    };
-    ScriptLoader.ScriptLoader = new ScriptLoader();
+      ScriptLoader.ScriptLoader = new ScriptLoader();
+      return ScriptLoader;
+    }();
 
+    var extendStatics = function (d, b) {
+      extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function (d, b) {
+        d.__proto__ = b;
+      } || function (d, b) {
+        for (var p in b)
+          if (b.hasOwnProperty(p))
+            d[p] = b[p];
+      };
+      return extendStatics(d, b);
+    };
+    function __extends(d, b) {
+      extendStatics(d, b);
+      function __() {
+        this.constructor = d;
+      }
+      d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    }
     var __assign = function () {
       __assign = Object.assign || function __assign(t) {
         for (var s, i = 1, n = arguments.length; i < n; i++) {
@@ -6787,6 +6935,322 @@
             t[p[i]] = s[p[i]];
       return t;
     }
+    function __decorate(decorators, target, key, desc) {
+      var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+      if (typeof Reflect === 'object' && typeof Reflect.decorate === 'function')
+        r = Reflect.decorate(decorators, target, key, desc);
+      else
+        for (var i = decorators.length - 1; i >= 0; i--)
+          if (d = decorators[i])
+            r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+      return c > 3 && r && Object.defineProperty(target, key, r), r;
+    }
+    function __param(paramIndex, decorator) {
+      return function (target, key) {
+        decorator(target, key, paramIndex);
+      };
+    }
+    function __metadata(metadataKey, metadataValue) {
+      if (typeof Reflect === 'object' && typeof Reflect.metadata === 'function')
+        return Reflect.metadata(metadataKey, metadataValue);
+    }
+    function __awaiter(thisArg, _arguments, P, generator) {
+      return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) {
+          try {
+            step(generator.next(value));
+          } catch (e) {
+            reject(e);
+          }
+        }
+        function rejected(value) {
+          try {
+            step(generator['throw'](value));
+          } catch (e) {
+            reject(e);
+          }
+        }
+        function step(result) {
+          result.done ? resolve(result.value) : new P(function (resolve) {
+            resolve(result.value);
+          }).then(fulfilled, rejected);
+        }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+      });
+    }
+    function __generator(thisArg, body) {
+      var _ = {
+          label: 0,
+          sent: function () {
+            if (t[0] & 1)
+              throw t[1];
+            return t[1];
+          },
+          trys: [],
+          ops: []
+        }, f, y, t, g;
+      return g = {
+        next: verb(0),
+        'throw': verb(1),
+        'return': verb(2)
+      }, typeof Symbol === 'function' && (g[Symbol.iterator] = function () {
+        return this;
+      }), g;
+      function verb(n) {
+        return function (v) {
+          return step([
+            n,
+            v
+          ]);
+        };
+      }
+      function step(op) {
+        if (f)
+          throw new TypeError('Generator is already executing.');
+        while (_)
+          try {
+            if (f = 1, y && (t = op[0] & 2 ? y['return'] : op[0] ? y['throw'] || ((t = y['return']) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done)
+              return t;
+            if (y = 0, t)
+              op = [
+                op[0] & 2,
+                t.value
+              ];
+            switch (op[0]) {
+            case 0:
+            case 1:
+              t = op;
+              break;
+            case 4:
+              _.label++;
+              return {
+                value: op[1],
+                done: false
+              };
+            case 5:
+              _.label++;
+              y = op[1];
+              op = [0];
+              continue;
+            case 7:
+              op = _.ops.pop();
+              _.trys.pop();
+              continue;
+            default:
+              if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) {
+                _ = 0;
+                continue;
+              }
+              if (op[0] === 3 && (!t || op[1] > t[0] && op[1] < t[3])) {
+                _.label = op[1];
+                break;
+              }
+              if (op[0] === 6 && _.label < t[1]) {
+                _.label = t[1];
+                t = op;
+                break;
+              }
+              if (t && _.label < t[2]) {
+                _.label = t[2];
+                _.ops.push(op);
+                break;
+              }
+              if (t[2])
+                _.ops.pop();
+              _.trys.pop();
+              continue;
+            }
+            op = body.call(thisArg, _);
+          } catch (e) {
+            op = [
+              6,
+              e
+            ];
+            y = 0;
+          } finally {
+            f = t = 0;
+          }
+        if (op[0] & 5)
+          throw op[1];
+        return {
+          value: op[0] ? op[1] : void 0,
+          done: true
+        };
+      }
+    }
+    function __exportStar(m, exports) {
+      for (var p in m)
+        if (!exports.hasOwnProperty(p))
+          exports[p] = m[p];
+    }
+    function __values(o) {
+      var m = typeof Symbol === 'function' && o[Symbol.iterator], i = 0;
+      if (m)
+        return m.call(o);
+      return {
+        next: function () {
+          if (o && i >= o.length)
+            o = void 0;
+          return {
+            value: o && o[i++],
+            done: !o
+          };
+        }
+      };
+    }
+    function __read(o, n) {
+      var m = typeof Symbol === 'function' && o[Symbol.iterator];
+      if (!m)
+        return o;
+      var i = m.call(o), r, ar = [], e;
+      try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done)
+          ar.push(r.value);
+      } catch (error) {
+        e = { error: error };
+      } finally {
+        try {
+          if (r && !r.done && (m = i['return']))
+            m.call(i);
+        } finally {
+          if (e)
+            throw e.error;
+        }
+      }
+      return ar;
+    }
+    function __spread() {
+      for (var ar = [], i = 0; i < arguments.length; i++)
+        ar = ar.concat(__read(arguments[i]));
+      return ar;
+    }
+    function __await(v) {
+      return this instanceof __await ? (this.v = v, this) : new __await(v);
+    }
+    function __asyncGenerator(thisArg, _arguments, generator) {
+      if (!Symbol.asyncIterator)
+        throw new TypeError('Symbol.asyncIterator is not defined.');
+      var g = generator.apply(thisArg, _arguments || []), i, q = [];
+      return i = {}, verb('next'), verb('throw'), verb('return'), i[Symbol.asyncIterator] = function () {
+        return this;
+      }, i;
+      function verb(n) {
+        if (g[n])
+          i[n] = function (v) {
+            return new Promise(function (a, b) {
+              q.push([
+                n,
+                v,
+                a,
+                b
+              ]) > 1 || resume(n, v);
+            });
+          };
+      }
+      function resume(n, v) {
+        try {
+          step(g[n](v));
+        } catch (e) {
+          settle(q[0][3], e);
+        }
+      }
+      function step(r) {
+        r.value instanceof __await ? Promise.resolve(r.value.v).then(fulfill, reject) : settle(q[0][2], r);
+      }
+      function fulfill(value) {
+        resume('next', value);
+      }
+      function reject(value) {
+        resume('throw', value);
+      }
+      function settle(f, v) {
+        if (f(v), q.shift(), q.length)
+          resume(q[0][0], q[0][1]);
+      }
+    }
+    function __asyncDelegator(o) {
+      var i, p;
+      return i = {}, verb('next'), verb('throw', function (e) {
+        throw e;
+      }), verb('return'), i[Symbol.iterator] = function () {
+        return this;
+      }, i;
+      function verb(n, f) {
+        i[n] = o[n] ? function (v) {
+          return (p = !p) ? {
+            value: __await(o[n](v)),
+            done: n === 'return'
+          } : f ? f(v) : v;
+        } : f;
+      }
+    }
+    function __asyncValues(o) {
+      if (!Symbol.asyncIterator)
+        throw new TypeError('Symbol.asyncIterator is not defined.');
+      var m = o[Symbol.asyncIterator], i;
+      return m ? m.call(o) : (o = typeof __values === 'function' ? __values(o) : o[Symbol.iterator](), i = {}, verb('next'), verb('throw'), verb('return'), i[Symbol.asyncIterator] = function () {
+        return this;
+      }, i);
+      function verb(n) {
+        i[n] = o[n] && function (v) {
+          return new Promise(function (resolve, reject) {
+            v = o[n](v), settle(resolve, reject, v.done, v.value);
+          });
+        };
+      }
+      function settle(resolve, reject, d, v) {
+        Promise.resolve(v).then(function (v) {
+          resolve({
+            value: v,
+            done: d
+          });
+        }, reject);
+      }
+    }
+    function __makeTemplateObject(cooked, raw) {
+      if (Object.defineProperty) {
+        Object.defineProperty(cooked, 'raw', { value: raw });
+      } else {
+        cooked.raw = raw;
+      }
+      return cooked;
+    }
+    function __importStar(mod) {
+      if (mod && mod.__esModule)
+        return mod;
+      var result = {};
+      if (mod != null)
+        for (var k in mod)
+          if (Object.hasOwnProperty.call(mod, k))
+            result[k] = mod[k];
+      result.default = mod;
+      return result;
+    }
+    function __importDefault(mod) {
+      return mod && mod.__esModule ? mod : { default: mod };
+    }
+
+    var tslib_1 = /*#__PURE__*/Object.freeze({
+        __extends: __extends,
+        get __assign () { return __assign; },
+        __rest: __rest,
+        __decorate: __decorate,
+        __param: __param,
+        __metadata: __metadata,
+        __awaiter: __awaiter,
+        __generator: __generator,
+        __exportStar: __exportStar,
+        __values: __values,
+        __read: __read,
+        __spread: __spread,
+        __await: __await,
+        __asyncGenerator: __asyncGenerator,
+        __asyncDelegator: __asyncDelegator,
+        __asyncValues: __asyncValues,
+        __makeTemplateObject: __makeTemplateObject,
+        __importStar: __importStar,
+        __importDefault: __importDefault
+    });
 
     var Cell = function (initial) {
       var value = initial;
@@ -7027,6 +7491,7 @@
       AddOnManager.PluginManager = AddOnManager();
       AddOnManager.ThemeManager = AddOnManager();
     }(AddOnManager || (AddOnManager = {})));
+    var AddOnManager$1 = AddOnManager;
 
     var before = function (marker, element) {
       var parent$1 = parent(marker);
@@ -7177,6 +7642,21 @@
     var remove$3 = function (element, clazz) {
       return remove$2(element, 'class', clazz);
     };
+    var toggle = function (element, clazz) {
+      if (contains(get$3(element), clazz)) {
+        return remove$3(element, clazz);
+      } else {
+        return add$2(element, clazz);
+      }
+    };
+
+    var ClassList = /*#__PURE__*/Object.freeze({
+        get: get$3,
+        add: add$2,
+        remove: remove$3,
+        toggle: toggle,
+        supports: supports
+    });
 
     var add$3 = function (element, clazz) {
       if (supports(element)) {
@@ -7204,6 +7684,15 @@
       return supports(element) && element.dom().classList.contains(clazz);
     };
 
+    var ancestors = function (scope, predicate, isRoot) {
+      return filter(parents(scope, isRoot), predicate);
+    };
+    var siblings$1 = function (scope, predicate) {
+      return filter(siblings(scope), predicate);
+    };
+    var children$1 = function (scope, predicate) {
+      return filter(children(scope), predicate);
+    };
     var descendants = function (scope, predicate) {
       var result = [];
       each(children(scope), function (x) {
@@ -7215,9 +7704,35 @@
       return result;
     };
 
+    var all$1 = function (selector) {
+      return all(selector);
+    };
+    var ancestors$1 = function (scope, selector, isRoot) {
+      return ancestors(scope, function (e) {
+        return is$1(e, selector);
+      }, isRoot);
+    };
+    var siblings$2 = function (scope, selector) {
+      return siblings$1(scope, function (e) {
+        return is$1(e, selector);
+      });
+    };
+    var children$2 = function (scope, selector) {
+      return children$1(scope, function (e) {
+        return is$1(e, selector);
+      });
+    };
     var descendants$1 = function (scope, selector) {
       return all(selector, scope);
     };
+
+    var SelectorFilter = /*#__PURE__*/Object.freeze({
+        all: all$1,
+        ancestors: ancestors$1,
+        siblings: siblings$2,
+        children: children$2,
+        descendants: descendants$1
+    });
 
     function ClosestOrAncestor (is, ancestor, scope, a, isRoot) {
       return is(scope, a) ? Option.some(scope) : isFunction(isRoot) && isRoot(scope) ? Option.none() : ancestor(scope, a, isRoot);
@@ -7380,7 +7895,7 @@
       editor.on('remove', function () {
         onNodeChange.cancel();
       });
-      editor.on('nodeChange', function () {
+      editor.on('NodeChange', function () {
         onNodeChange.throttle();
       });
       var addListener = function (name, f) {
@@ -7396,8 +7911,7 @@
 
     var setup$1 = function (editor, registry) {
       var identifyParserNode = function (span) {
-        var optAnnotation = Option.from(span.attributes.map[dataAnnotation()]);
-        return optAnnotation.bind(registry.lookup);
+        return Option.from(span.attr(dataAnnotation())).bind(registry.lookup);
       };
       editor.on('init', function () {
         editor.serializer.addNodeFilter('span', function (spans) {
@@ -7541,6 +8055,28 @@
       }
       return textNode;
     };
+    var prependInline = function (node) {
+      if (NodeType.isText(node)) {
+        var data = node.data;
+        if (data.length > 0 && data.charAt(0) !== Zwsp.ZWSP) {
+          node.insertData(0, Zwsp.ZWSP);
+        }
+        return node;
+      } else {
+        return null;
+      }
+    };
+    var appendInline = function (node) {
+      if (NodeType.isText(node)) {
+        var data = node.data;
+        if (data.length > 0 && data.charAt(data.length - 1) !== Zwsp.ZWSP) {
+          node.insertData(data.length, Zwsp.ZWSP);
+        }
+        return node;
+      } else {
+        return null;
+      }
+    };
     var isBeforeInline = function (pos) {
       var container = pos.container();
       if (!pos || !NodeType.isText(container)) {
@@ -7606,6 +8142,23 @@
     var isRangeInCaretContainerBlock = function (range) {
       return isCaretContainerBlock(range.startContainer);
     };
+
+    var CaretContainer = /*#__PURE__*/Object.freeze({
+        isCaretContainer: isCaretContainer,
+        isCaretContainerBlock: isCaretContainerBlock,
+        isCaretContainerInline: isCaretContainerInline,
+        showCaretContainerBlock: showCaretContainerBlock,
+        insertInline: insertInline,
+        prependInline: prependInline,
+        appendInline: appendInline,
+        isBeforeInline: isBeforeInline,
+        isAfterInline: isAfterInline,
+        insertBlock: insertBlock,
+        hasContent: hasContent,
+        startsWithCaretContainer: startsWithCaretContainer,
+        endsWithCaretContainer: endsWithCaretContainer,
+        isRangeInCaretContainerBlock: isRangeInCaretContainerBlock
+    });
 
     var isContentEditableTrue$1 = NodeType.isContentEditableTrue;
     var isContentEditableFalse$1 = NodeType.isContentEditableFalse;
@@ -8090,7 +8643,7 @@
       }
       return offset;
     };
-    var equal = function (a) {
+    var equal$1 = function (a) {
       return function (b) {
         return a === b;
       };
@@ -8098,7 +8651,7 @@
     var normalizedNodeIndex = function (node) {
       var nodes, index, numTextFragments;
       nodes = getChildNodes(normalizedParent(node));
-      index = ArrUtils.findIndex(nodes, equal(node), node);
+      index = ArrUtils.findIndex(nodes, equal$1(node), node);
       nodes = nodes.slice(0, index + 1);
       numTextFragments = ArrUtils.reduce(nodes, function (result, node, i) {
         if (isText$5(node) && isText$5(nodes[i - 1])) {
@@ -8107,7 +8660,7 @@
         return result;
       }, 0);
       nodes = ArrUtils.filter(nodes, NodeType.matchNodeNames(node.nodeName));
-      index = ArrUtils.findIndex(nodes, equal(node), node);
+      index = ArrUtils.findIndex(nodes, equal$1(node), node);
       return index - numTextFragments;
     };
     var createPathItem = function (node) {
@@ -8639,7 +9192,7 @@
       var reposition = function () {
         lastVisualCaret.get().each(function (caretState) {
           var clientRect = getAbsoluteClientRect(root, caretState.element, caretState.before);
-          DomQuery(caretState.caret).css(clientRect);
+          DomQuery(caretState.caret).css(__assign({}, clientRect));
         });
       };
       var destroy = function () {
@@ -9547,7 +10100,7 @@
       return pos;
     };
     var findWordEndPoint = function (dom, body, container, offset, start, remove) {
-      var walker, node, pos, lastTextNode;
+      var node, pos, lastTextNode;
       if (container.nodeType === 3) {
         pos = findSpace(start, remove, container, offset);
         if (pos !== -1) {
@@ -9558,7 +10111,7 @@
         }
         lastTextNode = container;
       }
-      walker = new TreeWalker(container, dom.getParent(container, dom.isBlock) || body);
+      var walker = new TreeWalker(container, dom.getParent(container, dom.isBlock) || body);
       while (node = walker[start ? 'prev' : 'next']()) {
         if (node.nodeType === 3 && !isBookmarkNode$2(node.parentNode)) {
           lastTextNode = node;
@@ -10010,7 +10563,7 @@
       });
     };
 
-    function Annotator (editor) {
+    var Annotator = function (editor) {
       var registry = create$1();
       setup$1(editor, registry);
       var changes = setup(editor, registry);
@@ -10041,7 +10594,7 @@
           });
         }
       };
-    }
+    };
 
     var whiteSpaceRegExp$3 = /^[ \t\r\n]*$/;
     var typeLookup = {
@@ -10287,7 +10840,7 @@
         if (node) {
           do {
             if (node.type === 1) {
-              if (node.attributes.map['data-mce-bogus']) {
+              if (node.attr('data-mce-bogus')) {
                 continue;
               }
               if (elements[node.name]) {
@@ -10878,7 +11431,7 @@
     };
 
     var makeMap$3 = Tools.makeMap;
-    function Writer (settings) {
+    var Writer = function (settings) {
       var html = [];
       var indent, indentBefore, indentAfter, encode, htmlOutput;
       settings = settings || {};
@@ -10956,9 +11509,9 @@
           return html.join('').replace(/\n$/, '');
         }
       };
-    }
+    };
 
-    function Serializer (settings, schema) {
+    var Serializer = function (settings, schema) {
       if (schema === void 0) {
         schema = Schema();
       }
@@ -11051,7 +11604,7 @@
         return writer.getContent();
       };
       return { serialize: serialize };
-    }
+    };
 
     var traverse = function (node, fn) {
       fn(node);
@@ -11224,10 +11777,7 @@
         ]
       }
     ]);
-    var range = Immutable('start', 'soffset', 'finish', 'foffset');
-    var domRange = type$1.domRange;
-    var relative = type$1.relative;
-    var exact = type$1.exact;
+    var range$1 = Immutable('start', 'soffset', 'finish', 'foffset');
 
     var browser$3 = PlatformDetection$1.detect().browser;
     var clamp = function (offset, element) {
@@ -11240,7 +11790,7 @@
       return offset;
     };
     var normalizeRng = function (rng) {
-      return range(rng.start(), clamp(rng.soffset(), rng.start()), rng.finish(), clamp(rng.foffset(), rng.finish()));
+      return range$1(rng.start(), clamp(rng.soffset(), rng.start()), rng.finish(), clamp(rng.foffset(), rng.finish()));
     };
     var isOrContains = function (root, elm) {
       return contains$3(root, elm) || eq(root, elm);
@@ -11254,7 +11804,7 @@
       return editor.inline === true || browser$3.isIE();
     };
     var nativeRangeToSelectionRange = function (r) {
-      return range(Element.fromDom(r.startContainer), r.startOffset, Element.fromDom(r.endContainer), r.endOffset);
+      return range$1(Element.fromDom(r.startContainer), r.startOffset, Element.fromDom(r.endContainer), r.endOffset);
     };
     var readRange = function (win) {
       var selection = win.getSelection();
@@ -11650,7 +12200,7 @@
         render_ui: true,
         inline_styles: true,
         convert_fonts_to_spans: true,
-        indent: 'simple',
+        indent: true,
         indent_before: 'p,h1,h2,h3,h4,h5,h6,blockquote,div,title,style,pre,script,td,th,ul,ol,li,dl,dt,dd,area,table,thead,' + 'tfoot,tbody,tr,section,summary,article,hgroup,aside,figure,figcaption,option,optgroup,datalist',
         indent_after: 'p,h1,h2,h3,h4,h5,h6,blockquote,div,title,style,pre,script,td,th,ul,ol,li,dl,dt,dd,area,table,thead,' + 'tfoot,tbody,tr,section,summary,article,hgroup,aside,figure,figcaption,option,optgroup,datalist',
         entity_encoding: 'named',
@@ -11705,7 +12255,7 @@
           if (arr.length > 1) {
             output[Tools.trim(arr[0])] = Tools.trim(arr[1]);
           } else {
-            output[Tools.trim(arr[0])] = Tools.trim(arr);
+            output[Tools.trim(arr[0])] = Tools.trim(arr[0]);
           }
         });
       } else {
@@ -11791,7 +12341,7 @@
       isEditorAttachedToDom: isEditorAttachedToDom
     };
 
-    function NotificationManagerImpl () {
+    function NotificationManagerImpl() {
       var unimplemented = function () {
         throw new Error('Theme did not provide a NotificationManager implementation.');
       };
@@ -11803,7 +12353,7 @@
       };
     }
 
-    function NotificationManager (editor) {
+    function NotificationManager(editor) {
       var notifications = [];
       var getImplementation = function () {
         var theme = editor.theme;
@@ -11830,15 +12380,15 @@
           notifications.splice(index, 1);
         });
       };
-      var open = function (args) {
+      var open = function (spec) {
         if (editor.removed || !EditorView.isEditorAttachedToDom(editor)) {
           return;
         }
         return find(notifications, function (notification) {
-          return isEqual(getImplementation().getArgs(notification), args);
+          return isEqual(getImplementation().getArgs(notification), spec);
         }).getOrThunk(function () {
           editor.editorManager.setActive(editor);
-          var notification = getImplementation().open(args, function () {
+          var notification = getImplementation().open(spec, function () {
             closeNotification(notification);
             reposition();
           });
@@ -11863,7 +12413,7 @@
           if (serviceMessage) {
             open({
               text: serviceMessage,
-              type: 'warning',
+              type: 'warn',
               timeout: 0
             });
           }
@@ -11891,6 +12441,7 @@
       };
       return {
         open: unimplemented,
+        openUrl: unimplemented,
         alert: unimplemented,
         confirm: unimplemented,
         close: unimplemented,
@@ -11899,7 +12450,7 @@
       };
     }
 
-    function WindowManager (editor) {
+    var WindowManager = function (editor) {
       var dialogs = [];
       var getImplementation = function () {
         var theme = editor.theme;
@@ -11932,12 +12483,22 @@
       var getTopDialog = function () {
         return Option.from(dialogs[dialogs.length - 1]);
       };
-      var open = function (args, params) {
+      var storeSelectionAndOpenDialog = function (openDialog) {
         editor.editorManager.setActive(editor);
         SelectionBookmark.store(editor);
-        var dialog = getImplementation().open(args, params, closeDialog);
+        var dialog = openDialog();
         addDialog(dialog);
         return dialog;
+      };
+      var open = function (args, params) {
+        return storeSelectionAndOpenDialog(function () {
+          return getImplementation().open(args, params, closeDialog);
+        });
+      };
+      var openUrl = function (args) {
+        return storeSelectionAndOpenDialog(function () {
+          return getImplementation().openUrl(args, closeDialog);
+        });
       };
       var alert = function (message, callback, scope) {
         getImplementation().alert(message, funcBind(scope ? scope : this, callback));
@@ -11958,13 +12519,14 @@
       });
       return {
         open: open,
+        openUrl: openUrl,
         alert: alert,
         confirm: confirm,
         close: close
       };
-    }
+    };
 
-    var PluginManager = AddOnManager.PluginManager;
+    var PluginManager = AddOnManager$1.PluginManager;
     var resolvePluginName = function (targetUrl, suffix) {
       for (var name in PluginManager.urls) {
         var matchUrl = PluginManager.urls[name] + '/plugin' + suffix + '.js';
@@ -12039,6 +12601,153 @@
       initError: initError
     };
 
+    var getAll = function () {
+      return {
+        'accessibility-check': '<svg width="24" height="24"><path d="M12 2a2 2 0 0 1 2 2 2 2 0 0 1-2 2 2 2 0 0 1-2-2c0-1.1.9-2 2-2zm8 7h-5v12c0 .6-.4 1-1 1a1 1 0 0 1-1-1v-5c0-.6-.4-1-1-1a1 1 0 0 0-1 1v5c0 .6-.4 1-1 1a1 1 0 0 1-1-1V9H4a1 1 0 1 1 0-2h16c.6 0 1 .4 1 1s-.4 1-1 1z" fill-rule="nonzero"/></svg>',
+        'align-center': '<svg width="24" height="24"><path d="M5 5h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm3 4h8c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 1 1 0-2zm0 8h8c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 0 1 0-2zm-3-4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
+        'align-justify': '<svg width="24" height="24"><path d="M5 5h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm0 4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm0 4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2zm0 4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
+        'align-left': '<svg width="24" height="24"><path d="M5 5h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm0 4h8c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm0 8h8c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2zm0-4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
+        'align-none': '<svg width="24" height="24"><path d="M14.2 5L13 7H5a1 1 0 1 1 0-2h9.2zm4 0h.8a1 1 0 0 1 0 2h-2l1.2-2zm-6.4 4l-1.2 2H5a1 1 0 0 1 0-2h6.8zm4 0H19a1 1 0 0 1 0 2h-4.4l1.2-2zm-6.4 4l-1.2 2H5a1 1 0 0 1 0-2h4.4zm4 0H19a1 1 0 0 1 0 2h-6.8l1.2-2zM7 17l-1.2 2H5a1 1 0 0 1 0-2h2zm4 0h8a1 1 0 0 1 0 2H9.8l1.2-2zm5.2-13.5l1.3.7-9.7 16.3-1.3-.7 9.7-16.3z" fill-rule="evenodd"/></svg>',
+        'align-right': '<svg width="24" height="24"><path d="M5 5h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm6 4h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0 8h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm-6-4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
+        'arrow-left': '<svg width="24" height="24"><path d="M5.6 13l12 6a1 1 0 0 0 1.4-1V6a1 1 0 0 0-1.4-.9l-12 6a1 1 0 0 0 0 1.8z" fill-rule="evenodd"/></svg>',
+        'arrow-right': '<svg width="24" height="24"><path d="M18.5 13l-12 6A1 1 0 0 1 5 18V6a1 1 0 0 1 1.4-.9l12 6a1 1 0 0 1 0 1.8z" fill-rule="evenodd"/></svg>',
+        'bold': '<svg width="24" height="24"><path d="M7.8 19c-.3 0-.5 0-.6-.2l-.2-.5V5.7c0-.2 0-.4.2-.5l.6-.2h5c1.5 0 2.7.3 3.5 1 .7.6 1.1 1.4 1.1 2.5a3 3 0 0 1-.6 1.9c-.4.6-1 1-1.6 1.2.4.1.9.3 1.3.6s.8.7 1 1.2c.4.4.5 1 .5 1.6 0 1.3-.4 2.3-1.3 3-.8.7-2.1 1-3.8 1H7.8zm5-8.3c.6 0 1.2-.1 1.6-.5.4-.3.6-.7.6-1.3 0-1.1-.8-1.7-2.3-1.7H9.3v3.5h3.4zm.5 6c.7 0 1.3-.1 1.7-.4.4-.4.6-.9.6-1.5s-.2-1-.7-1.4c-.4-.3-1-.4-2-.4H9.4v3.8h4z" fill-rule="evenodd"/></svg>',
+        'bookmark': '<svg width="24" height="24"><path d="M6 4v17l6-4 6 4V4c0-.6-.4-1-1-1H7a1 1 0 0 0-1 1z" fill-rule="nonzero"/></svg>',
+        'border-width': '<svg width="24" height="24"><path d="M5 14.8h14a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2zm-.5 3.7h15c.3 0 .5.2.5.5s-.2.5-.5.5h-15a.5.5 0 1 1 0-1zm.5-8.3h14c.6 0 1 .4 1 1v1c0 .5-.4 1-1 1H5a1 1 0 0 1-1-1v-1c0-.6.4-1 1-1zm0-5.7h14c.6 0 1 .4 1 1v2c0 .6-.4 1-1 1H5a1 1 0 0 1-1-1v-2c0-.6.4-1 1-1z" fill-rule="evenodd"/></svg>',
+        'brightness': '<svg width="24" height="24"><path d="M12 17c.3 0 .5.1.7.3.2.2.3.4.3.7v1c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3 1 1 0 0 1-.7-.3 1 1 0 0 1-.3-.7v-1c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3zm0-10a1 1 0 0 1-.7-.3A1 1 0 0 1 11 6V5c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3.3 0 .5.1.7.3.2.2.3.4.3.7v1c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3zm7 4c.3 0 .5.1.7.3.2.2.3.4.3.7 0 .3-.1.5-.3.7a1 1 0 0 1-.7.3h-1a1 1 0 0 1-.7-.3 1 1 0 0 1-.3-.7c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h1zM7 12c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3H5a1 1 0 0 1-.7-.3A1 1 0 0 1 4 12c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h1c.3 0 .5.1.7.3.2.2.3.4.3.7zm10 3.5l.7.8c.2.1.3.4.3.6 0 .3-.1.6-.3.8a1 1 0 0 1-.8.3 1 1 0 0 1-.6-.3l-.8-.7a1 1 0 0 1-.3-.8c0-.2.1-.5.3-.7a1 1 0 0 1 1.4 0zm-10-7l-.7-.8a1 1 0 0 1-.3-.6c0-.3.1-.6.3-.8.2-.2.5-.3.8-.3.2 0 .5.1.7.3l.7.7c.2.2.3.5.3.8 0 .2-.1.5-.3.7a1 1 0 0 1-.7.3 1 1 0 0 1-.8-.3zm10 0a1 1 0 0 1-.8.3 1 1 0 0 1-.7-.3 1 1 0 0 1-.3-.7c0-.3.1-.6.3-.8l.8-.7c.1-.2.4-.3.6-.3.3 0 .6.1.8.3.2.2.3.5.3.8 0 .2-.1.5-.3.7l-.7.7zm-10 7c.2-.2.5-.3.8-.3.2 0 .5.1.7.3a1 1 0 0 1 0 1.4l-.8.8a1 1 0 0 1-.6.3 1 1 0 0 1-.8-.3 1 1 0 0 1-.3-.8c0-.2.1-.5.3-.6l.7-.8zM12 8a4 4 0 0 1 3.7 2.4 4 4 0 0 1 0 3.2A4 4 0 0 1 12 16a4 4 0 0 1-3.7-2.4 4 4 0 0 1 0-3.2A4 4 0 0 1 12 8zm0 6.5c.7 0 1.3-.2 1.8-.7.5-.5.7-1.1.7-1.8s-.2-1.3-.7-1.8c-.5-.5-1.1-.7-1.8-.7s-1.3.2-1.8.7c-.5.5-.7 1.1-.7 1.8s.2 1.3.7 1.8c.5.5 1.1.7 1.8.7z" fill-rule="evenodd"/></svg>',
+        'browse': '<svg width="24" height="24"><path d="M19 4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4v-2h4V8H5v10h4v2H5a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2h14zm-8 9.4l-2.3 2.3a1 1 0 1 1-1.4-1.4l4-4a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1-1.4 1.4L13 13.4V20a1 1 0 0 1-2 0v-6.6z" fill-rule="nonzero"/></svg>',
+        'cancel': '<svg width="24" height="24"><path d="M12 4.6a7.4 7.4 0 1 1 0 14.8 7.4 7.4 0 0 1 0-14.8zM12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 8L14.8 8l1 1.1-2.7 2.8 2.7 2.7-1.1 1.1-2.7-2.7-2.7 2.7-1-1.1 2.6-2.7-2.7-2.7 1-1.1 2.8 2.7z" fill-rule="nonzero"/></svg>',
+        'change-case': '<svg width="24" height="24"><path d="M18.4 18.2v-.6c-.5.8-1.3 1.2-2.4 1.2-2.2 0-3.3-1.6-3.3-4.8 0-3.1 1-4.7 3.3-4.7 1.1 0 1.8.3 2.4 1.1v-.6c0-.5.4-.8.8-.8s.8.3.8.8v8.4c0 .5-.4.8-.8.8a.8.8 0 0 1-.8-.8zm-2-7.4c-1.3 0-1.8.9-1.8 3.2 0 2.4.5 3.3 1.7 3.3 1.3 0 1.8-.9 1.8-3.2 0-2.4-.5-3.3-1.7-3.3zM10 15.7H5.5l-.8 2.6a1 1 0 0 1-1 .7h-.2a.7.7 0 0 1-.7-1l4-12a1 1 0 1 1 2 0l4 12a.7.7 0 0 1-.8 1h-.2a1 1 0 0 1-1-.7l-.8-2.6zm-.3-1.5l-2-6.5-1.9 6.5h3.9z" fill-rule="evenodd"/></svg>',
+        'character-count': '<svg width="24" height="24"><path d="M4 11.5h16v1H4v-1zm4.8-6.8V10H7.7V5.8h-1v-1h2zM11 8.3V9h2v1h-3V7.7l2-1v-.9h-2v-1h3v2.4l-2 1zm6.3-3.4V10h-3.1V9h2.1V8h-2.1V6.8h2.1v-1h-2.1v-1h3.1zM5.8 16.4c0-.5.2-.8.5-1 .2-.2.6-.3 1.2-.3l.8.1c.2 0 .4.2.5.3l.4.4v2.8l.2.3H8.2v-.1-.2l-.6.3H7c-.4 0-.7 0-1-.2a1 1 0 0 1-.3-.9c0-.3 0-.6.3-.8.3-.2.7-.4 1.2-.4l.6-.2h.3v-.2l-.1-.2a.8.8 0 0 0-.5-.1 1 1 0 0 0-.4 0l-.3.4h-1zm2.3.8h-.2l-.2.1-.4.1a1 1 0 0 0-.4.2l-.2.2.1.3.5.1h.4l.4-.4v-.6zm2-3.4h1.2v1.7l.5-.3h.5c.5 0 .9.1 1.2.5.3.4.5.8.5 1.4 0 .6-.2 1.1-.5 1.5-.3.4-.7.6-1.3.6l-.6-.1-.4-.4v.4h-1.1v-5.4zm1.1 3.3c0 .3 0 .6.2.8a.7.7 0 0 0 1.2 0l.2-.8c0-.4 0-.6-.2-.8a.7.7 0 0 0-.6-.3l-.6.3-.2.8zm6.1-.5c0-.2 0-.3-.2-.4a.8.8 0 0 0-.5-.2c-.3 0-.5.1-.6.3l-.2.9c0 .3 0 .6.2.8.1.2.3.3.6.3.2 0 .4 0 .5-.2l.2-.4h1.1c0 .5-.3.8-.6 1.1a2 2 0 0 1-1.3.4c-.5 0-1-.2-1.3-.6a2 2 0 0 1-.5-1.4c0-.6.1-1.1.5-1.5.3-.4.8-.5 1.4-.5.5 0 1 0 1.2.3.4.3.5.7.5 1.2h-1v-.1z" fill-rule="evenodd"/></svg>',
+        'checklist': '<svg width="24" height="24"><path d="M11 17h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0-6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0-6h8a1 1 0 0 1 0 2h-8a1 1 0 0 1 0-2zM7.2 16c.2-.4.6-.5.9-.3.3.2.4.6.2 1L6 20c-.2.3-.7.4-1 0l-1.3-1.3a.7.7 0 0 1 0-1c.3-.2.7-.2 1 0l.7.9 1.7-2.8zm0-6c.2-.4.6-.5.9-.3.3.2.4.6.2 1L6 14c-.2.3-.7.4-1 0l-1.3-1.3a.7.7 0 0 1 0-1c.3-.2.7-.2 1 0l.7.9 1.7-2.8zm0-6c.2-.4.6-.5.9-.3.3.2.4.6.2 1L6 8c-.2.3-.7.4-1 0L3.8 6.9a.7.7 0 0 1 0-1c.3-.2.7-.2 1 0l.7.9 1.7-2.8z" fill-rule="evenodd"/></svg>',
+        'checkmark': '<svg width="24" height="24"><path d="M18.2 5.4a1 1 0 0 1 1.6 1.2l-8 12a1 1 0 0 1-1.5.1l-5-5a1 1 0 1 1 1.4-1.4l4.1 4.1 7.4-11z" fill-rule="nonzero"/></svg>',
+        'chevron-down': '<svg width="10" height="10"><path d="M8.7 2.2c.3-.3.8-.3 1 0 .4.4.4.9 0 1.2L5.7 7.8c-.3.3-.9.3-1.2 0L.2 3.4a.8.8 0 0 1 0-1.2c.3-.3.8-.3 1.1 0L5 6l3.7-3.8z" fill-rule="nonzero"/></svg>',
+        'chevron-left': '<svg width="10" height="10"><path d="M7.8 1.3L4 5l3.8 3.7c.3.3.3.8 0 1-.4.4-.9.4-1.2 0L2.2 5.7a.8.8 0 0 1 0-1.2L6.6.2C7 0 7.4 0 7.8.2c.3.3.3.8 0 1.1z" fill-rule="nonzero"/></svg>',
+        'chevron-right': '<svg width="10" height="10"><path d="M2.2 1.3a.8.8 0 0 1 0-1c.4-.4.9-.4 1.2 0l4.4 4.1c.3.4.3.9 0 1.2L3.4 9.8c-.3.3-.8.3-1.2 0a.8.8 0 0 1 0-1.1L6 5 2.2 1.3z" fill-rule="nonzero"/></svg>',
+        'chevron-up': '<svg width="10" height="10"><path d="M8.7 7.8L5 4 1.3 7.8c-.3.3-.8.3-1 0a.8.8 0 0 1 0-1.2l4.1-4.4c.3-.3.9-.3 1.2 0l4.2 4.4c.3.3.3.9 0 1.2-.3.3-.8.3-1.1 0z" fill-rule="nonzero"/></svg>',
+        'close': '<svg width="24" height="24"><path d="M17.3 8.2L13.4 12l3.9 3.8a1 1 0 0 1-1.5 1.5L12 13.4l-3.8 3.9a1 1 0 0 1-1.5-1.5l3.9-3.8-3.9-3.8a1 1 0 0 1 1.5-1.5l3.8 3.9 3.8-3.9a1 1 0 0 1 1.5 1.5z" fill-rule="evenodd"/></svg>',
+        'code-sample': '<svg width="24" height="26"><path d="M7.1 11a2.8 2.8 0 0 1-.8 2 2.8 2.8 0 0 1 .8 2v1.7c0 .3.1.6.4.8.2.3.5.4.8.4.3 0 .4.2.4.4v.8c0 .2-.1.4-.4.4-.7 0-1.4-.3-2-.8-.5-.6-.8-1.3-.8-2V15c0-.3-.1-.6-.4-.8-.2-.3-.5-.4-.8-.4a.4.4 0 0 1-.4-.4v-.8c0-.2.2-.4.4-.4.3 0 .6-.1.8-.4.3-.2.4-.5.4-.8V9.3c0-.7.3-1.4.8-2 .6-.5 1.3-.8 2-.8.3 0 .4.2.4.4v.8c0 .2-.1.4-.4.4-.3 0-.6.1-.8.4-.3.2-.4.5-.4.8V11zm9.8 0V9.3c0-.3-.1-.6-.4-.8-.2-.3-.5-.4-.8-.4a.4.4 0 0 1-.4-.4V7c0-.2.1-.4.4-.4.7 0 1.4.3 2 .8.5.6.8 1.3.8 2V11c0 .3.1.6.4.8.2.3.5.4.8.4.2 0 .4.2.4.4v.8c0 .2-.2.4-.4.4-.3 0-.6.1-.8.4-.3.2-.4.5-.4.8v1.7c0 .7-.3 1.4-.8 2-.6.5-1.3.8-2 .8a.4.4 0 0 1-.4-.4v-.8c0-.2.1-.4.4-.4.3 0 .6-.1.8-.4.3-.2.4-.5.4-.8V15a2.8 2.8 0 0 1 .8-2 2.8 2.8 0 0 1-.8-2zm-3.3-.4c0 .4-.1.8-.5 1.1-.3.3-.7.5-1.1.5-.4 0-.8-.2-1.1-.5-.4-.3-.5-.7-.5-1.1 0-.5.1-.9.5-1.2.3-.3.7-.4 1.1-.4.4 0 .8.1 1.1.4.4.3.5.7.5 1.2zM12 13c.4 0 .8.1 1.1.5.4.3.5.7.5 1.1 0 1-.1 1.6-.5 2a3 3 0 0 1-1.1 1c-.4.3-.8.4-1.1.4a.5.5 0 0 1-.5-.5V17a3 3 0 0 0 1-.2l.6-.6c-.6 0-1-.2-1.3-.5-.2-.3-.3-.7-.3-1 0-.5.1-1 .5-1.2.3-.4.7-.5 1.1-.5z" fill-rule="evenodd"/></svg>',
+        'color-levels': '<svg width="24" height="24"><path d="M17.5 11.4A9 9 0 0 1 18 14c0 .5 0 1-.2 1.4 0 .4-.3.9-.5 1.3a6.2 6.2 0 0 1-3.7 3 5.7 5.7 0 0 1-3.2 0A5.9 5.9 0 0 1 7.6 18a6.2 6.2 0 0 1-1.4-2.6 6.7 6.7 0 0 1 0-2.8c0-.4.1-.9.3-1.3a13.6 13.6 0 0 1 2.3-4A20 20 0 0 1 12 4a26.4 26.4 0 0 1 3.2 3.4 18.2 18.2 0 0 1 2.3 4zm-2 4.5c.4-.7.5-1.4.5-2a7.3 7.3 0 0 0-1-3.2c.2.6.2 1.2.2 1.9a4.5 4.5 0 0 1-1.3 3 5.3 5.3 0 0 1-2.3 1.5 4.9 4.9 0 0 1-2 .1 4.3 4.3 0 0 0 2.4.8 4 4 0 0 0 2-.6 4 4 0 0 0 1.5-1.5z" fill-rule="evenodd"/></svg>',
+        'color-picker': '<svg width="24" height="24"><path d="M12 3a9 9 0 0 0 0 18 1.5 1.5 0 0 0 1.1-2.5c-.2-.3-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" fill-rule="nonzero"/></svg>',
+        'color-swatch-remove-color': '<svg width="24" height="24"><path stroke="#000" stroke-width="2" d="M21 3L3 21" fill-rule="evenodd"/></svg>',
+        'color-swatch': '<svg width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="1" fill-rule="evenodd"/></svg>',
+        'comment': '<svg width="24" height="24"><path d="M9 19l3-2h7c.6 0 1-.4 1-1V6c0-.6-.4-1-1-1H5a1 1 0 0 0-1 1v10c0 .6.4 1 1 1h4v2zm-2 4v-4H5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-6.4L7 23z" fill-rule="nonzero"/></svg>',
+        'contrast': '<svg width="24" height="24"><path d="M12 4a7.8 7.8 0 0 1 5.7 2.3A8 8 0 1 1 12 4zm-6 8a6 6 0 0 0 6 6V6a6 6 0 0 0-6 6z" fill-rule="evenodd"/></svg>',
+        'copy': '<svg width="24" height="24"><path d="M16 3H6a2 2 0 0 0-2 2v11h2V5h10V3zm1 4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V9c0-1.2.9-2 2-2h7zm0 12V9h-7v10h7z" fill-rule="nonzero"/></svg>',
+        'crop': '<svg width="24" height="24"><path d="M17 8v7h2c.6 0 1 .4 1 1s-.4 1-1 1h-2v2c0 .6-.4 1-1 1a1 1 0 0 1-1-1v-2H7V9H5a1 1 0 1 1 0-2h2V5c0-.6.4-1 1-1s1 .4 1 1v2h7l3-3 1 1-3 3zM9 9v5l5-5H9zm1 6h5v-5l-5 5z" fill-rule="evenodd"/></svg>',
+        'cut': '<svg width="24" height="24"><path d="M18 15c.6.7 1 1.4 1 2.3 0 .8-.2 1.5-.7 2l-.8.5-1 .2c-.4 0-.8 0-1.2-.3a3.9 3.9 0 0 1-2.1-2.2c-.2-.5-.3-1-.2-1.5l-1-1-1 1c0 .5 0 1-.2 1.5-.1.5-.4 1-.9 1.4-.3.4-.7.6-1.2.8l-1.2.3c-.4 0-.7 0-1-.2-.3 0-.6-.3-.8-.5-.5-.5-.8-1.2-.7-2 0-.9.4-1.6 1-2.2A3.7 3.7 0 0 1 8.6 14H9l1-1-4-4-.5-1a3.3 3.3 0 0 1 0-2c0-.4.3-.7.5-1l6 6 6-6 .5 1a3.3 3.3 0 0 1 0 2c0 .4-.3.7-.5 1l-4 4 1 1h.5c.4 0 .8 0 1.2.3.5.2.9.4 1.2.8zm-8.5 2.2l.1-.4v-.3-.4a1 1 0 0 0-.2-.5 1 1 0 0 0-.4-.2 1.6 1.6 0 0 0-.8 0 2.6 2.6 0 0 0-.8.3 2.5 2.5 0 0 0-.9 1.1l-.1.4v.7l.2.5.5.2h.7a2.5 2.5 0 0 0 .8-.3 2.8 2.8 0 0 0 1-1zm2.5-2.8c.4 0 .7-.1 1-.4.3-.3.4-.6.4-1s-.1-.7-.4-1c-.3-.3-.6-.4-1-.4s-.7.1-1 .4c-.3.3-.4.6-.4 1s.1.7.4 1c.3.3.6.4 1 .4zm5.4 4l.2-.5v-.4-.3a2.6 2.6 0 0 0-.3-.8 2.4 2.4 0 0 0-.7-.7 2.5 2.5 0 0 0-.8-.3 1.5 1.5 0 0 0-.8 0 1 1 0 0 0-.4.2 1 1 0 0 0-.2.5 1.5 1.5 0 0 0 0 .7v.4l.3.4.3.4a2.8 2.8 0 0 0 .8.5l.4.1h.7l.5-.2z" fill-rule="evenodd"/></svg>',
+        'document-properties': '<svg width="24" height="24"><path d="M14.4 3H7a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2V7.6L14.4 3zM17 19H7V5h6v4h4v10z" fill-rule="nonzero"/></svg>',
+        'drag': '<svg width="24" height="24"><path d="M13 5h2v2h-2V5zm0 4h2v2h-2V9zM9 9h2v2H9V9zm4 4h2v2h-2v-2zm-4 0h2v2H9v-2zm0 4h2v2H9v-2zm4 0h2v2h-2v-2zM9 5h2v2H9V5z" fill-rule="evenodd"/></svg>',
+        'duplicate': '<svg width="24" height="24"><g fill-rule="nonzero"><path d="M16 3v2H6v11H4V5c0-1.1.9-2 2-2h10zm3 8h-2V9h-7v10h9a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V9c0-1.2.9-2 2-2h7a2 2 0 0 1 2 2v2z"/><path d="M17 14h1a1 1 0 0 1 0 2h-1v1a1 1 0 0 1-2 0v-1h-1a1 1 0 0 1 0-2h1v-1a1 1 0 0 1 2 0v1z"/></g></svg>',
+        'edit-image': '<svg width="24" height="24"><path d="M18 16h2V7a2 2 0 0 0-2-2H7v2h11v9zM6 17h15a1 1 0 0 1 0 2h-1v1a1 1 0 0 1-2 0v-1H6a2 2 0 0 1-2-2V7H3a1 1 0 1 1 0-2h1V4a1 1 0 1 1 2 0v13zm3-5.3l1.3 2 3-4.7 3.7 6H7l2-3.3z" fill-rule="nonzero"/></svg>',
+        'embed-page': '<svg width="24" height="24"><path d="M19 6V5H5v14h2A13 13 0 0 1 19 6zm0 1.4c-.8.8-1.6 2.4-2.2 4.6H19V7.4zm0 5.6h-2.4c-.4 1.8-.6 3.8-.6 6h3v-6zm-4 6c0-2.2.2-4.2.6-6H13c-.7 1.8-1.1 3.8-1.1 6h3zm-4 0c0-2.2.4-4.2 1-6H9.6A12 12 0 0 0 8 19h3zM4 3h16c.6 0 1 .4 1 1v16c0 .6-.4 1-1 1H4a1 1 0 0 1-1-1V4c0-.6.4-1 1-1zm11.8 9c.4-1.9 1-3.4 1.8-4.5a9.2 9.2 0 0 0-4 4.5h2.2zm-3.4 0a12 12 0 0 1 2.8-4 12 12 0 0 0-5 4h2.2z" fill-rule="nonzero"/></svg>',
+        'embed': '<svg width="24" height="24"><path d="M4 3h16c.6 0 1 .4 1 1v16c0 .6-.4 1-1 1H4a1 1 0 0 1-1-1V4c0-.6.4-1 1-1zm1 2v14h14V5H5zm4.8 2.6l5.6 4a.5.5 0 0 1 0 .8l-5.6 4A.5.5 0 0 1 9 16V8a.5.5 0 0 1 .8-.4z" fill-rule="nonzero"/></svg>',
+        'emoji': '<svg width="24" height="24"><path d="M9 11c.6 0 1-.4 1-1s-.4-1-1-1a1 1 0 0 0-1 1c0 .6.4 1 1 1zm6 0c.6 0 1-.4 1-1s-.4-1-1-1a1 1 0 0 0-1 1c0 .6.4 1 1 1zm-3 5.5c2.1 0 4-1.5 4.4-3.5H7.6c.5 2 2.3 3.5 4.4 3.5zM12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 14.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z" fill-rule="nonzero"/></svg>',
+        'fill': '<svg width="24" height="26"><path d="M16.6 12l-9-9-1.4 1.4 2.4 2.4-5.2 5.1c-.5.6-.5 1.6 0 2.2L9 19.6a1.5 1.5 0 0 0 2.2 0l5.5-5.5c.5-.6.5-1.6 0-2.2zM5.2 13L10 8.2l4.8 4.8H5.2zM19 14.5s-2 2.2-2 3.5c0 1.1.9 2 2 2a2 2 0 0 0 2-2c0-1.3-2-3.5-2-3.5z" fill-rule="nonzero"/></svg>',
+        'flip-horizontally': '<svg width="24" height="24"><path d="M14 19h2v-2h-2v2zm4-8h2V9h-2v2zM4 7v10c0 1.1.9 2 2 2h3v-2H6V7h3V5H6a2 2 0 0 0-2 2zm14-2v2h2a2 2 0 0 0-2-2zm-7 16h2V3h-2v18zm7-6h2v-2h-2v2zm-4-8h2V5h-2v2zm4 12a2 2 0 0 0 2-2h-2v2z" fill-rule="nonzero"/></svg>',
+        'flip-vertically': '<svg width="24" height="24"><path d="M5 14v2h2v-2H5zm8 4v2h2v-2h-2zm4-14H7a2 2 0 0 0-2 2v3h2V6h10v3h2V6a2 2 0 0 0-2-2zm2 14h-2v2a2 2 0 0 0 2-2zM3 11v2h18v-2H3zm6 7v2h2v-2H9zm8-4v2h2v-2h-2zM5 18c0 1.1.9 2 2 2v-2H5z" fill-rule="nonzero"/></svg>',
+        'format-painter': '<svg width="24" height="24"><path d="M18 5V4c0-.5-.4-1-1-1H5a1 1 0 0 0-1 1v4c0 .6.5 1 1 1h12c.6 0 1-.4 1-1V7h1v4H9v9c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-7h8V5h-3z" fill-rule="nonzero"/></svg>',
+        'fullscreen': '<svg width="24" height="24"><path d="M15.3 10l-1.2-1.3 2.9-3h-2.3a.9.9 0 1 1 0-1.7H19c.5 0 .9.4.9.9v4.4a.9.9 0 1 1-1.8 0V7l-2.9 3zm0 4l3 3v-2.3a.9.9 0 1 1 1.7 0V19c0 .5-.4.9-.9.9h-4.4a.9.9 0 1 1 0-1.8H17l-3-2.9 1.3-1.2zM10 15.4l-2.9 3h2.3a.9.9 0 1 1 0 1.7H5a.9.9 0 0 1-.9-.9v-4.4a.9.9 0 1 1 1.8 0V17l2.9-3 1.2 1.3zM8.7 10L5.7 7v2.3a.9.9 0 0 1-1.7 0V5c0-.5.4-.9.9-.9h4.4a.9.9 0 0 1 0 1.8H7l3 2.9-1.3 1.2z" fill-rule="nonzero"/></svg>',
+        'gamma': '<svg width="24" height="24"><path d="M4 3h16c.6 0 1 .4 1 1v16c0 .6-.4 1-1 1H4a1 1 0 0 1-1-1V4c0-.6.4-1 1-1zm1 2v14h14V5H5zm6.5 11.8V14L9.2 8.7a5.1 5.1 0 0 0-.4-.8l-.1-.2H8 8v-1l.3-.1.3-.1h.7a1 1 0 0 1 .6.5l.1.3a8.5 8.5 0 0 1 .3.6l1.9 4.6 2-5.2a1 1 0 0 1 1-.6.5.5 0 0 1 .5.6L13 14v2.8a.7.7 0 0 1-1.4 0z" fill-rule="nonzero"/></svg>',
+        'help': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M12 5.5a6.5 6.5 0 0 0-6 9 6.3 6.3 0 0 0 1.4 2l1 1a6.3 6.3 0 0 0 3.6 1 6.5 6.5 0 0 0 6-9 6.3 6.3 0 0 0-1.4-2l-1-1a6.3 6.3 0 0 0-3.6-1zM12 4a7.8 7.8 0 0 1 5.7 2.3A8 8 0 1 1 12 4z"/><path d="M9.6 9.7a.7.7 0 0 1-.7-.8c0-1.1 1.5-1.8 3.2-1.8 1.8 0 3.2.8 3.2 2.4 0 1.4-.4 2.1-1.5 2.8-.2 0-.3.1-.3.2a2 2 0 0 0-.8.8.8.8 0 0 1-1.4-.6c.3-.7.8-1 1.3-1.5l.4-.2c.7-.4.8-.6.8-1.5 0-.5-.6-.9-1.7-.9-.5 0-1 .1-1.4.3-.2 0-.3.1-.3.2v-.2c0 .4-.4.8-.8.8z" fill-rule="nonzero"/><circle cx="12" cy="16" r="1"/></g></svg>',
+        'highlight-bg-color': '<svg width="24" height="24"><g fill-rule="evenodd"><path id="tox-icon-highlight-bg-color__color" d="M3 18h18v3H3z"/><path fill-rule="nonzero" d="M7.7 16.7H3l3.3-3.3-.7-.8L10.2 8l4 4.1-4 4.2c-.2.2-.6.2-.8 0l-.6-.7-1.1 1.1zm5-7.5L11 7.4l3-2.9a2 2 0 0 1 2.6 0L18 6c.7.7.7 2 0 2.7l-2.9 2.9-1.8-1.8-.5-.6"/></g></svg>',
+        'home': '<svg width="24" height="24"><path fill-rule="nonzero" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>',
+        'horizontal-rule': '<svg width="24" height="24"><path d="M4 11h16v2H4z" fill-rule="evenodd"/></svg>',
+        'image-options': '<svg width="24" height="24"><path d="M6 10a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2zm12 0a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2zm-6 0a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2z" fill-rule="nonzero"/></svg>',
+        'image': '<svg width="24" height="24"><path d="M5 15.7l3.3-3.2c.3-.3.7-.3 1 0L12 15l4.1-4c.3-.4.8-.4 1 0l2 1.9V5H5v10.7zM5 18V19h3l2.8-2.9-2-2L5 17.9zm14-3l-2.5-2.4-6.4 6.5H19v-4zM4 3h16c.6 0 1 .4 1 1v16c0 .6-.4 1-1 1H4a1 1 0 0 1-1-1V4c0-.6.4-1 1-1zm6 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill-rule="nonzero"/></svg>',
+        'indent': '<svg width="24" height="24"><path d="M7 5h12c.6 0 1 .4 1 1s-.4 1-1 1H7a1 1 0 1 1 0-2zm5 4h7c.6 0 1 .4 1 1s-.4 1-1 1h-7a1 1 0 0 1 0-2zm0 4h7c.6 0 1 .4 1 1s-.4 1-1 1h-7a1 1 0 0 1 0-2zm-5 4h12a1 1 0 0 1 0 2H7a1 1 0 0 1 0-2zm-2.6-3.8L6.2 12l-1.8-1.2a1 1 0 0 1 1.2-1.6l3 2a1 1 0 0 1 0 1.6l-3 2a1 1 0 1 1-1.2-1.6z" fill-rule="evenodd"/></svg>',
+        'info': '<svg width="24" height="24"><path d="M12 4a7.8 7.8 0 0 1 5.7 2.3A8 8 0 1 1 12 4zm-1 3v2h2V7h-2zm3 10v-1h-1v-5h-3v1h1v4h-1v1h4z" fill-rule="evenodd"/></svg>',
+        'insert-character': '<svg width="24" height="24"><path d="M15 18h4l1-2v4h-6v-3.3l1.4-1a6 6 0 0 0 1.8-2.9 6.3 6.3 0 0 0-.1-4.1 5.8 5.8 0 0 0-3-3.2c-.6-.3-1.3-.5-2.1-.5a5.1 5.1 0 0 0-3.9 1.8 6.3 6.3 0 0 0-1.3 6 6.2 6.2 0 0 0 1.8 3l1.4.9V20H4v-4l1 2h4v-.5l-2-1L5.4 15A6.5 6.5 0 0 1 4 11c0-1 .2-1.9.6-2.7A7 7 0 0 1 6.3 6C7.1 5.4 8 5 9 4.5c1-.3 2-.5 3.1-.5a8.8 8.8 0 0 1 5.7 2 7 7 0 0 1 1.7 2.3 6 6 0 0 1 .2 4.8c-.2.7-.6 1.3-1 1.9a7.6 7.6 0 0 1-3.6 2.5v.5z" fill-rule="evenodd"/></svg>',
+        'insert-time': '<svg width="24" height="24"><g fill-rule="nonzero"><path d="M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14zm0 2a9 9 0 1 1 0-18 9 9 0 0 1 0 18z"/><path d="M16 12h-3V7c0-.6-.4-1-1-1a1 1 0 0 0-1 1v7h5c.6 0 1-.4 1-1s-.4-1-1-1z"/></g></svg>',
+        'invert': '<svg width="24" height="24"><path d="M18 19.3L16.5 18a5.8 5.8 0 0 1-3.1 1.9 6.1 6.1 0 0 1-5.5-1.6A5.8 5.8 0 0 1 6 14v-.3l.1-1.2A13.9 13.9 0 0 1 7.7 9l-3-3 .7-.8 2.8 2.9 9 8.9 1.5 1.6-.7.6zm0-5.5v.3l-.1 1.1-.4 1-1.2-1.2a4.3 4.3 0 0 0 .2-1v-.2c0-.4 0-.8-.2-1.3l-.5-1.4a14.8 14.8 0 0 0-3-4.2L12 6a26.1 26.1 0 0 0-2.2 2.5l-1-1a20.9 20.9 0 0 1 2.9-3.3L12 4l1 .8a22.2 22.2 0 0 1 4 5.4c.6 1.2 1 2.4 1 3.6z" fill-rule="evenodd"/></svg>',
+        'italic': '<svg width="24" height="24"><path d="M16.7 4.7l-.1.9h-.3c-.6 0-1 0-1.4.3-.3.3-.4.6-.5 1.1l-2.1 9.8v.6c0 .5.4.8 1.4.8h.2l-.2.8H8l.2-.8h.2c1.1 0 1.8-.5 2-1.5l2-9.8.1-.5c0-.6-.4-.8-1.4-.8h-.3l.2-.9h5.8z" fill-rule="evenodd"/></svg>',
+        'line': '<svg width="24" height="24"><path d="M15 9l-8 8H4v-3l8-8 3 3zm1-1l-3-3 1-1h1c-.2 0 0 0 0 0l2 2s0 .2 0 0v1l-1 1zM4 18h16v2H4v-2z" fill-rule="evenodd"/></svg>',
+        'link': '<svg width="24" height="24"><path d="M6.2 12.3a1 1 0 0 1 1.4 1.4l-2.1 2a2 2 0 1 0 2.7 2.8l4.8-4.8a1 1 0 0 0 0-1.4 1 1 0 1 1 1.4-1.3 2.9 2.9 0 0 1 0 4L9.6 20a3.9 3.9 0 0 1-5.5-5.5l2-2zm11.6-.6a1 1 0 0 1-1.4-1.4l2-2a2 2 0 1 0-2.6-2.8L11 10.3a1 1 0 0 0 0 1.4A1 1 0 1 1 9.6 13a2.9 2.9 0 0 1 0-4L14.4 4a3.9 3.9 0 0 1 5.5 5.5l-2 2z" fill-rule="nonzero"/></svg>',
+        'list-bull-circle': '<svg width="48" height="48"><g fill-rule="evenodd"><path d="M11 16a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 1 0-6 3 3 0 0 1 0 6zM11 26a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 1 0-6 3 3 0 0 1 0 6zM11 36a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill-rule="nonzero"/><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/></g></svg>',
+        'list-bull-default': '<svg width="48" height="48"><g fill-rule="evenodd"><circle cx="11" cy="14" r="3"/><circle cx="11" cy="24" r="3"/><circle cx="11" cy="34" r="3"/><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/></g></svg>',
+        'list-bull-square': '<svg width="48" height="48"><g fill-rule="evenodd"><path d="M8 11h6v6H8zM8 21h6v6H8zM8 31h6v6H8z"/><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/></g></svg>',
+        'list-num-default': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M10 17v-4.8l-1.5 1v-1.1l1.6-1h1.2V17h-1.2zm3.6.1c-.4 0-.7-.3-.7-.7 0-.4.3-.7.7-.7.5 0 .7.3.7.7 0 .4-.2.7-.7.7zm-5 5.7c0-1.2.8-2 2.1-2s2.1.8 2.1 1.8c0 .7-.3 1.2-1.4 2.2l-1.1 1v.2h2.6v1H8.6v-.9l2-1.9c.8-.8 1-1.1 1-1.5 0-.5-.4-.8-1-.8-.5 0-.9.3-.9.9H8.5zm6.3 4.3c-.5 0-.7-.3-.7-.7 0-.4.2-.7.7-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7zM10 34.4v-1h.7c.6 0 1-.3 1-.8 0-.4-.4-.7-1-.7s-1 .3-1 .8H8.6c0-1.1 1-1.8 2.2-1.8 1.3 0 2.1.6 2.1 1.6 0 .7-.4 1.2-1 1.3v.1c.8.1 1.3.7 1.3 1.4 0 1-1 1.9-2.4 1.9-1.3 0-2.2-.8-2.3-2h1.2c0 .6.5 1 1.1 1 .7 0 1-.4 1-1 0-.5-.3-.8-1-.8h-.7zm4.7 2.7c-.4 0-.7-.3-.7-.7 0-.4.3-.7.7-.7.5 0 .8.3.8.7 0 .4-.3.7-.8.7z"/></g></svg>',
+        'list-num-lower-alpha': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M10.3 15.2c.5 0 1-.4 1-.9V14h-1c-.5.1-.8.3-.8.6 0 .4.3.6.8.6zm-.4.9c-1 0-1.5-.6-1.5-1.4 0-.8.6-1.3 1.7-1.4h1.1v-.4c0-.4-.2-.6-.7-.6-.5 0-.8.1-.9.4h-1c0-.8.8-1.4 2-1.4 1.1 0 1.8.6 1.8 1.6V16h-1.1v-.6h-.1c-.2.4-.7.7-1.3.7zm4.6 0c-.5 0-.7-.3-.7-.7 0-.4.2-.7.7-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7zm-3.2 10c-.6 0-1.2-.3-1.4-.8v.7H8.5v-6.3H10v2.5c.3-.5.8-.9 1.4-.9 1.2 0 1.9 1 1.9 2.4 0 1.5-.7 2.4-1.9 2.4zm-.4-3.7c-.7 0-1 .5-1 1.3s.3 1.4 1 1.4c.6 0 1-.6 1-1.4 0-.8-.4-1.3-1-1.3zm4 3.7c-.5 0-.7-.3-.7-.7 0-.4.2-.7.7-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7zm-2.2 7h-1.2c0-.5-.4-.8-.9-.8-.6 0-1 .5-1 1.4 0 1 .4 1.4 1 1.4.5 0 .8-.2 1-.7h1c0 1-.8 1.7-2 1.7-1.4 0-2.2-.9-2.2-2.4s.8-2.4 2.2-2.4c1.2 0 2 .7 2 1.7zm1.8 3c-.5 0-.8-.3-.8-.7 0-.4.3-.7.8-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7z"/></g></svg>',
+        'list-num-lower-greek': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M10.5 15c.7 0 1-.5 1-1.3s-.3-1.3-1-1.3c-.5 0-.9.5-.9 1.3s.4 1.4 1 1.4zm-.3 1c-1.1 0-1.8-.8-1.8-2.3 0-1.5.7-2.4 1.8-2.4.7 0 1.1.4 1.3 1h.1v-.9h1.2v3.2c0 .4.1.5.4.5h.2v.9h-.6c-.6 0-1-.2-1.1-.7h-.1c-.2.4-.7.8-1.4.8zm5 .1c-.5 0-.8-.3-.8-.7 0-.4.3-.7.7-.7.5 0 .8.3.8.7 0 .4-.3.7-.8.7zm-4.9 7v-1h.3c.6 0 1-.2 1-.7 0-.5-.4-.8-1-.8-.5 0-.8.3-.8 1v2.2c0 .8.4 1.3 1.1 1.3.6 0 1-.4 1-1s-.5-1-1.3-1h-.3zM8.6 22c0-1.5.7-2.3 2-2.3 1.2 0 2 .6 2 1.6 0 .6-.3 1-.8 1.3.8.3 1.3.8 1.3 1.7 0 1.2-.8 1.9-1.9 1.9-.6 0-1.1-.3-1.3-.8v2.2H8.5V22zm6.2 4.2c-.4 0-.7-.3-.7-.7 0-.4.3-.7.7-.7.5 0 .7.3.7.7 0 .4-.2.7-.7.7zm-4.5 8.5L8 30h1.4l1.7 3.5 1.7-3.5h1.1l-2.2 4.6v.1c.5.8.7 1.4.7 1.8 0 .4-.1.8-.4 1-.2.2-.6.3-1 .3-.9 0-1.3-.4-1.3-1.2 0-.5.2-1 .5-1.7l.1-.2zm.7 1a2 2 0 0 0-.4.9c0 .3.1.4.4.4.3 0 .4-.1.4-.4 0-.2-.1-.6-.4-1zm4.5.5c-.5 0-.8-.3-.8-.7 0-.4.3-.7.8-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7z"/></g></svg>',
+        'list-num-lower-roman': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M15.1 16v-1.2h1.3V16H15zm0 10v-1.2h1.3V26H15zm0 10v-1.2h1.3V36H15z"/><path fill-rule="nonzero" d="M12 21h1.5v5H12zM12 31h1.5v5H12zM9 21h1.5v5H9zM9 31h1.5v5H9zM6 31h1.5v5H6zM12 11h1.5v5H12zM12 19h1.5v1H12zM12 29h1.5v1H12zM9 19h1.5v1H9zM9 29h1.5v1H9zM6 29h1.5v1H6zM12 9h1.5v1H12z"/></g></svg>',
+        'list-num-upper-alpha': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M12.6 17l-.5-1.4h-2L9.5 17H8.3l2-6H12l2 6h-1.3zM11 12.3l-.7 2.3h1.6l-.8-2.3zm4.7 4.8c-.4 0-.7-.3-.7-.7 0-.4.3-.7.7-.7.5 0 .7.3.7.7 0 .4-.2.7-.7.7zM11.4 27H8.7v-6h2.6c1.2 0 1.9.6 1.9 1.5 0 .6-.5 1.2-1 1.3.7.1 1.3.7 1.3 1.5 0 1-.8 1.7-2 1.7zM10 22v1.5h1c.6 0 1-.3 1-.8 0-.4-.4-.7-1-.7h-1zm0 4H11c.7 0 1.1-.3 1.1-.8 0-.6-.4-.9-1.1-.9H10V26zm5.4 1.1c-.5 0-.8-.3-.8-.7 0-.4.3-.7.8-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7zm-4.1 10c-1.8 0-2.8-1.1-2.8-3.1s1-3.1 2.8-3.1c1.4 0 2.5.9 2.6 2.2h-1.3c0-.7-.6-1.1-1.3-1.1-1 0-1.6.7-1.6 2s.6 2 1.6 2c.7 0 1.2-.4 1.4-1h1.2c-.1 1.3-1.2 2.2-2.6 2.2zm4.5 0c-.5 0-.8-.3-.8-.7 0-.4.3-.7.8-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7z"/></g></svg>',
+        'list-num-upper-roman': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M15.1 17v-1.2h1.3V17H15zm0 10v-1.2h1.3V27H15zm0 10v-1.2h1.3V37H15z"/><path fill-rule="nonzero" d="M12 20h1.5v7H12zM12 30h1.5v7H12zM9 20h1.5v7H9zM9 30h1.5v7H9zM6 30h1.5v7H6zM12 10h1.5v7H12z"/></g></svg>',
+        'lock': '<svg width="24" height="24"><path d="M16.3 11c.2 0 .3 0 .5.2l.2.6v7.4c0 .3 0 .4-.2.6l-.6.2H7.8c-.3 0-.4 0-.6-.2a.7.7 0 0 1-.2-.6v-7.4c0-.3 0-.4.2-.6l.5-.2H8V8c0-.8.3-1.5.9-2.1.6-.6 1.3-.9 2.1-.9h2c.8 0 1.5.3 2.1.9.6.6.9 1.3.9 2.1v3h.3zM10 8v3h4V8a1 1 0 0 0-.3-.7A1 1 0 0 0 13 7h-2a1 1 0 0 0-.7.3 1 1 0 0 0-.3.7z" fill-rule="evenodd"/></svg>',
+        'ltr': '<svg width="24" height="24"><path d="M11 5h7a1 1 0 0 1 0 2h-1v11a1 1 0 0 1-2 0V7h-2v11a1 1 0 0 1-2 0v-6c-.5 0-1 0-1.4-.3A3.4 3.4 0 0 1 7.8 10a3.3 3.3 0 0 1 0-2.8 3.4 3.4 0 0 1 1.8-1.8L11 5zM4.4 16.2L6.2 15l-1.8-1.2a1 1 0 0 1 1.2-1.6l3 2a1 1 0 0 1 0 1.6l-3 2a1 1 0 1 1-1.2-1.6z" fill-rule="evenodd"/></svg>',
+        'more-drawer': '<svg width="24" height="24"><path d="M6 10a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2zm12 0a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2zm-6 0a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2z" fill-rule="nonzero"/></svg>',
+        'new-document': '<svg width="24" height="24"><path d="M14.4 3H7a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2V7.6L14.4 3zM17 19H7V5h6v4h4v10z" fill-rule="nonzero"/></svg>',
+        'new-tab': '<svg width="24" height="24"><path d="M15 13l2-2v8H5V7h8l-2 2H7v8h8v-4zm4-8v5.5l-2-2-5.6 5.5H10v-1.4L15.5 7l-2-2H19z" fill-rule="evenodd"/></svg>',
+        'non-breaking': '<svg width="24" height="24"><path d="M11 11H8a1 1 0 1 1 0-2h3V6c0-.6.4-1 1-1s1 .4 1 1v3h3c.6 0 1 .4 1 1s-.4 1-1 1h-3v3c0 .6-.4 1-1 1a1 1 0 0 1-1-1v-3zm10 4v5H3v-5c0-.6.4-1 1-1s1 .4 1 1v3h14v-3c0-.6.4-1 1-1s1 .4 1 1z" fill-rule="evenodd"/></svg>',
+        'notice': '<svg width="24" height="24"><path d="M17.8 9.8L15.4 4 20 8.5v7L15.5 20h-7L4 15.5v-7L8.5 4h7l2.3 5.8zm0 0l2.2 5.7-2.3-5.8zM13 17v-2h-2v2h2zm0-4V7h-2v6h2z" fill-rule="evenodd"/></svg>',
+        'ordered-list': '<svg width="24" height="24"><path d="M10 17h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0-6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0-6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 1 1 0-2zM6 4v3.5c0 .3-.2.5-.5.5a.5.5 0 0 1-.5-.5V5h-.5a.5.5 0 0 1 0-1H6zm-1 8.8l.2.2h1.3c.3 0 .5.2.5.5s-.2.5-.5.5H4.9a1 1 0 0 1-.9-1V13c0-.4.3-.8.6-1l1.2-.4.2-.3a.2.2 0 0 0-.2-.2H4.5a.5.5 0 0 1-.5-.5c0-.3.2-.5.5-.5h1.6c.5 0 .9.4.9 1v.1c0 .4-.3.8-.6 1l-1.2.4-.2.3zM7 17v2c0 .6-.4 1-1 1H4.5a.5.5 0 0 1 0-1h1.2c.2 0 .3-.1.3-.3 0-.2-.1-.3-.3-.3H4.4a.4.4 0 1 1 0-.8h1.3c.2 0 .3-.1.3-.3 0-.2-.1-.3-.3-.3H4.5a.5.5 0 1 1 0-1H6c.6 0 1 .4 1 1z" fill-rule="evenodd"/></svg>',
+        'orientation': '<svg width="24" height="24"><path d="M7.3 6.4L1 13l6.4 6.5 6.5-6.5-6.5-6.5zM3.7 13l3.6-3.7L11 13l-3.7 3.7-3.6-3.7zM12 6l2.8 2.7c.3.3.3.8 0 1-.3.4-.9.4-1.2 0L9.2 5.7a.8.8 0 0 1 0-1.2L13.6.2c.3-.3.9-.3 1.2 0 .3.3.3.8 0 1.1L12 4h1a9 9 0 1 1-4.3 16.9l1.5-1.5A7 7 0 1 0 13 6h-1z" fill-rule="nonzero"/></svg>',
+        'outdent': '<svg width="24" height="24"><path d="M7 5h12c.6 0 1 .4 1 1s-.4 1-1 1H7a1 1 0 1 1 0-2zm5 4h7c.6 0 1 .4 1 1s-.4 1-1 1h-7a1 1 0 0 1 0-2zm0 4h7c.6 0 1 .4 1 1s-.4 1-1 1h-7a1 1 0 0 1 0-2zm-5 4h12a1 1 0 0 1 0 2H7a1 1 0 0 1 0-2zm1.6-3.8a1 1 0 0 1-1.2 1.6l-3-2a1 1 0 0 1 0-1.6l3-2a1 1 0 0 1 1.2 1.6L6.8 12l1.8 1.2z" fill-rule="evenodd"/></svg>',
+        'page-break': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M5 11c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zm3 0h1c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 0 1 0-2zm4 0c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zm3 0h1c.6 0 1 .4 1 1s-.4 1-1 1h-1a1 1 0 0 1 0-2zm4 0c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zM7 3v5h10V3c0-.6.4-1 1-1s1 .4 1 1v7H5V3c0-.6.4-1 1-1s1 .4 1 1zM6 22a1 1 0 0 1-1-1v-7h14v7c0 .6-.4 1-1 1a1 1 0 0 1-1-1v-5H7v5c0 .6-.4 1-1 1z"/></g></svg>',
+        'paragraph': '<svg width="24" height="24"><path d="M10 5h7a1 1 0 0 1 0 2h-1v11a1 1 0 0 1-2 0V7h-2v11a1 1 0 0 1-2 0v-6c-.5 0-1 0-1.4-.3A3.4 3.4 0 0 1 6.8 10a3.3 3.3 0 0 1 0-2.8 3.4 3.4 0 0 1 1.8-1.8L10 5z" fill-rule="evenodd"/></svg>',
+        'paste-text': '<svg width="24" height="24"><path d="M18 9V5h-2v1c0 .6-.4 1-1 1H9a1 1 0 0 1-1-1V5H6v13h3V9h9zM9 20H6a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.2A3 3 0 0 1 12 1a3 3 0 0 1 2.8 2H18a2 2 0 0 1 2 2v4h1v12H9v-1zm1.5-9.5v9h9v-9h-9zM12 3a1 1 0 0 0-1 1c0 .5.4 1 1 1s1-.5 1-1-.4-1-1-1zm0 9h6v2h-.5l-.5-1h-1v4h.8v1h-3.6v-1h.8v-4h-1l-.5 1H12v-2z" fill-rule="nonzero"/></svg>',
+        'paste': '<svg width="24" height="24"><path d="M18 9V5h-2v1c0 .6-.4 1-1 1H9a1 1 0 0 1-1-1V5H6v13h3V9h9zM9 20H6a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.2A3 3 0 0 1 12 1a3 3 0 0 1 2.8 2H18a2 2 0 0 1 2 2v4h1v12H9v-1zm1.5-9.5v9h9v-9h-9zM12 3a1 1 0 0 0-1 1c0 .5.4 1 1 1s1-.5 1-1-.4-1-1-1z" fill-rule="nonzero"/></svg>',
+        'permanent-pen': '<svg width="24" height="24"><path d="M10.5 17.5L8 20H3v-3l3.5-3.5a2 2 0 0 1 0-3L14 3l1 1-7.3 7.3a1 1 0 0 0 0 1.4l3.6 3.6c.4.4 1 .4 1.4 0L20 9l1 1-7.6 7.6a2 2 0 0 1-2.8 0l-.1-.1z" fill-rule="nonzero"/></svg>',
+        'plus': '<svg width="24" height="24"><g fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round" stroke="#000" stroke-width="2"><path d="M12 5v14M5 12h14"/></g></svg>',
+        'preferences': '<svg width="24" height="24"><path d="M20.1 13.5l-1.9.2a5.8 5.8 0 0 1-.6 1.5l1.2 1.5c.4.4.3 1 0 1.4l-.7.7a1 1 0 0 1-1.4 0l-1.5-1.2a6.2 6.2 0 0 1-1.5.6l-.2 1.9c0 .5-.5.9-1 .9h-1a1 1 0 0 1-1-.9l-.2-1.9a5.8 5.8 0 0 1-1.5-.6l-1.5 1.2a1 1 0 0 1-1.4 0l-.7-.7a1 1 0 0 1 0-1.4l1.2-1.5a6.2 6.2 0 0 1-.6-1.5l-1.9-.2a1 1 0 0 1-.9-1v-1c0-.5.4-1 .9-1l1.9-.2a5.8 5.8 0 0 1 .6-1.5L5.2 7.3a1 1 0 0 1 0-1.4l.7-.7a1 1 0 0 1 1.4 0l1.5 1.2a6.2 6.2 0 0 1 1.5-.6l.2-1.9c0-.5.5-.9 1-.9h1c.5 0 1 .4 1 .9l.2 1.9a5.8 5.8 0 0 1 1.5.6l1.5-1.2a1 1 0 0 1 1.4 0l.7.7c.3.4.4 1 0 1.4l-1.2 1.5a6.2 6.2 0 0 1 .6 1.5l1.9.2c.5 0 .9.5.9 1v1c0 .5-.4 1-.9 1zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" fill-rule="evenodd"/></svg>',
+        'preview': '<svg width="24" height="24"><path d="M3.5 12.5c.5.8 1.1 1.6 1.8 2.3 2 2 4.2 3.2 6.7 3.2s4.7-1.2 6.7-3.2a16.2 16.2 0 0 0 2.1-2.8 15.7 15.7 0 0 0-2.1-2.8c-2-2-4.2-3.2-6.7-3.2a9.3 9.3 0 0 0-6.7 3.2A16.2 16.2 0 0 0 3.2 12c0 .2.2.3.3.5zm-2.4-1l.7-1.2L4 7.8C6.2 5.4 8.9 4 12 4c3 0 5.8 1.4 8.1 3.8a18.2 18.2 0 0 1 2.8 3.7v1l-.7 1.2-2.1 2.5c-2.3 2.4-5 3.8-8.1 3.8-3 0-5.8-1.4-8.1-3.8a18.2 18.2 0 0 1-2.8-3.7 1 1 0 0 1 0-1zm12-3.3a2 2 0 1 0 2.7 2.6 4 4 0 1 1-2.6-2.6z" fill-rule="nonzero"/></svg>',
+        'print': '<svg width="24" height="24"><path d="M18 8H6a3 3 0 0 0-3 3v6h2v3h14v-3h2v-6a3 3 0 0 0-3-3zm-1 10H7v-4h10v4zm.5-5c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5 1.5.7 1.5 1.5-.7 1.5-1.5 1.5zm.5-8H6v2h12V5z" fill-rule="nonzero"/></svg>',
+        'quote': '<svg width="24" height="24"><path d="M7.5 17h.9c.4 0 .7-.2.9-.6L11 13V8c0-.6-.4-1-1-1H6a1 1 0 0 0-1 1v4c0 .6.4 1 1 1h2l-1.3 2.7a1 1 0 0 0 .8 1.3zm8 0h.9c.4 0 .7-.2.9-.6L19 13V8c0-.6-.4-1-1-1h-4a1 1 0 0 0-1 1v4c0 .6.4 1 1 1h2l-1.3 2.7a1 1 0 0 0 .8 1.3z" fill-rule="nonzero"/></svg>',
+        'redo': '<svg width="24" height="24"><path d="M17.6 10H12c-2.8 0-4.4 1.4-4.9 3.5-.4 2 .3 4 1.4 4.6a1 1 0 1 1-1 1.8c-2-1.2-2.9-4.1-2.3-6.8.6-3 3-5.1 6.8-5.1h5.6l-3.3-3.3a1 1 0 1 1 1.4-1.4l5 5a1 1 0 0 1 0 1.4l-5 5a1 1 0 0 1-1.4-1.4l3.3-3.3z" fill-rule="nonzero"/></svg>',
+        'reload': '<svg width="24" height="24"><g fill-rule="nonzero"><path d="M5 22.1l-1.2-4.7v-.2a1 1 0 0 1 1-1l5 .4a1 1 0 1 1-.2 2l-2.2-.2a7.8 7.8 0 0 0 8.4.2 7.5 7.5 0 0 0 3.5-6.4 1 1 0 1 1 2 0 9.5 9.5 0 0 1-4.5 8 9.9 9.9 0 0 1-10.2 0l.4 1.4a1 1 0 1 1-2 .5zM13.6 7.4c0-.5.5-1 1-.9l2.8.2a8 8 0 0 0-9.5-1 7.5 7.5 0 0 0-3.6 7 1 1 0 0 1-2 0 9.5 9.5 0 0 1 4.5-8.6 10 10 0 0 1 10.9.3l-.3-1a1 1 0 0 1 2-.5l1.1 4.8a1 1 0 0 1-1 1.2l-5-.4a1 1 0 0 1-.9-1z"/></g></svg>',
+        'remove-formatting': '<svg width="24" height="24"><path d="M13.2 6a1 1 0 0 1 0 .2l-2.6 10a1 1 0 0 1-1 .8h-.2a.8.8 0 0 1-.8-1l2.6-10H8a1 1 0 1 1 0-2h9a1 1 0 0 1 0 2h-3.8zM5 18h7a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2zm13 1.5L16.5 18 15 19.5a.7.7 0 0 1-1-1l1.5-1.5-1.5-1.5a.7.7 0 0 1 1-1l1.5 1.5 1.5-1.5a.7.7 0 0 1 1 1L17.5 17l1.5 1.5a.7.7 0 0 1-1 1z" fill-rule="evenodd"/></svg>',
+        'remove': '<svg width="24" height="24"><path d="M16 7h3a1 1 0 0 1 0 2h-1v9a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3V9H5a1 1 0 1 1 0-2h3V6a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3v1zm-2 0V6c0-.6-.4-1-1-1h-2a1 1 0 0 0-1 1v1h4zm2 2H8v9c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V9zm-7 3a1 1 0 0 1 2 0v4a1 1 0 0 1-2 0v-4zm4 0a1 1 0 0 1 2 0v4a1 1 0 0 1-2 0v-4z" fill-rule="nonzero"/></svg>',
+        'resize-handle': '<svg width="10" height="10"><g fill-rule="nonzero"><path d="M8.1 1.1A.5.5 0 1 1 9 2l-7 7A.5.5 0 1 1 1 8l7-7zM8.1 5.1A.5.5 0 1 1 9 6l-3 3A.5.5 0 1 1 5 8l3-3z"/></g></svg>',
+        'resize': '<svg width="24" height="24"><path d="M4 5c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h6c.3 0 .5.1.7.3.2.2.3.4.3.7 0 .3-.1.5-.3.7a1 1 0 0 1-.7.3H7.4L18 16.6V13c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3.3 0 .5.1.7.3.2.2.3.4.3.7v6c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3h-6a1 1 0 0 1-.7-.3 1 1 0 0 1-.3-.7c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h3.6L6 7.4V11c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3 1 1 0 0 1-.7-.3A1 1 0 0 1 4 11V5z" fill-rule="evenodd"/></svg>',
+        'restore-draft': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M17 13c0 .6-.4 1-1 1h-4V8c0-.6.4-1 1-1s1 .4 1 1v4h2c.6 0 1 .4 1 1z"/><path d="M4.7 10H9a1 1 0 0 1 0 2H3a1 1 0 0 1-1-1V5a1 1 0 1 1 2 0v3l2.5-2.4a9.2 9.2 0 0 1 10.8-1.5A9 9 0 0 1 13.4 21c-2.4.1-4.7-.7-6.5-2.2a1 1 0 1 1 1.3-1.5 7.2 7.2 0 0 0 11.6-3.7 7 7 0 0 0-3.5-7.7A7.2 7.2 0 0 0 8 7L4.7 10z" fill-rule="nonzero"/></g></svg>',
+        'rotate-left': '<svg width="24" height="24"><path d="M4.7 10H9a1 1 0 0 1 0 2H3a1 1 0 0 1-1-1V5a1 1 0 1 1 2 0v3l2.5-2.4a9.2 9.2 0 0 1 10.8-1.5A9 9 0 0 1 13.4 21c-2.4.1-4.7-.7-6.5-2.2a1 1 0 1 1 1.3-1.5 7.2 7.2 0 0 0 11.6-3.7 7 7 0 0 0-3.5-7.7A7.2 7.2 0 0 0 8 7L4.7 10z" fill-rule="nonzero"/></svg>',
+        'rotate-right': '<svg width="24" height="24"><path d="M20 8V5a1 1 0 0 1 2 0v6c0 .6-.4 1-1 1h-6a1 1 0 0 1 0-2h4.3L16 7A7.2 7.2 0 0 0 7.7 6a7 7 0 0 0 3 13.1c1.9.1 3.7-.5 5-1.7a1 1 0 0 1 1.4 1.5A9.2 9.2 0 0 1 2.2 14c-.9-3.9 1-8 4.5-9.9 3.5-1.9 8-1.3 10.8 1.5L20 8z" fill-rule="nonzero"/></svg>',
+        'rtl': '<svg width="24" height="24"><path d="M8 5h8v2h-2v12h-2V7h-2v12H8v-7c-.5 0-1 0-1.4-.3A3.4 3.4 0 0 1 4.8 10a3.3 3.3 0 0 1 0-2.8 3.4 3.4 0 0 1 1.8-1.8L8 5zm12 11.2a1 1 0 1 1-1 1.6l-3-2a1 1 0 0 1 0-1.6l3-2a1 1 0 1 1 1 1.6L18.4 15l1.8 1.2z" fill-rule="evenodd"/></svg>',
+        'save': '<svg width="24" height="24"><path d="M5 16h14a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2c0-1.1.9-2 2-2zm0 2v2h14v-2H5zm10 0h2v2h-2v-2zm-4-6.4L8.7 9.3a1 1 0 1 0-1.4 1.4l4 4c.4.4 1 .4 1.4 0l4-4a1 1 0 1 0-1.4-1.4L13 11.6V4a1 1 0 0 0-2 0v7.6z" fill-rule="nonzero"/></svg>',
+        'search': '<svg width="24" height="24"><path d="M16 17.3a8 8 0 1 1 1.4-1.4l4.3 4.4a1 1 0 0 1-1.4 1.4l-4.4-4.3zm-5-.3a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" fill-rule="nonzero"/></svg>',
+        'select-all': '<svg width="24" height="24"><path d="M3 5h2V3a2 2 0 0 0-2 2zm0 8h2v-2H3v2zm4 8h2v-2H7v2zM3 9h2V7H3v2zm10-6h-2v2h2V3zm6 0v2h2a2 2 0 0 0-2-2zM5 21v-2H3c0 1.1.9 2 2 2zm-2-4h2v-2H3v2zM9 3H7v2h2V3zm2 18h2v-2h-2v2zm8-8h2v-2h-2v2zm0 8a2 2 0 0 0 2-2h-2v2zm0-12h2V7h-2v2zm0 8h2v-2h-2v2zm-4 4h2v-2h-2v2zm0-16h2V3h-2v2zM7 17h10V7H7v10zm2-8h6v6H9V9z" fill-rule="nonzero"/></svg>',
+        'selected': '<svg width="24" height="24"><path fill-rule="nonzero" d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2zm3.6 10.9L7 12.3a.7.7 0 0 0-1 1L9.6 17 18 8.6a.7.7 0 0 0 0-1 .7.7 0 0 0-1 0l-7.4 7.3z"/></svg>',
+        'settings': '<svg width="24" height="24"><path d="M11 6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8v.3c0 .2 0 .3-.2.5l-.6.2H7.8c-.3 0-.4 0-.6-.2a.7.7 0 0 1-.2-.6V8H5a1 1 0 1 1 0-2h2v-.3c0-.2 0-.3.2-.5l.5-.2h2.5c.3 0 .4 0 .6.2l.2.5V6zM8 8h2V6H8v2zm9 2.8v.2h2c.6 0 1 .4 1 1s-.4 1-1 1h-2v.3c0 .2 0 .3-.2.5l-.6.2h-2.4c-.3 0-.4 0-.6-.2a.7.7 0 0 1-.2-.6V13H5a1 1 0 0 1 0-2h8v-.3c0-.2 0-.3.2-.5l.6-.2h2.4c.3 0 .4 0 .6.2l.2.6zM14 13h2v-2h-2v2zm-3 2.8v.2h8c.6 0 1 .4 1 1s-.4 1-1 1h-8v.3c0 .2 0 .3-.2.5l-.6.2H7.8c-.3 0-.4 0-.6-.2a.7.7 0 0 1-.2-.6V18H5a1 1 0 0 1 0-2h2v-.3c0-.2 0-.3.2-.5l.5-.2h2.5c.3 0 .4 0 .6.2l.2.6zM8 18h2v-2H8v2z" fill-rule="evenodd"/></svg>',
+        'sharpen': '<svg width="24" height="24"><path d="M16 6l4 4-8 9-8-9 4-4h8zm-4 10.2l5.5-6.2-.1-.1H12v-.3h5.1l-.2-.2H12V9h4.6l-.2-.2H12v-.3h4.1l-.2-.2H12V8h3.6l-.2-.2H8.7L6.5 10l.1.1H12v.3H6.9l.2.2H12v.3H7.3l.2.2H12v.3H7.7l.3.2h4v.3H8.2l.2.2H12v.3H8.6l.3.2H12v.3H9l.3.2H12v.3H9.5l.2.2H12v.3h-2l.2.2H12v.3h-1.6l.2.2H12v.3h-1.1l.2.2h.9v.3h-.7l.2.2h.5v.3h-.3l.3.2z" fill-rule="evenodd"/></svg>',
+        'sourcecode': '<svg width="24" height="24"><g fill-rule="nonzero"><path d="M9.8 15.7c.3.3.3.8 0 1-.3.4-.9.4-1.2 0l-4.4-4.1a.8.8 0 0 1 0-1.2l4.4-4.2c.3-.3.9-.3 1.2 0 .3.3.3.8 0 1.1L6 12l3.8 3.7zM14.2 15.7c-.3.3-.3.8 0 1 .4.4.9.4 1.2 0l4.4-4.1c.3-.3.3-.9 0-1.2l-4.4-4.2a.8.8 0 0 0-1.2 0c-.3.3-.3.8 0 1.1L18 12l-3.8 3.7z"/></g></svg>',
+        'spell-check': '<svg width="24" height="24"><path d="M6 8v3H5V5c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h2c.3 0 .5.1.7.3.2.2.3.4.3.7v6H8V8H6zm0-3v2h2V5H6zm13 0h-3v5h3v1h-3a1 1 0 0 1-.7-.3 1 1 0 0 1-.3-.7V5c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h3v1zm-5 1.5l-.1.7c-.1.2-.3.3-.6.3.3 0 .5.1.6.3l.1.7V10c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3h-3V4h3c.3 0 .5.1.7.3.2.2.3.4.3.7v1.5zM13 10V8h-2v2h2zm0-3V5h-2v2h2zm3 5l1 1-6.5 7L7 15.5l1.3-1 2.2 2.2L16 12z" fill-rule="evenodd"/></svg>',
+        'strike-through': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M15.6 8.5c-.5-.7-1-1.1-1.3-1.3-.6-.4-1.3-.6-2-.6-2.7 0-2.8 1.7-2.8 2.1 0 1.6 1.8 2 3.2 2.3 4.4.9 4.6 2.8 4.6 3.9 0 1.4-.7 4.1-5 4.1A6.2 6.2 0 0 1 7 16.4l1.5-1.1c.4.6 1.6 2 3.7 2 1.6 0 2.5-.4 3-1.2.4-.8.3-2-.8-2.6-.7-.4-1.6-.7-2.9-1-1-.2-3.9-.8-3.9-3.6C7.6 6 10.3 5 12.4 5c2.9 0 4.2 1.6 4.7 2.4l-1.5 1.1z"/><path d="M5 11h14a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2z" fill-rule="nonzero"/></g></svg>',
+        'subscript': '<svg width="24" height="24"><path d="M10.4 10l4.6 4.6-1.4 1.4L9 11.4 4.4 16 3 14.6 7.6 10 3 5.4 4.4 4 9 8.6 13.6 4 15 5.4 10.4 10zM21 19h-5v-1l1-.8 1.7-1.6c.3-.4.5-.8.5-1.2 0-.3 0-.6-.2-.7-.2-.2-.5-.3-.9-.3a2 2 0 0 0-.8.2l-.7.3-.4-1.1 1-.6 1.2-.2c.8 0 1.4.3 1.8.7.4.4.6.9.6 1.5s-.2 1.1-.5 1.6a8 8 0 0 1-1.3 1.3l-.6.6h2.6V19z" fill-rule="nonzero"/></svg>',
+        'superscript': '<svg width="24" height="24"><path d="M15 9.4L10.4 14l4.6 4.6-1.4 1.4L9 15.4 4.4 20 3 18.6 7.6 14 3 9.4 4.4 8 9 12.6 13.6 8 15 9.4zm5.9 1.6h-5v-1l1-.8 1.7-1.6c.3-.5.5-.9.5-1.3 0-.3 0-.5-.2-.7-.2-.2-.5-.3-.9-.3l-.8.2-.7.4-.4-1.2c.2-.2.5-.4 1-.5.3-.2.8-.2 1.2-.2.8 0 1.4.2 1.8.6.4.4.6 1 .6 1.6 0 .5-.2 1-.5 1.5l-1.3 1.4-.6.5h2.6V11z" fill-rule="nonzero"/></svg>',
+        'table-cell-properties': '<svg width="24" height="24"><path d="M4 5h16v14H4V5zm10 10h-4v3h4v-3zm0-8h-4v3h4V7zM9 7H5v3h4V7zm-4 4v3h4v-3H5zm10 0v3h4v-3h-4zm0-1h4V7h-4v3zM5 15v3h4v-3H5zm10 3h4v-3h-4v3z" fill-rule="evenodd"/></svg>',
+        'table-cell-select-all': '<svg width="24" height="24"><path d="M12.5 5.5v6h6v-6h-6zm-1 0h-6v6h6v-6zm1 13h6v-6h-6v6zm-1 0v-6h-6v6h6zm-7-14h15v15h-15v-15z" fill-rule="nonzero"/></svg>',
+        'table-cell-select-inner': '<svg width="24" height="24"><g fill-rule="nonzero"><path d="M5.5 5.5v13h13v-13h-13zm-1-1h15v15h-15v-15z" opacity=".2"/><path d="M11.5 11.5v-7h1v7h7v1h-7v7h-1v-7h-7v-1h7z"/></g></svg>',
+        'table-delete-column': '<svg width="24" height="24"><path d="M9 11.2l1 1v.2l-1 1v-2.2zm5 1l1-1v2.2l-1-1v-.2zM20 5v14H4V5h16zm-1 2h-4v.8l-.2-.2-.8.8V7h-4v1.4l-.8-.8-.2.2V7H5v11h4v-1.8l.5.5.5-.4V18h4v-1.8l.8.8.2-.3V18h4V7zm-3.9 3.4l-1.8 1.9 1.8 1.9c.4.3.4.9 0 1.2-.3.3-.8.3-1.2 0L12 13.5l-1.8 1.9a.8.8 0 0 1-1.2 0 .9.9 0 0 1 0-1.2l1.8-1.9-1.9-2a.9.9 0 0 1 1.2-1.2l2 2 1.8-1.8c.3-.4.9-.4 1.2 0a.8.8 0 0 1 0 1.1z" fill-rule="evenodd"/></svg>',
+        'table-delete-row': '<svg width="24" height="24"><path d="M16.7 8.8l1.1 1.2-2.4 2.5L18 15l-1.2 1.2-2.5-2.5-2.4 2.5-1.3-1.2 2.5-2.5-2.5-2.5 1.2-1.3 2.6 2.6 2.4-2.5zM4 5h16v14H4V5zm15 5V7H5v3h4.8l1 1H5v3h5.8l-1 1H5v3h14v-3h-.4l-1-1H19v-3h-1.3l1-1h.3z" fill-rule="evenodd"/></svg>',
+        'table-delete-table': '<svg width="24" height="26"><path d="M4 6h16v14H4V6zm1 2v11h14V8H5zm11.7 8.7l-1.5 1.5L12 15l-3.3 3.2-1.4-1.5 3.2-3.2-3.3-3.2 1.5-1.5L12 12l3.2-3.2 1.5 1.5-3.2 3.2 3.2 3.2z" fill-rule="evenodd"/></svg>',
+        'table-insert-column-after': '<svg width="24" height="24"><path d="M14.3 9c.4 0 .7.3.7.6v2.2h2.1c.4 0 .7.3.7.7 0 .4-.3.7-.7.7H15v2.2c0 .3-.3.6-.7.6a.7.7 0 0 1-.6-.6v-2.2h-2.2a.7.7 0 0 1 0-1.4h2.2V9.6c0-.3.3-.6.6-.6zM4 5h16v14H4V5zm5 13v-3H5v3h4zm0-4v-3H5v3h4zm0-4V7H5v3h4zm10 8V7h-9v11h9z" fill-rule="evenodd"/></svg>',
+        'table-insert-column-before': '<svg width="24" height="24"><path d="M9.7 16a.7.7 0 0 1-.7-.6v-2.2H6.9a.7.7 0 0 1 0-1.4H9V9.6c0-.3.3-.6.7-.6.3 0 .6.3.6.6v2.2h2.2c.4 0 .8.3.8.7 0 .4-.4.7-.8.7h-2.2v2.2c0 .3-.3.6-.6.6zM4 5h16v14H4V5zm10 13V7H5v11h9zm5 0v-3h-4v3h4zm0-4v-3h-4v3h4zm0-4V7h-4v3h4z" fill-rule="evenodd"/></svg>',
+        'table-insert-row-above': '<svg width="24" height="24"><path d="M14.8 10.5c0 .3-.2.5-.5.5h-1.8v1.8c0 .3-.2.5-.5.5a.5.5 0 0 1-.5-.6V11H9.7a.5.5 0 0 1 0-1h1.8V8.3c0-.3.2-.6.5-.6s.5.3.5.6V10h1.8c.3 0 .5.2.5.5zM4 5h16v14H4V5zm5 13v-3H5v3h4zm5 0v-3h-4v3h4zm5 0v-3h-4v3h4zm0-4V7H5v7h14z" fill-rule="evenodd"/></svg>',
+        'table-insert-row-after': '<svg width="24" height="24"><path d="M9.2 14.5c0-.3.2-.5.5-.5h1.8v-1.8c0-.3.2-.5.5-.5s.5.2.5.6V14h1.8c.3 0 .5.2.5.5s-.2.5-.5.5h-1.8v1.7c0 .3-.2.6-.5.6a.5.5 0 0 1-.5-.6V15H9.7a.5.5 0 0 1-.5-.5zM4 5h16v14H4V5zm6 2v3h4V7h-4zM5 7v3h4V7H5zm14 11v-7H5v7h14zm0-8V7h-4v3h4z" fill-rule="evenodd"/></svg>',
+        'table-left-header': '<svg width="24" height="24"><path d="M4 5h16v13H4V5zm10 12v-3h-4v3h4zm0-4v-3h-4v3h4zm0-4V6h-4v3h4zm5 8v-3h-4v3h4zm0-4v-3h-4v3h4zm0-4V6h-4v3h4z" fill-rule="evenodd"/></svg>',
+        'table-merge-cells': '<svg width="24" height="24"><path d="M4 5h16v14H4V5zm6 13h9v-7h-9v7zm4-11h-4v3h4V7zM9 7H5v3h4V7zm-4 4v3h4v-3H5zm10-1h4V7h-4v3zM5 15v3h4v-3H5z" fill-rule="evenodd"/></svg>',
+        'table-row-properties': '<svg width="24" height="24"><path d="M4 5h16v14H4V5zm10 10h-4v3h4v-3zm0-8h-4v3h4V7zM9 7H5v3h4V7zm6 3h4V7h-4v3zM5 15v3h4v-3H5zm10 3h4v-3h-4v3z" fill-rule="evenodd"/></svg>',
+        'table-split-cells': '<svg width="24" height="24"><path d="M4 5h16v14H4V5zm6 2v3h4V7h-4zM9 18v-3H5v3h4zm0-4v-3H5v3h4zm0-4V7H5v3h4zm10 8v-7h-9v7h9zm0-8V7h-4v3h4zm-3.5 4.5l1.5 1.6c.3.2.3.7 0 1-.2.2-.7.2-1 0l-1.5-1.6-1.6 1.5c-.2.3-.7.3-1 0a.7.7 0 0 1 0-1l1.6-1.5-1.5-1.6a.7.7 0 0 1 1-1l1.5 1.6 1.6-1.5c.2-.3.7-.3 1 0 .2.2.2.7 0 1l-1.6 1.5z" fill-rule="evenodd"/></svg>',
+        'table-top-header': '<svg width="24" height="24"><path d="M4 5h16v13H4V5zm5 12v-3H5v3h4zm0-4v-3H5v3h4zm5 4v-3h-4v3h4zm0-4v-3h-4v3h4zm5 4v-3h-4v3h4zm0-4v-3h-4v3h4z" fill-rule="evenodd"/></svg>',
+        'table': '<svg width="24" height="24"><path d="M4 5h16v14H4V5zm6 9h4v-3h-4v3zm4 1h-4v3h4v-3zm0-8h-4v3h4V7zM9 7H5v3h4V7zm-4 4v3h4v-3H5zm10 0v3h4v-3h-4zm0-1h4V7h-4v3zM5 15v3h4v-3H5zm10 3h4v-3h-4v3z" fill-rule="evenodd"/></svg>',
+        'template': '<svg width="24" height="24"><path d="M19 19v-1H5v1h14zM9 16v-4a5 5 0 1 1 6 0v4h4a2 2 0 0 1 2 2v3H3v-3c0-1.1.9-2 2-2h4zm4 0v-5l.8-.6a3 3 0 1 0-3.6 0l.8.6v5h2z" fill-rule="nonzero"/></svg>',
+        'temporary-placeholder': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M9 7.6V6h2.5V4.5a.5.5 0 1 1 1 0V6H15v1.6a8 8 0 1 1-6 0zm-2.6 5.3a.5.5 0 0 0 .3.6c.3 0 .6 0 .6-.3l.1-.2a5 5 0 0 1 3.3-2.8c.3-.1.4-.4.4-.6-.1-.3-.4-.5-.6-.4a6 6 0 0 0-4.1 3.7z"/><circle cx="14" cy="4" r="1"/><circle cx="12" cy="2" r="1"/><circle cx="10" cy="4" r="1"/></g></svg>',
+        'text-color': '<svg width="24" height="24"><g fill-rule="evenodd"><path id="tox-icon-text-color__color" d="M3 18h18v3H3z"/><path d="M8.7 16h-.8a.5.5 0 0 1-.5-.6l2.7-9c.1-.3.3-.4.5-.4h2.8c.2 0 .4.1.5.4l2.7 9a.5.5 0 0 1-.5.6h-.8a.5.5 0 0 1-.4-.4l-.7-2.2c0-.3-.3-.4-.5-.4h-3.4c-.2 0-.4.1-.5.4l-.7 2.2c0 .3-.2.4-.4.4zm2.6-7.6l-.6 2a.5.5 0 0 0 .5.6h1.6a.5.5 0 0 0 .5-.6l-.6-2c0-.3-.3-.4-.5-.4h-.4c-.2 0-.4.1-.5.4z"/></g></svg>',
+        'toc': '<svg width="24" height="24"><path d="M5 5c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 1 1 0-2zm3 0h11c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 1 1 0-2zm-3 8c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zm3 0h11c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 0 1 0-2zm0-4c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 1 1 0-2zm3 0h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm-3 8c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zm3 0h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
+        'translate': '<svg width="24" height="24"><path d="M12.7 14.3l-.3.7-.4.7-2.2-2.2-3.1 3c-.3.4-.8.4-1 0a.7.7 0 0 1 0-1l3.1-3A12.4 12.4 0 0 1 6.7 9H8a10.1 10.1 0 0 0 1.7 2.4c.5-.5 1-1.1 1.4-1.8l.9-2H4.7a.7.7 0 1 1 0-1.5h4.4v-.7c0-.4.3-.8.7-.8.4 0 .7.4.7.8v.7H15c.4 0 .8.3.8.7 0 .4-.4.8-.8.8h-1.4a12.3 12.3 0 0 1-1 2.4 13.5 13.5 0 0 1-1.7 2.3l1.9 1.8zm4.3-3l2.7 7.3a.5.5 0 0 1-.4.7 1 1 0 0 1-1-.7l-.6-1.5h-3.4l-.6 1.5a1 1 0 0 1-1 .7.5.5 0 0 1-.4-.7l2.7-7.4a1 1 0 1 1 2 0zm-2.2 4.4h2.4L16 12.5l-1.2 3.2z" fill-rule="evenodd"/></svg>',
+        'underline': '<svg width="24" height="24"><path d="M16 5c.6 0 1 .4 1 1v5.5a4 4 0 0 1-.4 1.8l-1 1.4a5.3 5.3 0 0 1-5.5 1 5 5 0 0 1-1.6-1c-.5-.4-.8-.9-1.1-1.4a4 4 0 0 1-.4-1.8V6c0-.6.4-1 1-1s1 .4 1 1v5.5c0 .3 0 .6.2 1l.6.7a3.3 3.3 0 0 0 2.2.8 3.4 3.4 0 0 0 2.2-.8c.3-.2.4-.5.6-.8l.2-.9V6c0-.6.4-1 1-1zM8 17h8c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
+        'undo': '<svg width="24" height="24"><path d="M6.4 8H12c3.7 0 6.2 2 6.8 5.1.6 2.7-.4 5.6-2.3 6.8a1 1 0 0 1-1-1.8c1.1-.6 1.8-2.7 1.4-4.6-.5-2.1-2.1-3.5-4.9-3.5H6.4l3.3 3.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 1.4L6.4 8z" fill-rule="nonzero"/></svg>',
+        'unlink': '<svg width="24" height="24"><path d="M6.2 12.3a1 1 0 0 1 1.4 1.4l-2 2a2 2 0 1 0 2.6 2.8l4.8-4.8a1 1 0 0 0 0-1.4 1 1 0 1 1 1.4-1.3 2.9 2.9 0 0 1 0 4L9.6 20a3.9 3.9 0 0 1-5.5-5.5l2-2zm11.6-.6a1 1 0 0 1-1.4-1.4l2.1-2a2 2 0 1 0-2.7-2.8L11 10.3a1 1 0 0 0 0 1.4A1 1 0 1 1 9.6 13a2.9 2.9 0 0 1 0-4L14.4 4a3.9 3.9 0 0 1 5.5 5.5l-2 2zM7.6 6.3a.8.8 0 0 1-1 1.1L3.3 4.2a.7.7 0 1 1 1-1l3.2 3.1zM5.1 8.6a.8.8 0 0 1 0 1.5H3a.8.8 0 0 1 0-1.5H5zm5-3.5a.8.8 0 0 1-1.5 0V3a.8.8 0 0 1 1.5 0V5zm6 11.8a.8.8 0 0 1 1-1l3.2 3.2a.8.8 0 0 1-1 1L16 17zm-2.2 2a.8.8 0 0 1 1.5 0V21a.8.8 0 0 1-1.5 0V19zm5-3.5a.7.7 0 1 1 0-1.5H21a.8.8 0 0 1 0 1.5H19z" fill-rule="nonzero"/></svg>',
+        'unlock': '<svg width="24" height="24"><path d="M16 5c.8 0 1.5.3 2.1.9.6.6.9 1.3.9 2.1v3h-2V8a1 1 0 0 0-.3-.7A1 1 0 0 0 16 7h-2a1 1 0 0 0-.7.3 1 1 0 0 0-.3.7v3h.3c.2 0 .3 0 .5.2l.2.6v7.4c0 .3 0 .4-.2.6l-.6.2H4.8c-.3 0-.4 0-.6-.2a.7.7 0 0 1-.2-.6v-7.4c0-.3 0-.4.2-.6l.5-.2H11V8c0-.8.3-1.5.9-2.1.6-.6 1.3-.9 2.1-.9h2z" fill-rule="evenodd"/></svg>',
+        'unordered-list': '<svg width="24" height="24"><path d="M11 5h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0 6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0 6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zM4.5 6c0-.4.1-.8.4-1 .3-.4.7-.5 1.1-.5.4 0 .8.1 1 .4.4.3.5.7.5 1.1 0 .4-.1.8-.4 1-.3.4-.7.5-1.1.5-.4 0-.8-.1-1-.4-.4-.3-.5-.7-.5-1.1zm0 6c0-.4.1-.8.4-1 .3-.4.7-.5 1.1-.5.4 0 .8.1 1 .4.4.3.5.7.5 1.1 0 .4-.1.8-.4 1-.3.4-.7.5-1.1.5-.4 0-.8-.1-1-.4-.4-.3-.5-.7-.5-1.1zm0 6c0-.4.1-.8.4-1 .3-.4.7-.5 1.1-.5.4 0 .8.1 1 .4.4.3.5.7.5 1.1 0 .4-.1.8-.4 1-.3.4-.7.5-1.1.5-.4 0-.8-.1-1-.4-.4-.3-.5-.7-.5-1.1z" fill-rule="evenodd"/></svg>',
+        'unselected': '<svg width="24" height="24"><path fill-rule="nonzero" d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2zm0 1a1 1 0 0 0-1 1v12c0 .6.4 1 1 1h12c.6 0 1-.4 1-1V6c0-.6-.4-1-1-1H6z"/></svg>',
+        'upload': '<svg width="24" height="24"><path d="M18 19v-2a1 1 0 0 1 2 0v3c0 .6-.4 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 2 0v2h12zM11 6.4L8.7 8.7a1 1 0 0 1-1.4-1.4l4-4a1 1 0 0 1 1.4 0l4 4a1 1 0 1 1-1.4 1.4L13 6.4V16a1 1 0 0 1-2 0V6.4z" fill-rule="nonzero"/></svg>',
+        'user': '<svg width="24" height="24"><path d="M12 24a12 12 0 1 1 0-24 12 12 0 0 1 0 24zm-8.7-5.3a11 11 0 0 0 17.4 0C19.4 16.3 14.6 15 12 15c-2.6 0-7.4 1.3-8.7 3.7zM12 13c2.2 0 4-2 4-4.5S14.2 4 12 4 8 6 8 8.5 9.8 13 12 13z" fill-rule="nonzero"/></svg>',
+        'warning': '<svg width="24" height="24"><path d="M19.8 18.3c.2.5.3.9 0 1.2-.1.3-.5.5-1 .5H5.2c-.5 0-.9-.2-1-.5-.3-.3-.2-.7 0-1.2L11 4.7l.5-.5.5-.2c.2 0 .3 0 .5.2.2 0 .3.3.5.5l6.8 13.6zM12 18c.3 0 .5-.1.7-.3.2-.2.3-.4.3-.7a1 1 0 0 0-.3-.7 1 1 0 0 0-.7-.3 1 1 0 0 0-.7.3 1 1 0 0 0-.3.7c0 .3.1.5.3.7.2.2.4.3.7.3zm.7-3l.3-4a1 1 0 0 0-.3-.7 1 1 0 0 0-.7-.3 1 1 0 0 0-.7.3 1 1 0 0 0-.3.7l.3 4h1.4z" fill-rule="evenodd"/></svg>',
+        'zoom-in': '<svg width="24" height="24"><path d="M16 17.3a8 8 0 1 1 1.4-1.4l4.3 4.4a1 1 0 0 1-1.4 1.4l-4.4-4.3zm-5-.3a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm-1-9a1 1 0 0 1 2 0v6a1 1 0 0 1-2 0V8zm-2 4a1 1 0 0 1 0-2h6a1 1 0 0 1 0 2H8z" fill-rule="nonzero"/></svg>',
+        'zoom-out': '<svg width="24" height="24"><path d="M16 17.3a8 8 0 1 1 1.4-1.4l4.3 4.4a1 1 0 0 1-1.4 1.4l-4.4-4.3zm-5-.3a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm-3-5a1 1 0 0 1 0-2h6a1 1 0 0 1 0 2H8z" fill-rule="nonzero"/></svg>'
+      };
+    };
+
     var CreateIconManager = function () {
       var lookup = {};
       var add = function (id, iconPack) {
@@ -12061,16 +12770,16 @@
     };
     var IconManager = CreateIconManager();
 
-    var PluginManager$1 = AddOnManager.PluginManager;
+    var PluginManager$1 = AddOnManager$1.PluginManager;
 
-    var ThemeManager = AddOnManager.ThemeManager;
+    var ThemeManager = AddOnManager$1.ThemeManager;
 
     function XMLHttpRequest () {
       var f = Global$1.getOrDie('XMLHttpRequest');
       return new f();
     }
 
-    function Uploader (uploadStatus, settings) {
+    function Uploader(uploadStatus, settings) {
       var pendingPromises = {};
       var pathJoin = function (path1, path2) {
         if (path1) {
@@ -12353,7 +13062,7 @@
     var getAllImages = function (elm) {
       return elm ? from$1(elm.getElementsByTagName('img')) : [];
     };
-    function ImageScanner (uploadStatus, blobCache) {
+    function ImageScanner(uploadStatus, blobCache) {
       var cachedPromises = {};
       var findAll = function (elm, predicate) {
         var images;
@@ -12426,7 +13135,7 @@
     };
     var Uuid = { uuid: uuid };
 
-    function BlobCache () {
+    var BlobCache = function () {
       var cache = [];
       var mimeToExt = function (mime) {
         var mimes = {
@@ -12511,7 +13220,7 @@
         removeByUri: removeByUri,
         destroy: destroy
       };
-    }
+    };
 
     function UploadStatus () {
       var PENDING = 1, UPLOADED = 2;
@@ -12559,7 +13268,7 @@
       };
     }
 
-    function EditorUpload (editor) {
+    var EditorUpload = function (editor) {
       var blobCache = BlobCache();
       var uploader, imageScanner;
       var uploadStatus = UploadStatus();
@@ -12716,7 +13425,7 @@
           return match;
         });
       };
-      editor.on('setContent', function () {
+      editor.on('SetContent', function () {
         if (Settings.isAutomaticUploadsEnabled(editor)) {
           uploadImagesAuto();
         } else {
@@ -12726,7 +13435,7 @@
       editor.on('RawSaveContent', function (e) {
         e.content = replaceBlobUris(e.content);
       });
-      editor.on('getContent', function (e) {
+      editor.on('GetContent', function (e) {
         if (e.source_view || e.format === 'raw') {
           return;
         }
@@ -12754,7 +13463,7 @@
         scanForImages: scanForImages,
         destroy: destroy
       };
-    }
+    };
 
     var dropLast = function (xs) {
       return xs.slice(0, -1);
@@ -12840,7 +13549,7 @@
             continue;
           }
           if (!rootBlockNode) {
-            rootBlockNode = dom.create(forcedRootBlock, editor.settings.forced_root_block_attrs);
+            rootBlockNode = dom.create(forcedRootBlock, Settings.getForcedRootBlockAttrs(editor));
             node.parentNode.insertBefore(rootBlockNode, node);
             wrapped = true;
           }
@@ -12959,75 +13668,63 @@
       return sel && sel.rangeCount > 0;
     };
 
-    function NodeChange (editor) {
-      var lastRng, lastPath = [];
-      var isSameElementPath = function (startElm) {
-        var i, currentPath;
-        currentPath = editor.$(startElm).parentsUntil(editor.getBody()).add(startElm);
-        if (currentPath.length === lastPath.length) {
-          for (i = currentPath.length; i >= 0; i--) {
-            if (currentPath[i] !== lastPath[i]) {
-              break;
+    var NodeChange = function () {
+      function NodeChange(editor) {
+        this.lastPath = [];
+        this.editor = editor;
+        var lastRng;
+        var self = this;
+        if (!('onselectionchange' in editor.getDoc())) {
+          editor.on('NodeChange click mouseup keyup focus', function (e) {
+            var nativeRng, fakeRng;
+            nativeRng = editor.selection.getRng();
+            fakeRng = {
+              startContainer: nativeRng.startContainer,
+              startOffset: nativeRng.startOffset,
+              endContainer: nativeRng.endContainer,
+              endOffset: nativeRng.endOffset
+            };
+            if (e.type === 'nodechange' || !RangeCompare.isEq(fakeRng, lastRng)) {
+              editor.fire('SelectionChange');
+            }
+            lastRng = fakeRng;
+          });
+        }
+        editor.on('contextmenu', function () {
+          editor.fire('SelectionChange');
+        });
+        editor.on('SelectionChange', function () {
+          var startElm = editor.selection.getStart(true);
+          if (!startElm || !Env.range && editor.selection.isCollapsed()) {
+            return;
+          }
+          if (hasAnyRanges(editor) && !self.isSameElementPath(startElm) && editor.dom.isChildOf(startElm, editor.getBody())) {
+            editor.nodeChanged({ selectionChange: true });
+          }
+        });
+        editor.on('mouseup', function (e) {
+          if (!e.isDefaultPrevented() && hasAnyRanges(editor)) {
+            if (editor.selection.getNode().nodeName === 'IMG') {
+              Delay.setEditorTimeout(editor, function () {
+                editor.nodeChanged();
+              });
+            } else {
+              editor.nodeChanged();
             }
           }
-          if (i === -1) {
-            lastPath = currentPath;
-            return true;
-          }
-        }
-        lastPath = currentPath;
-        return false;
-      };
-      if (!('onselectionchange' in editor.getDoc())) {
-        editor.on('NodeChange Click MouseUp KeyUp Focus', function (e) {
-          var nativeRng, fakeRng;
-          nativeRng = editor.selection.getRng();
-          fakeRng = {
-            startContainer: nativeRng.startContainer,
-            startOffset: nativeRng.startOffset,
-            endContainer: nativeRng.endContainer,
-            endOffset: nativeRng.endOffset
-          };
-          if (e.type === 'nodechange' || !RangeCompare.isEq(fakeRng, lastRng)) {
-            editor.fire('SelectionChange');
-          }
-          lastRng = fakeRng;
         });
       }
-      editor.on('contextmenu', function () {
-        editor.fire('SelectionChange');
-      });
-      editor.on('SelectionChange', function () {
-        var startElm = editor.selection.getStart(true);
-        if (!startElm || !Env.range && editor.selection.isCollapsed()) {
-          return;
-        }
-        if (hasAnyRanges(editor) && !isSameElementPath(startElm) && editor.dom.isChildOf(startElm, editor.getBody())) {
-          editor.nodeChanged({ selectionChange: true });
-        }
-      });
-      editor.on('MouseUp', function (e) {
-        if (!e.isDefaultPrevented() && hasAnyRanges(editor)) {
-          if (editor.selection.getNode().nodeName === 'IMG') {
-            Delay.setEditorTimeout(editor, function () {
-              editor.nodeChanged();
-            });
-          } else {
-            editor.nodeChanged();
-          }
-        }
-      });
-      this.nodeChanged = function (args) {
-        var selection = editor.selection;
+      NodeChange.prototype.nodeChanged = function (args) {
+        var selection = this.editor.selection;
         var node, parents, root;
-        if (editor.initialized && selection && !editor.settings.disable_nodechange && !editor.readonly) {
-          root = editor.getBody();
+        if (this.editor.initialized && selection && !this.editor.settings.disable_nodechange && !this.editor.readonly) {
+          root = this.editor.getBody();
           node = selection.getStart(true) || root;
-          if (node.ownerDocument !== editor.getDoc() || !editor.dom.isChildOf(node, root)) {
+          if (node.ownerDocument !== this.editor.getDoc() || !this.editor.dom.isChildOf(node, root)) {
             node = root;
           }
           parents = [];
-          editor.dom.getParent(node, function (node) {
+          this.editor.dom.getParent(node, function (node) {
             if (node === root) {
               return true;
             }
@@ -13036,10 +13733,28 @@
           args = args || {};
           args.element = node;
           args.parents = parents;
-          editor.fire('NodeChange', args);
+          this.editor.fire('NodeChange', args);
         }
       };
-    }
+      NodeChange.prototype.isSameElementPath = function (startElm) {
+        var i, currentPath;
+        currentPath = this.editor.$(startElm).parentsUntil(this.editor.getBody()).add(startElm);
+        if (currentPath.length === this.lastPath.length) {
+          for (i = currentPath.length; i >= 0; i--) {
+            if (currentPath[i] !== this.lastPath[i]) {
+              break;
+            }
+          }
+          if (i === -1) {
+            this.lastPath = currentPath;
+            return true;
+          }
+        }
+        this.lastPath = currentPath;
+        return false;
+      };
+      return NodeChange;
+    }();
 
     var getAbsolutePosition = function (elm) {
       var doc, docElem, win, clientRect;
@@ -13113,10 +13828,7 @@
       if (targetElement === dragElement || editor.dom.isChildOf(targetElement, dragElement)) {
         return false;
       }
-      if (isContentEditableFalse$6(targetElement)) {
-        return false;
-      }
-      return true;
+      return !isContentEditableFalse$6(targetElement);
     };
     var cloneElement = function (elm) {
       var cloneElm = elm.cloneNode(true);
@@ -13842,7 +14554,7 @@
             break;
           }
         });
-        editor.on('getSelectionRange', function (e) {
+        editor.on('GetSelectionRange', function (e) {
           var rng = e.range;
           if (selectedContentEditableNode) {
             if (!selectedContentEditableNode.parentNode) {
@@ -13854,7 +14566,7 @@
             e.range = rng;
           }
         });
-        editor.on('setSelectionRange', function (e) {
+        editor.on('SetSelectionRange', function (e) {
           var rng;
           rng = setContentEditableSelection(e.range, e.forward);
           if (rng) {
@@ -14276,7 +14988,7 @@
       isEq: isEq$2
     };
 
-    function UndoManager (editor) {
+    var UndoManager = function (editor) {
       var self = this, index = 0, data = [], beforeBookmark, isFirstTypedCharacter, locks = 0;
       var isUnlocked = function () {
         return locks === 0;
@@ -14315,12 +15027,12 @@
           addNonTypingUndoLevel(e);
         }
       });
-      editor.on('ObjectResizeStart Cut', function () {
+      editor.on('ObjectResizeStart cut', function () {
         self.beforeChange();
       });
       editor.on('SaveContent ObjectResized blur', addNonTypingUndoLevel);
-      editor.on('DragEnd', addNonTypingUndoLevel);
-      editor.on('KeyUp', function (e) {
+      editor.on('dragend', addNonTypingUndoLevel);
+      editor.on('keyup', function (e) {
         var keyCode = e.keyCode;
         if (e.isDefaultPrevented()) {
           return;
@@ -14345,7 +15057,7 @@
           editor.nodeChanged();
         }
       });
-      editor.on('KeyDown', function (e) {
+      editor.on('keydown', function (e) {
         var keyCode = e.keyCode;
         if (e.isDefaultPrevented()) {
           return;
@@ -14364,7 +15076,7 @@
           isFirstTypedCharacter = true;
         }
       });
-      editor.on('MouseDown', function (e) {
+      editor.on('mousedown', function (e) {
         if (self.typing) {
           addNonTypingUndoLevel(e);
         }
@@ -14457,7 +15169,7 @@
             level = data[--index];
             Levels.applyToEditor(editor, level, true);
             setDirty(true);
-            editor.fire('undo', { level: level });
+            editor.fire('Undo', { level: level });
           }
           return level;
         },
@@ -14467,7 +15179,7 @@
             level = data[++index];
             Levels.applyToEditor(editor, level, false);
             setDirty(true);
-            editor.fire('redo', { level: level });
+            editor.fire('Redo', { level: level });
           }
           return level;
         },
@@ -14477,6 +15189,10 @@
           self.typing = false;
           self.data = data;
           editor.fire('ClearUndos');
+        },
+        reset: function () {
+          self.clear();
+          self.add();
         },
         hasUndo: function () {
           return index > 0 || self.typing && data[0] && !Levels.isEq(Levels.createFromEditor(editor), data[0]);
@@ -14511,7 +15227,7 @@
         }
       };
       return self;
-    }
+    };
 
     var getLastChildren$1 = function (elm) {
       var children = [];
@@ -14524,7 +15240,7 @@
     };
     var removeTrailingBr = function (elm) {
       var allBrs = descendants$1(elm, 'br');
-      var brs = filter(getLastChildren$1(elm).slice(-1), isBr);
+      var brs = filter(getLastChildren$1(elm).slice(-1), isBr$1);
       if (allBrs.length === brs.length) {
         each(brs, remove$1);
       }
@@ -14534,7 +15250,7 @@
       append(elm, Element.fromHtml('<br data-mce-bogus="1">'));
     };
     var isPaddingContents = function (elm) {
-      return isText(elm) ? get$5(elm) === '\xA0' : isBr(elm);
+      return isText(elm) ? get$5(elm) === '\xA0' : isBr$1(elm);
     };
     var isPaddedElement = function (elm) {
       return filter(children(elm), isPaddingContents).length === 1;
@@ -14542,7 +15258,7 @@
     var trimBlockTrailingBr = function (elm) {
       lastChild(elm).each(function (lastChild) {
         prevSibling(lastChild).each(function (lastChildPrevSibling) {
-          if (isBlock(elm) && isBr(lastChild) && isBlock(lastChildPrevSibling)) {
+          if (isBlock(elm) && isBr$1(lastChild) && isBlock(lastChildPrevSibling)) {
             remove$1(lastChild);
           }
         });
@@ -14744,7 +15460,6 @@
         endOffset: endOffset
       };
     };
-    var SplitRange = { split: split$1 };
 
     var isCollapsibleWhitespace = function (c) {
       return ' \f\n\r\t\x0B'.indexOf(c) !== -1;
@@ -14826,7 +15541,7 @@
     var isBogus$2 = NodeType.hasAttribute('data-mce-bogus');
     var isBogusAll$1 = NodeType.hasAttributeValue('data-mce-bogus', 'all');
     var isEmptyNode = function (targetNode) {
-      var walker, node, brCount = 0;
+      var node, brCount = 0;
       if (isContent$1(targetNode, targetNode)) {
         return false;
       } else {
@@ -14834,7 +15549,7 @@
         if (!node) {
           return true;
         }
-        walker = new TreeWalker(node, targetNode);
+        var walker = new TreeWalker(node, targetNode);
         do {
           if (isBogusAll$1(node)) {
             node = walker.next(true);
@@ -15023,9 +15738,8 @@
       return getEmptyCaretContainers(node).length > 0;
     };
     var findFirstTextNode = function (node) {
-      var walker;
       if (node) {
-        walker = new TreeWalker(node, node);
+        var walker = new TreeWalker(node, node);
         for (node = walker.current(); node; node = walker.next()) {
           if (node.nodeType === 3) {
             return node;
@@ -15119,7 +15833,7 @@
     var applyCaretFormat = function (editor, name, vars) {
       var rng, caretContainer, textNode, offset, bookmark, container, text;
       var selection = editor.selection;
-      rng = selection.getRng(true);
+      rng = selection.getRng();
       offset = rng.startOffset;
       container = rng.startContainer;
       text = container.nodeValue;
@@ -15132,7 +15846,7 @@
         bookmark = selection.getBookmark();
         rng.collapse(true);
         rng = ExpandRange.expandRng(editor, rng, editor.formatter.get(name));
-        rng = SplitRange.split(rng);
+        rng = split$1(rng);
         editor.formatter.apply(name, vars, rng);
         selection.moveToBookmark(bookmark);
       } else {
@@ -15181,7 +15895,7 @@
         bookmark = selection.getBookmark();
         rng.collapse(true);
         var expandedRng = ExpandRange.expandRng(editor, rng, editor.formatter.get(name), true);
-        expandedRng = SplitRange.split(expandedRng);
+        expandedRng = split$1(expandedRng);
         editor.formatter.remove(name, vars, expandedRng);
         selection.moveToBookmark(bookmark);
       } else {
@@ -15588,7 +16302,7 @@
         var commonAncestorContainer = rng.commonAncestorContainer;
         rng = ExpandRange.expandRng(ed, rng, formatList, true);
         if (format.split) {
-          rng = SplitRange.split(rng);
+          rng = split$1(rng);
           startContainer = getContainer(ed, rng, true);
           endContainer = getContainer(ed, rng);
           if (startContainer !== endContainer) {
@@ -16421,7 +17135,7 @@
     };
     var DefaultFormats = { get: get$6 };
 
-    function FormatRegistry (editor) {
+    function FormatRegistry(editor) {
       var formats = {};
       var get = function (name) {
         return name ? formats[name] : formats;
@@ -16706,7 +17420,7 @@
       selectorToHtml: selectorToHtml
     };
 
-    var toggle = function (editor, formats, name, vars, node) {
+    var toggle$1 = function (editor, formats, name, vars, node) {
       var fmt = formats.get(name);
       if (MatchFormat.match(editor, name, vars, node) && (!('toggle' in fmt[0]) || fmt[0].toggle)) {
         RemoveFormat.remove(editor, name, vars, node);
@@ -16714,7 +17428,7 @@
         ApplyFormat.applyFormat(editor, name, vars, node);
       }
     };
-    var ToggleFormat = { toggle: toggle };
+    var ToggleFormat = { toggle: toggle$1 };
 
     var setup$6 = function (editor) {
       editor.addShortcut('meta+b', '', 'Bold');
@@ -16745,7 +17459,7 @@
     };
     var FormatShortcuts = { setup: setup$6 };
 
-    function Formatter (editor) {
+    var Formatter = function (editor) {
       var formats = FormatRegistry(editor);
       var formatChangeState = Cell(null);
       FormatShortcuts.setup(editor);
@@ -16765,7 +17479,7 @@
         formatChanged: curry(formatChanged, editor, formatChangeState),
         getCssText: curry(Preview.getCssText, editor)
       };
-    }
+    };
 
     var hasOwnProperty$2 = Object.prototype.hasOwnProperty;
     var shallow$1 = function (old, nu) {
@@ -16796,7 +17510,7 @@
         var i = nodes.length, node;
         while (i--) {
           node = nodes[i];
-          node.attr('tabindex', node.attributes.map['data-mce-tabindex']);
+          node.attr('tabindex', node.attr('data-mce-tabindex'));
           node.attr(name, null);
         }
       });
@@ -16807,12 +17521,12 @@
         var urlConverterScope = settings.url_converter_scope;
         while (i--) {
           node = nodes[i];
-          value = node.attributes.map[internalName];
+          value = node.attr(internalName);
           if (value !== undefined) {
             node.attr(name, value.length > 0 ? value : null);
             node.attr(internalName, null);
           } else {
-            value = node.attributes.map[name];
+            value = node.attr(name);
             if (name === 'style') {
               value = dom.serializeStyle(dom.parseStyle(value), node.name);
             } else if (urlConverter) {
@@ -16837,7 +17551,7 @@
         var i = nodes.length, node;
         while (i--) {
           node = nodes[i];
-          if (node.attributes.map['data-mce-type'] === 'bookmark' && !args.cleanup) {
+          if (node.attr('data-mce-type') === 'bookmark' && !args.cleanup) {
             var hasChildren = Option.from(node.firstChild).exists(function (firstChild) {
               return !Zwsp.isZwsp(firstChild.value);
             });
@@ -16904,7 +17618,7 @@
           if (node.type === 7) {
             node.remove();
           } else if (node.type === 1) {
-            if (name === 'input' && !('type' in node.attributes.map)) {
+            if (name === 'input' && !node.attr('type')) {
               node.attr('type', 'text');
             }
           }
@@ -17220,7 +17934,7 @@
     };
 
     var makeMap$4 = Tools.makeMap, each$f = Tools.each, explode$2 = Tools.explode, extend$2 = Tools.extend;
-    function DomParser (settings, schema) {
+    var DomParser = function (settings, schema) {
       if (schema === void 0) {
         schema = Schema();
       }
@@ -17619,7 +18333,7 @@
                 isInWhiteSpacePreservedElement = false;
               }
               if (elementRule.removeEmpty && isEmpty$2(schema, nonEmptyElements, whiteSpaceElements, node)) {
-                if (!node.attributes.map.name && !node.attr('id')) {
+                if (!node.attr('name') && !node.attr('id')) {
                   tempNode = node.parent;
                   if (blockElements[node.name]) {
                     node.empty().remove();
@@ -17651,6 +18365,9 @@
         }
         if (!args.invalid) {
           for (name in matchedNodes) {
+            if (!matchedNodes.hasOwnProperty(name)) {
+              continue;
+            }
             list = nodeFilters[name];
             nodes = matchedNodes[name];
             fi = nodes.length;
@@ -17693,7 +18410,7 @@
       register$2(exports, settings);
       LegacyFilter.register(exports, settings);
       return exports;
-    }
+    };
 
     var addTempAttr = function (htmlParser, tempAttrs, name) {
       if (Tools.inArray(tempAttrs, name) === -1) {
@@ -17732,7 +18449,7 @@
       var content = serializeNode(settings, schema, rootNode);
       return postProcess$1(editor, args, content);
     };
-    function DomSerializer (settings, editor) {
+    var DomSerializer = function (settings, editor) {
       var dom, schema, htmlParser;
       var tempAttrs = ['data-mce-selected'];
       dom = editor && editor.dom ? editor.dom : DOMUtils$1.DOM;
@@ -17764,9 +18481,9 @@
           return tempAttrs;
         }
       };
-    }
+    };
 
-    function Serializer$1 (settings, editor) {
+    var Serializer$1 = function (settings, editor) {
       var domSerializer = DomSerializer(settings, editor);
       return {
         schema: domSerializer.schema,
@@ -17778,7 +18495,7 @@
         addTempAttr: domSerializer.addTempAttr,
         getTempAttrs: domSerializer.getTempAttrs
       };
-    }
+    };
 
     function BookmarkManager(selection) {
       return {
@@ -18173,7 +18890,7 @@
         elm: elm,
         alignToTop: alignToTop
       };
-      editor.fire('scrollIntoView', scrollEvent);
+      editor.fire('ScrollIntoView', scrollEvent);
       return scrollEvent.isDefaultPrevented();
     };
     var scrollElementIntoView = function (editor, elm, alignToTop) {
@@ -18470,8 +19187,7 @@
       return filter(MultiRange.getSelectedNodes(ranges), isTableCell);
     };
     var getCellsFromElement = function (elm) {
-      var selectedCells = descendants$1(elm, 'td[data-mce-selected],th[data-mce-selected]');
-      return selectedCells;
+      return descendants$1(elm, 'td[data-mce-selected],th[data-mce-selected]');
     };
     var getCellsFromElementOrRanges = function (ranges, element) {
       var selectedCells = getCellsFromElement(element);
@@ -18659,15 +19375,15 @@
       return false;
     };
     var findTextNodeRelative = function (dom, isAfterNode, collapsed, left, startNode) {
-      var walker, lastInlineElement, parentBlockContainer;
+      var lastInlineElement;
       var body = dom.getRoot();
       var node;
       var nonEmptyElementsMap = dom.schema.getNonEmptyElements();
-      parentBlockContainer = dom.getParent(startNode.parentNode, dom.isBlock) || body;
+      var parentBlockContainer = dom.getParent(startNode.parentNode, dom.isBlock) || body;
       if (left && NodeType.isBr(startNode) && isAfterNode && dom.isEmpty(parentBlockContainer)) {
         return Option.some(CaretPosition(startNode.parentNode, dom.nodeIndex(startNode)));
       }
-      walker = new TreeWalker(startNode, parentBlockContainer);
+      var walker = new TreeWalker(startNode, parentBlockContainer);
       while (node = walker[left ? 'prev' : 'next']()) {
         if (dom.getContentEditableParent(node) === 'false' || isCeFalseCaretContainer(node, body)) {
           return Option.none();
@@ -18689,7 +19405,7 @@
       return Option.none();
     };
     var normalizeEndPoint = function (dom, collapsed, start, rng) {
-      var container, offset, walker;
+      var container, offset;
       var body = dom.getRoot();
       var node, nonEmptyElementsMap;
       var directionLeft, isAfterNode, normalized = false;
@@ -18732,7 +19448,7 @@
           }
           if (container.hasChildNodes() && isTable$3(container) === false) {
             node = container;
-            walker = new TreeWalker(container, body);
+            var walker = new TreeWalker(container, body);
             do {
               if (NodeType.isContentEditableFalse(node) || isCaretContainer(node)) {
                 normalized = false;
@@ -20611,7 +21327,7 @@
     var trimBr = function (first, block) {
       CaretFinder.positionIn(first, block.dom()).map(function (position) {
         return position.getNode();
-      }).map(Element.fromDom).filter(isBr).each(remove$1);
+      }).map(Element.fromDom).filter(isBr$1).each(remove$1);
     };
     var mergeBlockInto = function (rootNode, fromBlock, toBlock) {
       trimBr(true, fromBlock);
@@ -20682,7 +21398,7 @@
     var BlockRangeDelete = { backspaceDelete: backspaceDelete$1 };
 
     var isBr$5 = function (pos) {
-      return getElementFromPosition(pos).exists(isBr);
+      return getElementFromPosition(pos).exists(isBr$1);
     };
     var findBr = function (forward, root, pos) {
       var parentBlocks = filter(Parents.parentsAndSelf(Element.fromDom(pos.container()), root), isBlock);
@@ -20690,10 +21406,10 @@
       return CaretFinder.fromPosition(forward, scope.dom(), pos).filter(isBr$5);
     };
     var isBeforeBr = function (root, pos) {
-      return getElementFromPosition(pos).exists(isBr) || findBr(true, root, pos).isSome();
+      return getElementFromPosition(pos).exists(isBr$1) || findBr(true, root, pos).isSome();
     };
     var isAfterBr = function (root, pos) {
-      return getElementFromPrevPosition(pos).exists(isBr) || findBr(false, root, pos).isSome();
+      return getElementFromPrevPosition(pos).exists(isBr$1) || findBr(false, root, pos).isSome();
     };
     var findPreviousBr = curry(findBr, false);
     var findNextBr = curry(findBr, true);
@@ -21013,7 +21729,7 @@
       }
       return false;
     };
-    var InlineBoundaryDelete = { backspaceDelete: backspaceDelete$4 };
+    var BoundaryDelete = { backspaceDelete: backspaceDelete$4 };
 
     var getParentInlines = function (rootElm, startElm) {
       var parents = Parents.parentsAndSelf(startElm, rootElm);
@@ -21312,11 +22028,11 @@
         },
         {
           keyCode: VK.BACKSPACE,
-          action: MatchKeys.action(InlineBoundaryDelete.backspaceDelete, editor, caret, false)
+          action: MatchKeys.action(BoundaryDelete.backspaceDelete, editor, caret, false)
         },
         {
           keyCode: VK.DELETE,
-          action: MatchKeys.action(InlineBoundaryDelete.backspaceDelete, editor, caret, true)
+          action: MatchKeys.action(BoundaryDelete.backspaceDelete, editor, caret, true)
         },
         {
           keyCode: VK.BACKSPACE,
@@ -21397,7 +22113,7 @@
       }
     };
     var moveToCaretPosition = function (editor, root) {
-      var walker, node, rng, lastNode = root, tempElm;
+      var node, rng, lastNode = root;
       var dom = editor.dom;
       var moveCaretBeforeOnEnterElementsMap = editor.schema.getMoveCaretBeforeOnEnterElements();
       if (!root) {
@@ -21412,7 +22128,7 @@
       rng = dom.createRng();
       root.normalize();
       if (root.hasChildNodes()) {
-        walker = new TreeWalker(root, root);
+        var walker = new TreeWalker(root, root);
         while (node = walker.current()) {
           if (NodeType.isText(node)) {
             rng.setStart(node, 0);
@@ -21446,7 +22162,6 @@
         }
       }
       editor.selection.setRng(rng);
-      dom.remove(tempElm);
       editor.selection.scrollIntoView(root);
     };
     var getEditableRoot = function (dom, node) {
@@ -21738,8 +22453,8 @@
         return block;
       };
       var isCaretAtStartOrEndOfBlock = function (start) {
-        var walker, node, name, normalizedOffset;
-        normalizedOffset = normalizeZwspOffset(start, container, offset);
+        var node, name;
+        var normalizedOffset = normalizeZwspOffset(start, container, offset);
         if (NodeType.isText(container) && (start ? normalizedOffset > 0 : normalizedOffset < container.nodeValue.length)) {
           return false;
         }
@@ -21752,7 +22467,7 @@
         if (containerAndSiblingName(container, 'TABLE') || containerAndSiblingName(container, 'HR')) {
           return isAfterLastNodeInContainer && !start || !isAfterLastNodeInContainer && start;
         }
-        walker = new TreeWalker(container, parentBlock);
+        var walker = new TreeWalker(container, parentBlock);
         if (NodeType.isText(container)) {
           if (start && normalizedOffset === 0) {
             walker.prev();
@@ -22476,7 +23191,7 @@
     };
     var KeyboardOverrides = { setup: setup$e };
 
-    function Quirks (editor) {
+    var Quirks = function (editor) {
       var each = Tools.each;
       var BACKSPACE = VK.BACKSPACE, DELETE = VK.DELETE, dom = editor.dom, selection = editor.selection, settings = editor.settings, parser = editor.parser;
       var isGecko = Env.gecko, isIE = Env.ie, isWebKit = Env.webkit;
@@ -22720,7 +23435,7 @@
           }
         };
         if (!settings.readonly) {
-          editor.on('BeforeExecCommand MouseDown', setOpts);
+          editor.on('BeforeExecCommand mousedown', setOpts);
         }
       };
       var addBrAfterLastLinks = function () {
@@ -22795,7 +23510,8 @@
           editor.on('keydown', function (e) {
             if (VK.metaKeyPressed(e) && !e.shiftKey && (e.keyCode === 37 || e.keyCode === 39)) {
               e.preventDefault();
-              editor.selection.getSel().modify('move', e.keyCode === 37 ? 'backward' : 'forward', 'lineboundary');
+              var selection_1 = editor.selection.getSel();
+              selection_1.modify('move', e.keyCode === 37 ? 'backward' : 'forward', 'lineboundary');
             }
           });
         }
@@ -22853,7 +23569,7 @@
       var isHidden = function () {
         var sel;
         if (!isGecko || editor.removed) {
-          return 0;
+          return false;
         }
         sel = editor.selection.getSel();
         return !sel || !sel.rangeCount || sel.rangeCount === 0;
@@ -22901,7 +23617,7 @@
         refreshContentEditable: refreshContentEditable,
         isHidden: isHidden
       };
-    }
+    };
 
     var isTextBlockNode = function (node) {
       return NodeType.isElement(node) && isTextBlock(Element.fromDom(node));
@@ -22981,7 +23697,7 @@
           node = nodes[i];
           value = node.attr(name);
           internalName = 'data-mce-' + name;
-          if (!node.attributes.map[internalName]) {
+          if (!node.attr(internalName)) {
             if (value.indexOf('data:') === 0 || value.indexOf('blob:') === 0) {
               continue;
             }
@@ -23103,7 +23819,6 @@
         url_converter: editor.convertURL,
         url_converter_scope: editor,
         hex_colors: settings.force_hex_style_colors,
-        class_filter: settings.class_filter,
         update_styles: true,
         root_element: editor.inline ? editor.getBody() : null,
         collect: function () {
@@ -23264,154 +23979,6 @@
       editor.contentCSS = editor.contentCSS.concat(getContentCssUrls(editor));
     };
 
-    var getAll = function () {
-      return {
-        'accessibility-check': '<svg width="24" height="24"><path d="M12 2a2 2 0 0 1 2 2 2 2 0 0 1-2 2 2 2 0 0 1-2-2c0-1.1.9-2 2-2zm8 7h-5v12c0 .6-.4 1-1 1a1 1 0 0 1-1-1v-5c0-.6-.4-1-1-1a1 1 0 0 0-1 1v5c0 .6-.4 1-1 1a1 1 0 0 1-1-1V9H4a1 1 0 1 1 0-2h16c.6 0 1 .4 1 1s-.4 1-1 1z" fill-rule="nonzero"/></svg>',
-        'align-center': '<svg width="24" height="24"><path d="M5 5h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm3 4h8c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 1 1 0-2zm0 8h8c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 0 1 0-2zm-3-4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
-        'align-justify': '<svg width="24" height="24"><path d="M5 5h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm0 4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm0 4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2zm0 4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
-        'align-left': '<svg width="24" height="24"><path d="M5 5h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm0 4h8c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm0 8h8c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2zm0-4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
-        'align-none': '<svg width="24" height="24"><path d="M14.2 5L13 7H5a1 1 0 1 1 0-2h9.2zm4 0h.8a1 1 0 0 1 0 2h-2l1.2-2zm-6.4 4l-1.2 2H5a1 1 0 0 1 0-2h6.8zm4 0H19a1 1 0 0 1 0 2h-4.4l1.2-2zm-6.4 4l-1.2 2H5a1 1 0 0 1 0-2h4.4zm4 0H19a1 1 0 0 1 0 2h-6.8l1.2-2zM7 17l-1.2 2H5a1 1 0 0 1 0-2h2zm4 0h8a1 1 0 0 1 0 2H9.8l1.2-2zm5.2-13.5l1.3.7-9.7 16.3-1.3-.7 9.7-16.3z" fill-rule="evenodd"/></svg>',
-        'align-right': '<svg width="24" height="24"><path d="M5 5h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 1 1 0-2zm6 4h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0 8h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm-6-4h14c.6 0 1 .4 1 1s-.4 1-1 1H5a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
-        'arrow-left': '<svg width="24" height="24"><path d="M5.6 13l12 6a1 1 0 0 0 1.4-1V6a1 1 0 0 0-1.4-.9l-12 6a1 1 0 0 0 0 1.8z" fill-rule="evenodd"/></svg>',
-        'arrow-right': '<svg width="24" height="24"><path d="M18.5 13l-12 6A1 1 0 0 1 5 18V6a1 1 0 0 1 1.4-.9l12 6a1 1 0 0 1 0 1.8z" fill-rule="evenodd"/></svg>',
-        'bold': '<svg width="24" height="24"><path d="M7.8 19c-.3 0-.5 0-.6-.2l-.2-.5V5.7c0-.2 0-.4.2-.5l.6-.2h5c1.5 0 2.7.3 3.5 1 .7.6 1.1 1.4 1.1 2.5a3 3 0 0 1-.6 1.9c-.4.6-1 1-1.6 1.2.4.1.9.3 1.3.6s.8.7 1 1.2c.4.4.5 1 .5 1.6 0 1.3-.4 2.3-1.3 3-.8.7-2.1 1-3.8 1H7.8zm5-8.3c.6 0 1.2-.1 1.6-.5.4-.3.6-.7.6-1.3 0-1.1-.8-1.7-2.3-1.7H9.3v3.5h3.4zm.5 6c.7 0 1.3-.1 1.7-.4.4-.4.6-.9.6-1.5s-.2-1-.7-1.4c-.4-.3-1-.4-2-.4H9.4v3.8h4z" fill-rule="evenodd"/></svg>',
-        'bookmark': '<svg width="24" height="24"><path d="M6 4v17l6-4 6 4V4c0-.6-.4-1-1-1H7a1 1 0 0 0-1 1z" fill-rule="nonzero"/></svg>',
-        'border-width': '<svg width="24" height="24"><path d="M5 14.8h14a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2zm-.5 3.7h15c.3 0 .5.2.5.5s-.2.5-.5.5h-15a.5.5 0 1 1 0-1zm.5-8.3h14c.6 0 1 .4 1 1v1c0 .5-.4 1-1 1H5a1 1 0 0 1-1-1v-1c0-.6.4-1 1-1zm0-5.7h14c.6 0 1 .4 1 1v2c0 .6-.4 1-1 1H5a1 1 0 0 1-1-1v-2c0-.6.4-1 1-1z" fill-rule="evenodd"/></svg>',
-        'brightness': '<svg width="24" height="24"><path d="M12 17c.3 0 .5.1.7.3.2.2.3.4.3.7v1c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3 1 1 0 0 1-.7-.3 1 1 0 0 1-.3-.7v-1c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3zm0-10a1 1 0 0 1-.7-.3A1 1 0 0 1 11 6V5c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3.3 0 .5.1.7.3.2.2.3.4.3.7v1c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3zm7 4c.3 0 .5.1.7.3.2.2.3.4.3.7 0 .3-.1.5-.3.7a1 1 0 0 1-.7.3h-1a1 1 0 0 1-.7-.3 1 1 0 0 1-.3-.7c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h1zM7 12c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3H5a1 1 0 0 1-.7-.3A1 1 0 0 1 4 12c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h1c.3 0 .5.1.7.3.2.2.3.4.3.7zm10 3.5l.7.8c.2.1.3.4.3.6 0 .3-.1.6-.3.8a1 1 0 0 1-.8.3 1 1 0 0 1-.6-.3l-.8-.7a1 1 0 0 1-.3-.8c0-.2.1-.5.3-.7a1 1 0 0 1 1.4 0zm-10-7l-.7-.8a1 1 0 0 1-.3-.6c0-.3.1-.6.3-.8.2-.2.5-.3.8-.3.2 0 .5.1.7.3l.7.7c.2.2.3.5.3.8 0 .2-.1.5-.3.7a1 1 0 0 1-.7.3 1 1 0 0 1-.8-.3zm10 0a1 1 0 0 1-.8.3 1 1 0 0 1-.7-.3 1 1 0 0 1-.3-.7c0-.3.1-.6.3-.8l.8-.7c.1-.2.4-.3.6-.3.3 0 .6.1.8.3.2.2.3.5.3.8 0 .2-.1.5-.3.7l-.7.7zm-10 7c.2-.2.5-.3.8-.3.2 0 .5.1.7.3a1 1 0 0 1 0 1.4l-.8.8a1 1 0 0 1-.6.3 1 1 0 0 1-.8-.3 1 1 0 0 1-.3-.8c0-.2.1-.5.3-.6l.7-.8zM12 8a4 4 0 0 1 3.7 2.4 4 4 0 0 1 0 3.2A4 4 0 0 1 12 16a4 4 0 0 1-3.7-2.4 4 4 0 0 1 0-3.2A4 4 0 0 1 12 8zm0 6.5c.7 0 1.3-.2 1.8-.7.5-.5.7-1.1.7-1.8s-.2-1.3-.7-1.8c-.5-.5-1.1-.7-1.8-.7s-1.3.2-1.8.7c-.5.5-.7 1.1-.7 1.8s.2 1.3.7 1.8c.5.5 1.1.7 1.8.7z" fill-rule="evenodd"/></svg>',
-        'browse': '<svg width="24" height="24"><path d="M19 4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4v-2h4V8H5v10h4v2H5a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2h14zm-8 9.4l-2.3 2.3a1 1 0 1 1-1.4-1.4l4-4a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1-1.4 1.4L13 13.4V20a1 1 0 0 1-2 0v-6.6z" fill-rule="nonzero"/></svg>',
-        'cancel': '<svg width="24" height="24"><path d="M12 4.6a7.4 7.4 0 1 1 0 14.8 7.4 7.4 0 0 1 0-14.8zM12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 8L14.8 8l1 1.1-2.7 2.8 2.7 2.7-1.1 1.1-2.7-2.7-2.7 2.7-1-1.1 2.6-2.7-2.7-2.7 1-1.1 2.8 2.7z" fill-rule="nonzero"/></svg>',
-        'change-case': '<svg width="24" height="24"><path d="M18.4 18.2v-.6c-.5.8-1.3 1.2-2.4 1.2-2.2 0-3.3-1.6-3.3-4.8 0-3.1 1-4.7 3.3-4.7 1.1 0 1.8.3 2.4 1.1v-.6c0-.5.4-.8.8-.8s.8.3.8.8v8.4c0 .5-.4.8-.8.8a.8.8 0 0 1-.8-.8zm-2-7.4c-1.3 0-1.8.9-1.8 3.2 0 2.4.5 3.3 1.7 3.3 1.3 0 1.8-.9 1.8-3.2 0-2.4-.5-3.3-1.7-3.3zM10 15.7H5.5l-.8 2.6a1 1 0 0 1-1 .7h-.2a.7.7 0 0 1-.7-1l4-12a1 1 0 1 1 2 0l4 12a.7.7 0 0 1-.8 1h-.2a1 1 0 0 1-1-.7l-.8-2.6zm-.3-1.5l-2-6.5-1.9 6.5h3.9z" fill-rule="evenodd"/></svg>',
-        'character-count': '<svg width="24" height="24"><path d="M4 11.5h16v1H4v-1zm4.8-6.8V10H7.7V5.8h-1v-1h2zM11 8.3V9h2v1h-3V7.7l2-1v-.9h-2v-1h3v2.4l-2 1zm6.3-3.4V10h-3.1V9h2.1V8h-2.1V6.8h2.1v-1h-2.1v-1h3.1zM5.8 16.4c0-.5.2-.8.5-1 .2-.2.6-.3 1.2-.3l.8.1c.2 0 .4.2.5.3l.4.4v2.8l.2.3H8.2v-.1-.2l-.6.3H7c-.4 0-.7 0-1-.2a1 1 0 0 1-.3-.9c0-.3 0-.6.3-.8.3-.2.7-.4 1.2-.4l.6-.2h.3v-.2l-.1-.2a.8.8 0 0 0-.5-.1 1 1 0 0 0-.4 0l-.3.4h-1zm2.3.8h-.2l-.2.1-.4.1a1 1 0 0 0-.4.2l-.2.2.1.3.5.1h.4l.4-.4v-.6zm2-3.4h1.2v1.7l.5-.3h.5c.5 0 .9.1 1.2.5.3.4.5.8.5 1.4 0 .6-.2 1.1-.5 1.5-.3.4-.7.6-1.3.6l-.6-.1-.4-.4v.4h-1.1v-5.4zm1.1 3.3c0 .3 0 .6.2.8a.7.7 0 0 0 1.2 0l.2-.8c0-.4 0-.6-.2-.8a.7.7 0 0 0-.6-.3l-.6.3-.2.8zm6.1-.5c0-.2 0-.3-.2-.4a.8.8 0 0 0-.5-.2c-.3 0-.5.1-.6.3l-.2.9c0 .3 0 .6.2.8.1.2.3.3.6.3.2 0 .4 0 .5-.2l.2-.4h1.1c0 .5-.3.8-.6 1.1a2 2 0 0 1-1.3.4c-.5 0-1-.2-1.3-.6a2 2 0 0 1-.5-1.4c0-.6.1-1.1.5-1.5.3-.4.8-.5 1.4-.5.5 0 1 0 1.2.3.4.3.5.7.5 1.2h-1v-.1z" fill-rule="evenodd"/></svg>',
-        'checklist': '<svg width="24" height="24"><path d="M11 17h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0-6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0-6h8a1 1 0 0 1 0 2h-8a1 1 0 0 1 0-2zM7.2 16c.2-.4.6-.5.9-.3.3.2.4.6.2 1L6 20c-.2.3-.7.4-1 0l-1.3-1.3a.7.7 0 0 1 0-1c.3-.2.7-.2 1 0l.7.9 1.7-2.8zm0-6c.2-.4.6-.5.9-.3.3.2.4.6.2 1L6 14c-.2.3-.7.4-1 0l-1.3-1.3a.7.7 0 0 1 0-1c.3-.2.7-.2 1 0l.7.9 1.7-2.8zm0-6c.2-.4.6-.5.9-.3.3.2.4.6.2 1L6 8c-.2.3-.7.4-1 0L3.8 6.9a.7.7 0 0 1 0-1c.3-.2.7-.2 1 0l.7.9 1.7-2.8z" fill-rule="evenodd"/></svg>',
-        'checkmark': '<svg width="24" height="24"><path d="M18.2 5.4a1 1 0 0 1 1.6 1.2l-8 12a1 1 0 0 1-1.5.1l-5-5a1 1 0 1 1 1.4-1.4l4.1 4.1 7.4-11z" fill-rule="nonzero"/></svg>',
-        'chevron-down': '<svg width="10" height="10"><path d="M8.7 2.2c.3-.3.8-.3 1 0 .4.4.4.9 0 1.2L5.7 7.8c-.3.3-.9.3-1.2 0L.2 3.4a.8.8 0 0 1 0-1.2c.3-.3.8-.3 1.1 0L5 6l3.7-3.8z" fill-rule="nonzero"/></svg>',
-        'chevron-left': '<svg width="10" height="10"><path d="M7.8 1.3L4 5l3.8 3.7c.3.3.3.8 0 1-.4.4-.9.4-1.2 0L2.2 5.7a.8.8 0 0 1 0-1.2L6.6.2C7 0 7.4 0 7.8.2c.3.3.3.8 0 1.1z" fill-rule="nonzero"/></svg>',
-        'chevron-right': '<svg width="10" height="10"><path d="M2.2 1.3a.8.8 0 0 1 0-1c.4-.4.9-.4 1.2 0l4.4 4.1c.3.4.3.9 0 1.2L3.4 9.8c-.3.3-.8.3-1.2 0a.8.8 0 0 1 0-1.1L6 5 2.2 1.3z" fill-rule="nonzero"/></svg>',
-        'chevron-up': '<svg width="10" height="10"><path d="M8.7 7.8L5 4 1.3 7.8c-.3.3-.8.3-1 0a.8.8 0 0 1 0-1.2l4.1-4.4c.3-.3.9-.3 1.2 0l4.2 4.4c.3.3.3.9 0 1.2-.3.3-.8.3-1.1 0z" fill-rule="nonzero"/></svg>',
-        'close': '<svg width="24" height="24"><path d="M17.3 8.2L13.4 12l3.9 3.8a1 1 0 0 1-1.5 1.5L12 13.4l-3.8 3.9a1 1 0 0 1-1.5-1.5l3.9-3.8-3.9-3.8a1 1 0 0 1 1.5-1.5l3.8 3.9 3.8-3.9a1 1 0 0 1 1.5 1.5z" fill-rule="evenodd"/></svg>',
-        'code-sample': '<svg width="24" height="26"><path d="M7.1 11a2.8 2.8 0 0 1-.8 2 2.8 2.8 0 0 1 .8 2v1.7c0 .3.1.6.4.8.2.3.5.4.8.4.3 0 .4.2.4.4v.8c0 .2-.1.4-.4.4-.7 0-1.4-.3-2-.8-.5-.6-.8-1.3-.8-2V15c0-.3-.1-.6-.4-.8-.2-.3-.5-.4-.8-.4a.4.4 0 0 1-.4-.4v-.8c0-.2.2-.4.4-.4.3 0 .6-.1.8-.4.3-.2.4-.5.4-.8V9.3c0-.7.3-1.4.8-2 .6-.5 1.3-.8 2-.8.3 0 .4.2.4.4v.8c0 .2-.1.4-.4.4-.3 0-.6.1-.8.4-.3.2-.4.5-.4.8V11zm9.8 0V9.3c0-.3-.1-.6-.4-.8-.2-.3-.5-.4-.8-.4a.4.4 0 0 1-.4-.4V7c0-.2.1-.4.4-.4.7 0 1.4.3 2 .8.5.6.8 1.3.8 2V11c0 .3.1.6.4.8.2.3.5.4.8.4.2 0 .4.2.4.4v.8c0 .2-.2.4-.4.4-.3 0-.6.1-.8.4-.3.2-.4.5-.4.8v1.7c0 .7-.3 1.4-.8 2-.6.5-1.3.8-2 .8a.4.4 0 0 1-.4-.4v-.8c0-.2.1-.4.4-.4.3 0 .6-.1.8-.4.3-.2.4-.5.4-.8V15a2.8 2.8 0 0 1 .8-2 2.8 2.8 0 0 1-.8-2zm-3.3-.4c0 .4-.1.8-.5 1.1-.3.3-.7.5-1.1.5-.4 0-.8-.2-1.1-.5-.4-.3-.5-.7-.5-1.1 0-.5.1-.9.5-1.2.3-.3.7-.4 1.1-.4.4 0 .8.1 1.1.4.4.3.5.7.5 1.2zM12 13c.4 0 .8.1 1.1.5.4.3.5.7.5 1.1 0 1-.1 1.6-.5 2a3 3 0 0 1-1.1 1c-.4.3-.8.4-1.1.4a.5.5 0 0 1-.5-.5V17a3 3 0 0 0 1-.2l.6-.6c-.6 0-1-.2-1.3-.5-.2-.3-.3-.7-.3-1 0-.5.1-1 .5-1.2.3-.4.7-.5 1.1-.5z" fill-rule="evenodd"/></svg>',
-        'color-levels': '<svg width="24" height="24"><path d="M17.5 11.4A9 9 0 0 1 18 14c0 .5 0 1-.2 1.4 0 .4-.3.9-.5 1.3a6.2 6.2 0 0 1-3.7 3 5.7 5.7 0 0 1-3.2 0A5.9 5.9 0 0 1 7.6 18a6.2 6.2 0 0 1-1.4-2.6 6.7 6.7 0 0 1 0-2.8c0-.4.1-.9.3-1.3a13.6 13.6 0 0 1 2.3-4A20 20 0 0 1 12 4a26.4 26.4 0 0 1 3.2 3.4 18.2 18.2 0 0 1 2.3 4zm-2 4.5c.4-.7.5-1.4.5-2a7.3 7.3 0 0 0-1-3.2c.2.6.2 1.2.2 1.9a4.5 4.5 0 0 1-1.3 3 5.3 5.3 0 0 1-2.3 1.5 4.9 4.9 0 0 1-2 .1 4.3 4.3 0 0 0 2.4.8 4 4 0 0 0 2-.6 4 4 0 0 0 1.5-1.5z" fill-rule="evenodd"/></svg>',
-        'color-picker': '<svg width="24" height="24"><path d="M12 3a9 9 0 0 0 0 18 1.5 1.5 0 0 0 1.1-2.5c-.2-.3-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" fill-rule="nonzero"/></svg>',
-        'color-swatch-remove-color': '<svg width="24" height="24"><path stroke="#000" stroke-width="2" d="M21 3L3 21" fill-rule="evenodd"/></svg>',
-        'color-swatch': '<svg width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="1" fill-rule="evenodd"/></svg>',
-        'comment': '<svg width="24" height="24"><path d="M9 19l3-2h7c.6 0 1-.4 1-1V6c0-.6-.4-1-1-1H5a1 1 0 0 0-1 1v10c0 .6.4 1 1 1h4v2zm-2 4v-4H5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-6.4L7 23z" fill-rule="nonzero"/></svg>',
-        'contrast': '<svg width="24" height="24"><path d="M12 4a7.8 7.8 0 0 1 5.7 2.3A8 8 0 1 1 12 4zm-6 8a6 6 0 0 0 6 6V6a6 6 0 0 0-6 6z" fill-rule="evenodd"/></svg>',
-        'copy': '<svg width="24" height="24"><path d="M16 3H6a2 2 0 0 0-2 2v11h2V5h10V3zm1 4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V9c0-1.2.9-2 2-2h7zm0 12V9h-7v10h7z" fill-rule="nonzero"/></svg>',
-        'crop': '<svg width="24" height="24"><path d="M17 8v7h2c.6 0 1 .4 1 1s-.4 1-1 1h-2v2c0 .6-.4 1-1 1a1 1 0 0 1-1-1v-2H7V9H5a1 1 0 1 1 0-2h2V5c0-.6.4-1 1-1s1 .4 1 1v2h7l3-3 1 1-3 3zM9 9v5l5-5H9zm1 6h5v-5l-5 5z" fill-rule="evenodd"/></svg>',
-        'cut': '<svg width="24" height="24"><path d="M18 15c.6.7 1 1.4 1 2.3 0 .8-.2 1.5-.7 2l-.8.5-1 .2c-.4 0-.8 0-1.2-.3a3.9 3.9 0 0 1-2.1-2.2c-.2-.5-.3-1-.2-1.5l-1-1-1 1c0 .5 0 1-.2 1.5-.1.5-.4 1-.9 1.4-.3.4-.7.6-1.2.8l-1.2.3c-.4 0-.7 0-1-.2-.3 0-.6-.3-.8-.5-.5-.5-.8-1.2-.7-2 0-.9.4-1.6 1-2.2A3.7 3.7 0 0 1 8.6 14H9l1-1-4-4-.5-1a3.3 3.3 0 0 1 0-2c0-.4.3-.7.5-1l6 6 6-6 .5 1a3.3 3.3 0 0 1 0 2c0 .4-.3.7-.5 1l-4 4 1 1h.5c.4 0 .8 0 1.2.3.5.2.9.4 1.2.8zm-8.5 2.2l.1-.4v-.3-.4a1 1 0 0 0-.2-.5 1 1 0 0 0-.4-.2 1.6 1.6 0 0 0-.8 0 2.6 2.6 0 0 0-.8.3 2.5 2.5 0 0 0-.9 1.1l-.1.4v.7l.2.5.5.2h.7a2.5 2.5 0 0 0 .8-.3 2.8 2.8 0 0 0 1-1zm2.5-2.8c.4 0 .7-.1 1-.4.3-.3.4-.6.4-1s-.1-.7-.4-1c-.3-.3-.6-.4-1-.4s-.7.1-1 .4c-.3.3-.4.6-.4 1s.1.7.4 1c.3.3.6.4 1 .4zm5.4 4l.2-.5v-.4-.3a2.6 2.6 0 0 0-.3-.8 2.4 2.4 0 0 0-.7-.7 2.5 2.5 0 0 0-.8-.3 1.5 1.5 0 0 0-.8 0 1 1 0 0 0-.4.2 1 1 0 0 0-.2.5 1.5 1.5 0 0 0 0 .7v.4l.3.4.3.4a2.8 2.8 0 0 0 .8.5l.4.1h.7l.5-.2z" fill-rule="evenodd"/></svg>',
-        'document-properties': '<svg width="24" height="24"><path d="M14.4 3H7a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2V7.6L14.4 3zM17 19H7V5h6v4h4v10z" fill-rule="nonzero"/></svg>',
-        'drag': '<svg width="24" height="24"><path d="M13 5h2v2h-2V5zm0 4h2v2h-2V9zM9 9h2v2H9V9zm4 4h2v2h-2v-2zm-4 0h2v2H9v-2zm0 4h2v2H9v-2zm4 0h2v2h-2v-2zM9 5h2v2H9V5z" fill-rule="evenodd"/></svg>',
-        'duplicate': '<svg width="24" height="24"><g fill-rule="nonzero"><path d="M16 3v2H6v11H4V5c0-1.1.9-2 2-2h10zm3 8h-2V9h-7v10h9a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V9c0-1.2.9-2 2-2h7a2 2 0 0 1 2 2v2z"/><path d="M17 14h1a1 1 0 0 1 0 2h-1v1a1 1 0 0 1-2 0v-1h-1a1 1 0 0 1 0-2h1v-1a1 1 0 0 1 2 0v1z"/></g></svg>',
-        'edit-image': '<svg width="24" height="24"><path d="M18 16h2V7a2 2 0 0 0-2-2H7v2h11v9zM6 17h15a1 1 0 0 1 0 2h-1v1a1 1 0 0 1-2 0v-1H6a2 2 0 0 1-2-2V7H3a1 1 0 1 1 0-2h1V4a1 1 0 1 1 2 0v13zm3-5.3l1.3 2 3-4.7 3.7 6H7l2-3.3z" fill-rule="nonzero"/></svg>',
-        'embed-page': '<svg width="24" height="24"><path d="M19 6V5H5v14h2A13 13 0 0 1 19 6zm0 1.4c-.8.8-1.6 2.4-2.2 4.6H19V7.4zm0 5.6h-2.4c-.4 1.8-.6 3.8-.6 6h3v-6zm-4 6c0-2.2.2-4.2.6-6H13c-.7 1.8-1.1 3.8-1.1 6h3zm-4 0c0-2.2.4-4.2 1-6H9.6A12 12 0 0 0 8 19h3zM4 3h16c.6 0 1 .4 1 1v16c0 .6-.4 1-1 1H4a1 1 0 0 1-1-1V4c0-.6.4-1 1-1zm11.8 9c.4-1.9 1-3.4 1.8-4.5a9.2 9.2 0 0 0-4 4.5h2.2zm-3.4 0a12 12 0 0 1 2.8-4 12 12 0 0 0-5 4h2.2z" fill-rule="nonzero"/></svg>',
-        'embed': '<svg width="24" height="24"><path d="M4 3h16c.6 0 1 .4 1 1v16c0 .6-.4 1-1 1H4a1 1 0 0 1-1-1V4c0-.6.4-1 1-1zm1 2v14h14V5H5zm4.8 2.6l5.6 4a.5.5 0 0 1 0 .8l-5.6 4A.5.5 0 0 1 9 16V8a.5.5 0 0 1 .8-.4z" fill-rule="nonzero"/></svg>',
-        'emoji': '<svg width="24" height="24"><path d="M9 11c.6 0 1-.4 1-1s-.4-1-1-1a1 1 0 0 0-1 1c0 .6.4 1 1 1zm6 0c.6 0 1-.4 1-1s-.4-1-1-1a1 1 0 0 0-1 1c0 .6.4 1 1 1zm-3 5.5c2.1 0 4-1.5 4.4-3.5H7.6c.5 2 2.3 3.5 4.4 3.5zM12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 14.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z" fill-rule="nonzero"/></svg>',
-        'fill': '<svg width="24" height="26"><path d="M16.6 12l-9-9-1.4 1.4 2.4 2.4-5.2 5.1c-.5.6-.5 1.6 0 2.2L9 19.6a1.5 1.5 0 0 0 2.2 0l5.5-5.5c.5-.6.5-1.6 0-2.2zM5.2 13L10 8.2l4.8 4.8H5.2zM19 14.5s-2 2.2-2 3.5c0 1.1.9 2 2 2a2 2 0 0 0 2-2c0-1.3-2-3.5-2-3.5z" fill-rule="nonzero"/></svg>',
-        'flip-horizontally': '<svg width="24" height="24"><path d="M14 19h2v-2h-2v2zm4-8h2V9h-2v2zM4 7v10c0 1.1.9 2 2 2h3v-2H6V7h3V5H6a2 2 0 0 0-2 2zm14-2v2h2a2 2 0 0 0-2-2zm-7 16h2V3h-2v18zm7-6h2v-2h-2v2zm-4-8h2V5h-2v2zm4 12a2 2 0 0 0 2-2h-2v2z" fill-rule="nonzero"/></svg>',
-        'flip-vertically': '<svg width="24" height="24"><path d="M5 14v2h2v-2H5zm8 4v2h2v-2h-2zm4-14H7a2 2 0 0 0-2 2v3h2V6h10v3h2V6a2 2 0 0 0-2-2zm2 14h-2v2a2 2 0 0 0 2-2zM3 11v2h18v-2H3zm6 7v2h2v-2H9zm8-4v2h2v-2h-2zM5 18c0 1.1.9 2 2 2v-2H5z" fill-rule="nonzero"/></svg>',
-        'format-painter': '<svg width="24" height="24"><path d="M18 5V4c0-.5-.4-1-1-1H5a1 1 0 0 0-1 1v4c0 .6.5 1 1 1h12c.6 0 1-.4 1-1V7h1v4H9v9c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-7h8V5h-3z" fill-rule="nonzero"/></svg>',
-        'fullscreen': '<svg width="24" height="24"><path d="M15.3 10l-1.2-1.3 2.9-3h-2.3a.9.9 0 1 1 0-1.7H19c.5 0 .9.4.9.9v4.4a.9.9 0 1 1-1.8 0V7l-2.9 3zm0 4l3 3v-2.3a.9.9 0 1 1 1.7 0V19c0 .5-.4.9-.9.9h-4.4a.9.9 0 1 1 0-1.8H17l-3-2.9 1.3-1.2zM10 15.4l-2.9 3h2.3a.9.9 0 1 1 0 1.7H5a.9.9 0 0 1-.9-.9v-4.4a.9.9 0 1 1 1.8 0V17l2.9-3 1.2 1.3zM8.7 10L5.7 7v2.3a.9.9 0 0 1-1.7 0V5c0-.5.4-.9.9-.9h4.4a.9.9 0 0 1 0 1.8H7l3 2.9-1.3 1.2z" fill-rule="nonzero"/></svg>',
-        'gamma': '<svg width="24" height="24"><path d="M4 3h16c.6 0 1 .4 1 1v16c0 .6-.4 1-1 1H4a1 1 0 0 1-1-1V4c0-.6.4-1 1-1zm1 2v14h14V5H5zm6.5 11.8V14L9.2 8.7a5.1 5.1 0 0 0-.4-.8l-.1-.2H8 8v-1l.3-.1.3-.1h.7a1 1 0 0 1 .6.5l.1.3a8.5 8.5 0 0 1 .3.6l1.9 4.6 2-5.2a1 1 0 0 1 1-.6.5.5 0 0 1 .5.6L13 14v2.8a.7.7 0 0 1-1.4 0z" fill-rule="nonzero"/></svg>',
-        'help': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M12 5.5a6.5 6.5 0 0 0-6 9 6.3 6.3 0 0 0 1.4 2l1 1a6.3 6.3 0 0 0 3.6 1 6.5 6.5 0 0 0 6-9 6.3 6.3 0 0 0-1.4-2l-1-1a6.3 6.3 0 0 0-3.6-1zM12 4a7.8 7.8 0 0 1 5.7 2.3A8 8 0 1 1 12 4z"/><path d="M9.6 9.7a.7.7 0 0 1-.7-.8c0-1.1 1.5-1.8 3.2-1.8 1.8 0 3.2.8 3.2 2.4 0 1.4-.4 2.1-1.5 2.8-.2 0-.3.1-.3.2a2 2 0 0 0-.8.8.8.8 0 0 1-1.4-.6c.3-.7.8-1 1.3-1.5l.4-.2c.7-.4.8-.6.8-1.5 0-.5-.6-.9-1.7-.9-.5 0-1 .1-1.4.3-.2 0-.3.1-.3.2v-.2c0 .4-.4.8-.8.8z" fill-rule="nonzero"/><circle cx="12" cy="16" r="1"/></g></svg>',
-        'highlight-bg-color': '<svg width="24" height="24"><g fill-rule="evenodd"><path id="tox-icon-highlight-bg-color__color" d="M3 18h18v3H3z"/><path fill-rule="nonzero" d="M7.7 16.7H3l3.3-3.3-.7-.8L10.2 8l4 4.1-4 4.2c-.2.2-.6.2-.8 0l-.6-.7-1.1 1.1zm5-7.5L11 7.4l3-2.9a2 2 0 0 1 2.6 0L18 6c.7.7.7 2 0 2.7l-2.9 2.9-1.8-1.8-.5-.6"/></g></svg>',
-        'home': '<svg width="24" height="24"><path fill-rule="nonzero" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>',
-        'horizontal-rule': '<svg width="24" height="24"><path d="M4 11h16v2H4z" fill-rule="evenodd"/></svg>',
-        'image-options': '<svg width="24" height="24"><path d="M6 10a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2zm12 0a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2zm-6 0a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2z" fill-rule="nonzero"/></svg>',
-        'image': '<svg width="24" height="24"><path d="M5 15.7l3.3-3.2c.3-.3.7-.3 1 0L12 15l4.1-4c.3-.4.8-.4 1 0l2 1.9V5H5v10.7zM5 18V19h3l2.8-2.9-2-2L5 17.9zm14-3l-2.5-2.4-6.4 6.5H19v-4zM4 3h16c.6 0 1 .4 1 1v16c0 .6-.4 1-1 1H4a1 1 0 0 1-1-1V4c0-.6.4-1 1-1zm6 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill-rule="nonzero"/></svg>',
-        'indent': '<svg width="24" height="24"><path d="M7 5h12c.6 0 1 .4 1 1s-.4 1-1 1H7a1 1 0 1 1 0-2zm5 4h7c.6 0 1 .4 1 1s-.4 1-1 1h-7a1 1 0 0 1 0-2zm0 4h7c.6 0 1 .4 1 1s-.4 1-1 1h-7a1 1 0 0 1 0-2zm-5 4h12a1 1 0 0 1 0 2H7a1 1 0 0 1 0-2zm-2.6-3.8L6.2 12l-1.8-1.2a1 1 0 0 1 1.2-1.6l3 2a1 1 0 0 1 0 1.6l-3 2a1 1 0 1 1-1.2-1.6z" fill-rule="evenodd"/></svg>',
-        'indeterminate': '<svg width="24" height="24"><path d="M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zM9 11a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2H9z" fill-rule="evenodd"/></svg>',
-        'info': '<svg width="24" height="24"><path d="M12 4a7.8 7.8 0 0 1 5.7 2.3A8 8 0 1 1 12 4zm-1 3v2h2V7h-2zm3 10v-1h-1v-5h-3v1h1v4h-1v1h4z" fill-rule="evenodd"/></svg>',
-        'insert-character': '<svg width="24" height="24"><path d="M15 18h4l1-2v4h-6v-3.3l1.4-1a6 6 0 0 0 1.8-2.9 6.3 6.3 0 0 0-.1-4.1 5.8 5.8 0 0 0-3-3.2c-.6-.3-1.3-.5-2.1-.5a5.1 5.1 0 0 0-3.9 1.8 6.3 6.3 0 0 0-1.3 6 6.2 6.2 0 0 0 1.8 3l1.4.9V20H4v-4l1 2h4v-.5l-2-1L5.4 15A6.5 6.5 0 0 1 4 11c0-1 .2-1.9.6-2.7A7 7 0 0 1 6.3 6C7.1 5.4 8 5 9 4.5c1-.3 2-.5 3.1-.5a8.8 8.8 0 0 1 5.7 2 7 7 0 0 1 1.7 2.3 6 6 0 0 1 .2 4.8c-.2.7-.6 1.3-1 1.9a7.6 7.6 0 0 1-3.6 2.5v.5z" fill-rule="evenodd"/></svg>',
-        'insert-time': '<svg width="24" height="24"><g fill-rule="nonzero"><path d="M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14zm0 2a9 9 0 1 1 0-18 9 9 0 0 1 0 18z"/><path d="M16 12h-3V7c0-.6-.4-1-1-1a1 1 0 0 0-1 1v7h5c.6 0 1-.4 1-1s-.4-1-1-1z"/></g></svg>',
-        'invert': '<svg width="24" height="24"><path d="M18 19.3L16.5 18a5.8 5.8 0 0 1-3.1 1.9 6.1 6.1 0 0 1-5.5-1.6A5.8 5.8 0 0 1 6 14v-.3l.1-1.2A13.9 13.9 0 0 1 7.7 9l-3-3 .7-.8 2.8 2.9 9 8.9 1.5 1.6-.7.6zm0-5.5v.3l-.1 1.1-.4 1-1.2-1.2a4.3 4.3 0 0 0 .2-1v-.2c0-.4 0-.8-.2-1.3l-.5-1.4a14.8 14.8 0 0 0-3-4.2L12 6a26.1 26.1 0 0 0-2.2 2.5l-1-1a20.9 20.9 0 0 1 2.9-3.3L12 4l1 .8a22.2 22.2 0 0 1 4 5.4c.6 1.2 1 2.4 1 3.6z" fill-rule="evenodd"/></svg>',
-        'italic': '<svg width="24" height="24"><path d="M16.7 4.7l-.1.9h-.3c-.6 0-1 0-1.4.3-.3.3-.4.6-.5 1.1l-2.1 9.8v.6c0 .5.4.8 1.4.8h.2l-.2.8H8l.2-.8h.2c1.1 0 1.8-.5 2-1.5l2-9.8.1-.5c0-.6-.4-.8-1.4-.8h-.3l.2-.9h5.8z" fill-rule="evenodd"/></svg>',
-        'line': '<svg width="24" height="24"><path d="M15 9l-8 8H4v-3l8-8 3 3zm1-1l-3-3 1-1h1c-.2 0 0 0 0 0l2 2s0 .2 0 0v1l-1 1zM4 18h16v2H4v-2z" fill-rule="evenodd"/></svg>',
-        'link': '<svg width="24" height="24"><path d="M6.2 12.3a1 1 0 0 1 1.4 1.4l-2.1 2a2 2 0 1 0 2.7 2.8l4.8-4.8a1 1 0 0 0 0-1.4 1 1 0 1 1 1.4-1.3 2.9 2.9 0 0 1 0 4L9.6 20a3.9 3.9 0 0 1-5.5-5.5l2-2zm11.6-.6a1 1 0 0 1-1.4-1.4l2-2a2 2 0 1 0-2.6-2.8L11 10.3a1 1 0 0 0 0 1.4A1 1 0 1 1 9.6 13a2.9 2.9 0 0 1 0-4L14.4 4a3.9 3.9 0 0 1 5.5 5.5l-2 2z" fill-rule="nonzero"/></svg>',
-        'list-bull-circle': '<svg width="48" height="48"><g fill-rule="evenodd"><path d="M11 16a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 1 0-6 3 3 0 0 1 0 6zM11 26a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 1 0-6 3 3 0 0 1 0 6zM11 36a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill-rule="nonzero"/><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/></g></svg>',
-        'list-bull-default': '<svg width="48" height="48"><g fill-rule="evenodd"><circle cx="11" cy="14" r="3"/><circle cx="11" cy="24" r="3"/><circle cx="11" cy="34" r="3"/><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/></g></svg>',
-        'list-bull-square': '<svg width="48" height="48"><g fill-rule="evenodd"><path d="M8 11h6v6H8zM8 21h6v6H8zM8 31h6v6H8z"/><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/></g></svg>',
-        'list-num-default': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M10 17v-4.8l-1.5 1v-1.1l1.6-1h1.2V17h-1.2zm3.6.1c-.4 0-.7-.3-.7-.7 0-.4.3-.7.7-.7.5 0 .7.3.7.7 0 .4-.2.7-.7.7zm-5 5.7c0-1.2.8-2 2.1-2s2.1.8 2.1 1.8c0 .7-.3 1.2-1.4 2.2l-1.1 1v.2h2.6v1H8.6v-.9l2-1.9c.8-.8 1-1.1 1-1.5 0-.5-.4-.8-1-.8-.5 0-.9.3-.9.9H8.5zm6.3 4.3c-.5 0-.7-.3-.7-.7 0-.4.2-.7.7-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7zM10 34.4v-1h.7c.6 0 1-.3 1-.8 0-.4-.4-.7-1-.7s-1 .3-1 .8H8.6c0-1.1 1-1.8 2.2-1.8 1.3 0 2.1.6 2.1 1.6 0 .7-.4 1.2-1 1.3v.1c.8.1 1.3.7 1.3 1.4 0 1-1 1.9-2.4 1.9-1.3 0-2.2-.8-2.3-2h1.2c0 .6.5 1 1.1 1 .7 0 1-.4 1-1 0-.5-.3-.8-1-.8h-.7zm4.7 2.7c-.4 0-.7-.3-.7-.7 0-.4.3-.7.7-.7.5 0 .8.3.8.7 0 .4-.3.7-.8.7z"/></g></svg>',
-        'list-num-lower-alpha': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M10.3 15.2c.5 0 1-.4 1-.9V14h-1c-.5.1-.8.3-.8.6 0 .4.3.6.8.6zm-.4.9c-1 0-1.5-.6-1.5-1.4 0-.8.6-1.3 1.7-1.4h1.1v-.4c0-.4-.2-.6-.7-.6-.5 0-.8.1-.9.4h-1c0-.8.8-1.4 2-1.4 1.1 0 1.8.6 1.8 1.6V16h-1.1v-.6h-.1c-.2.4-.7.7-1.3.7zm4.6 0c-.5 0-.7-.3-.7-.7 0-.4.2-.7.7-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7zm-3.2 10c-.6 0-1.2-.3-1.4-.8v.7H8.5v-6.3H10v2.5c.3-.5.8-.9 1.4-.9 1.2 0 1.9 1 1.9 2.4 0 1.5-.7 2.4-1.9 2.4zm-.4-3.7c-.7 0-1 .5-1 1.3s.3 1.4 1 1.4c.6 0 1-.6 1-1.4 0-.8-.4-1.3-1-1.3zm4 3.7c-.5 0-.7-.3-.7-.7 0-.4.2-.7.7-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7zm-2.2 7h-1.2c0-.5-.4-.8-.9-.8-.6 0-1 .5-1 1.4 0 1 .4 1.4 1 1.4.5 0 .8-.2 1-.7h1c0 1-.8 1.7-2 1.7-1.4 0-2.2-.9-2.2-2.4s.8-2.4 2.2-2.4c1.2 0 2 .7 2 1.7zm1.8 3c-.5 0-.8-.3-.8-.7 0-.4.3-.7.8-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7z"/></g></svg>',
-        'list-num-lower-greek': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M10.5 15c.7 0 1-.5 1-1.3s-.3-1.3-1-1.3c-.5 0-.9.5-.9 1.3s.4 1.4 1 1.4zm-.3 1c-1.1 0-1.8-.8-1.8-2.3 0-1.5.7-2.4 1.8-2.4.7 0 1.1.4 1.3 1h.1v-.9h1.2v3.2c0 .4.1.5.4.5h.2v.9h-.6c-.6 0-1-.2-1.1-.7h-.1c-.2.4-.7.8-1.4.8zm5 .1c-.5 0-.8-.3-.8-.7 0-.4.3-.7.7-.7.5 0 .8.3.8.7 0 .4-.3.7-.8.7zm-4.9 7v-1h.3c.6 0 1-.2 1-.7 0-.5-.4-.8-1-.8-.5 0-.8.3-.8 1v2.2c0 .8.4 1.3 1.1 1.3.6 0 1-.4 1-1s-.5-1-1.3-1h-.3zM8.6 22c0-1.5.7-2.3 2-2.3 1.2 0 2 .6 2 1.6 0 .6-.3 1-.8 1.3.8.3 1.3.8 1.3 1.7 0 1.2-.8 1.9-1.9 1.9-.6 0-1.1-.3-1.3-.8v2.2H8.5V22zm6.2 4.2c-.4 0-.7-.3-.7-.7 0-.4.3-.7.7-.7.5 0 .7.3.7.7 0 .4-.2.7-.7.7zm-4.5 8.5L8 30h1.4l1.7 3.5 1.7-3.5h1.1l-2.2 4.6v.1c.5.8.7 1.4.7 1.8 0 .4-.1.8-.4 1-.2.2-.6.3-1 .3-.9 0-1.3-.4-1.3-1.2 0-.5.2-1 .5-1.7l.1-.2zm.7 1a2 2 0 0 0-.4.9c0 .3.1.4.4.4.3 0 .4-.1.4-.4 0-.2-.1-.6-.4-1zm4.5.5c-.5 0-.8-.3-.8-.7 0-.4.3-.7.8-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7z"/></g></svg>',
-        'list-num-lower-roman': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M15.1 16v-1.2h1.3V16H15zm0 10v-1.2h1.3V26H15zm0 10v-1.2h1.3V36H15z"/><path fill-rule="nonzero" d="M12 21h1.5v5H12zM12 31h1.5v5H12zM9 21h1.5v5H9zM9 31h1.5v5H9zM6 31h1.5v5H6zM12 11h1.5v5H12zM12 19h1.5v1H12zM12 29h1.5v1H12zM9 19h1.5v1H9zM9 29h1.5v1H9zM6 29h1.5v1H6zM12 9h1.5v1H12z"/></g></svg>',
-        'list-num-upper-alpha': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M12.6 17l-.5-1.4h-2L9.5 17H8.3l2-6H12l2 6h-1.3zM11 12.3l-.7 2.3h1.6l-.8-2.3zm4.7 4.8c-.4 0-.7-.3-.7-.7 0-.4.3-.7.7-.7.5 0 .7.3.7.7 0 .4-.2.7-.7.7zM11.4 27H8.7v-6h2.6c1.2 0 1.9.6 1.9 1.5 0 .6-.5 1.2-1 1.3.7.1 1.3.7 1.3 1.5 0 1-.8 1.7-2 1.7zM10 22v1.5h1c.6 0 1-.3 1-.8 0-.4-.4-.7-1-.7h-1zm0 4H11c.7 0 1.1-.3 1.1-.8 0-.6-.4-.9-1.1-.9H10V26zm5.4 1.1c-.5 0-.8-.3-.8-.7 0-.4.3-.7.8-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7zm-4.1 10c-1.8 0-2.8-1.1-2.8-3.1s1-3.1 2.8-3.1c1.4 0 2.5.9 2.6 2.2h-1.3c0-.7-.6-1.1-1.3-1.1-1 0-1.6.7-1.6 2s.6 2 1.6 2c.7 0 1.2-.4 1.4-1h1.2c-.1 1.3-1.2 2.2-2.6 2.2zm4.5 0c-.5 0-.8-.3-.8-.7 0-.4.3-.7.8-.7.4 0 .7.3.7.7 0 .4-.3.7-.7.7z"/></g></svg>',
-        'list-num-upper-roman': '<svg width="48" height="48"><g fill-rule="evenodd"><path opacity=".2" d="M18 12h22v4H18zM18 22h22v4H18zM18 32h22v4H18z"/><path d="M15.1 17v-1.2h1.3V17H15zm0 10v-1.2h1.3V27H15zm0 10v-1.2h1.3V37H15z"/><path fill-rule="nonzero" d="M12 20h1.5v7H12zM12 30h1.5v7H12zM9 20h1.5v7H9zM9 30h1.5v7H9zM6 30h1.5v7H6zM12 10h1.5v7H12z"/></g></svg>',
-        'lock': '<svg width="24" height="24"><path d="M16.3 11c.2 0 .3 0 .5.2l.2.6v7.4c0 .3 0 .4-.2.6l-.6.2H7.8c-.3 0-.4 0-.6-.2a.7.7 0 0 1-.2-.6v-7.4c0-.3 0-.4.2-.6l.5-.2H8V8c0-.8.3-1.5.9-2.1.6-.6 1.3-.9 2.1-.9h2c.8 0 1.5.3 2.1.9.6.6.9 1.3.9 2.1v3h.3zM10 8v3h4V8a1 1 0 0 0-.3-.7A1 1 0 0 0 13 7h-2a1 1 0 0 0-.7.3 1 1 0 0 0-.3.7z" fill-rule="evenodd"/></svg>',
-        'ltr': '<svg width="24" height="24"><path d="M11 5h7a1 1 0 0 1 0 2h-1v11a1 1 0 0 1-2 0V7h-2v11a1 1 0 0 1-2 0v-6c-.5 0-1 0-1.4-.3A3.4 3.4 0 0 1 7.8 10a3.3 3.3 0 0 1 0-2.8 3.4 3.4 0 0 1 1.8-1.8L11 5zM4.4 16.2L6.2 15l-1.8-1.2a1 1 0 0 1 1.2-1.6l3 2a1 1 0 0 1 0 1.6l-3 2a1 1 0 1 1-1.2-1.6z" fill-rule="evenodd"/></svg>',
-        'more-drawer': '<svg width="24" height="24"><path d="M6 10a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2zm12 0a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2zm-6 0a2 2 0 0 0-2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2 2 2 0 0 0-2-2z" fill-rule="nonzero"/></svg>',
-        'new-document': '<svg width="24" height="24"><path d="M14.4 3H7a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2V7.6L14.4 3zM17 19H7V5h6v4h4v10z" fill-rule="nonzero"/></svg>',
-        'new-tab': '<svg width="24" height="24"><path d="M15 13l2-2v8H5V7h8l-2 2H7v8h8v-4zm4-8v5.5l-2-2-5.6 5.5H10v-1.4L15.5 7l-2-2H19z" fill-rule="evenodd"/></svg>',
-        'non-breaking': '<svg width="24" height="24"><path d="M11 11H8a1 1 0 1 1 0-2h3V6c0-.6.4-1 1-1s1 .4 1 1v3h3c.6 0 1 .4 1 1s-.4 1-1 1h-3v3c0 .6-.4 1-1 1a1 1 0 0 1-1-1v-3zm10 4v5H3v-5c0-.6.4-1 1-1s1 .4 1 1v3h14v-3c0-.6.4-1 1-1s1 .4 1 1z" fill-rule="evenodd"/></svg>',
-        'notice': '<svg width="24" height="24"><path d="M17.8 9.8L15.4 4 20 8.5v7L15.5 20h-7L4 15.5v-7L8.5 4h7l2.3 5.8zm0 0l2.2 5.7-2.3-5.8zM13 17v-2h-2v2h2zm0-4V7h-2v6h2z" fill-rule="evenodd"/></svg>',
-        'ordered-list': '<svg width="24" height="24"><path d="M10 17h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0-6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0-6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 1 1 0-2zM6 4v3.5c0 .3-.2.5-.5.5a.5.5 0 0 1-.5-.5V5h-.5a.5.5 0 0 1 0-1H6zm-1 8.8l.2.2h1.3c.3 0 .5.2.5.5s-.2.5-.5.5H4.9a1 1 0 0 1-.9-1V13c0-.4.3-.8.6-1l1.2-.4.2-.3a.2.2 0 0 0-.2-.2H4.5a.5.5 0 0 1-.5-.5c0-.3.2-.5.5-.5h1.6c.5 0 .9.4.9 1v.1c0 .4-.3.8-.6 1l-1.2.4-.2.3zM7 17v2c0 .6-.4 1-1 1H4.5a.5.5 0 0 1 0-1h1.2c.2 0 .3-.1.3-.3 0-.2-.1-.3-.3-.3H4.4a.4.4 0 1 1 0-.8h1.3c.2 0 .3-.1.3-.3 0-.2-.1-.3-.3-.3H4.5a.5.5 0 1 1 0-1H6c.6 0 1 .4 1 1z" fill-rule="evenodd"/></svg>',
-        'orientation': '<svg width="24" height="24"><path d="M7.3 6.4L1 13l6.4 6.5 6.5-6.5-6.5-6.5zM3.7 13l3.6-3.7L11 13l-3.7 3.7-3.6-3.7zM12 6l2.8 2.7c.3.3.3.8 0 1-.3.4-.9.4-1.2 0L9.2 5.7a.8.8 0 0 1 0-1.2L13.6.2c.3-.3.9-.3 1.2 0 .3.3.3.8 0 1.1L12 4h1a9 9 0 1 1-4.3 16.9l1.5-1.5A7 7 0 1 0 13 6h-1z" fill-rule="nonzero"/></svg>',
-        'outdent': '<svg width="24" height="24"><path d="M7 5h12c.6 0 1 .4 1 1s-.4 1-1 1H7a1 1 0 1 1 0-2zm5 4h7c.6 0 1 .4 1 1s-.4 1-1 1h-7a1 1 0 0 1 0-2zm0 4h7c.6 0 1 .4 1 1s-.4 1-1 1h-7a1 1 0 0 1 0-2zm-5 4h12a1 1 0 0 1 0 2H7a1 1 0 0 1 0-2zm1.6-3.8a1 1 0 0 1-1.2 1.6l-3-2a1 1 0 0 1 0-1.6l3-2a1 1 0 0 1 1.2 1.6L6.8 12l1.8 1.2z" fill-rule="evenodd"/></svg>',
-        'page-break': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M5 11c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zm3 0h1c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 0 1 0-2zm4 0c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zm3 0h1c.6 0 1 .4 1 1s-.4 1-1 1h-1a1 1 0 0 1 0-2zm4 0c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zM7 3v5h10V3c0-.6.4-1 1-1s1 .4 1 1v7H5V3c0-.6.4-1 1-1s1 .4 1 1zM6 22a1 1 0 0 1-1-1v-7h14v7c0 .6-.4 1-1 1a1 1 0 0 1-1-1v-5H7v5c0 .6-.4 1-1 1z"/></g></svg>',
-        'paragraph': '<svg width="24" height="24"><path d="M10 5h7a1 1 0 0 1 0 2h-1v11a1 1 0 0 1-2 0V7h-2v11a1 1 0 0 1-2 0v-6c-.5 0-1 0-1.4-.3A3.4 3.4 0 0 1 6.8 10a3.3 3.3 0 0 1 0-2.8 3.4 3.4 0 0 1 1.8-1.8L10 5z" fill-rule="evenodd"/></svg>',
-        'paste-text': '<svg width="24" height="24"><path d="M18 9V5h-2v1c0 .6-.4 1-1 1H9a1 1 0 0 1-1-1V5H6v13h3V9h9zM9 20H6a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.2A3 3 0 0 1 12 1a3 3 0 0 1 2.8 2H18a2 2 0 0 1 2 2v4h1v12H9v-1zm1.5-9.5v9h9v-9h-9zM12 3a1 1 0 0 0-1 1c0 .5.4 1 1 1s1-.5 1-1-.4-1-1-1zm0 9h6v2h-.5l-.5-1h-1v4h.8v1h-3.6v-1h.8v-4h-1l-.5 1H12v-2z" fill-rule="nonzero"/></svg>',
-        'paste': '<svg width="24" height="24"><path d="M18 9V5h-2v1c0 .6-.4 1-1 1H9a1 1 0 0 1-1-1V5H6v13h3V9h9zM9 20H6a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.2A3 3 0 0 1 12 1a3 3 0 0 1 2.8 2H18a2 2 0 0 1 2 2v4h1v12H9v-1zm1.5-9.5v9h9v-9h-9zM12 3a1 1 0 0 0-1 1c0 .5.4 1 1 1s1-.5 1-1-.4-1-1-1z" fill-rule="nonzero"/></svg>',
-        'permanent-pen': '<svg width="24" height="24"><path d="M10.5 17.5L8 20H3v-3l3.5-3.5a2 2 0 0 1 0-3L14 3l1 1-7.3 7.3a1 1 0 0 0 0 1.4l3.6 3.6c.4.4 1 .4 1.4 0L20 9l1 1-7.6 7.6a2 2 0 0 1-2.8 0l-.1-.1z" fill-rule="nonzero"/></svg>',
-        'plus': '<svg width="24" height="24"><g fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round" stroke="#000" stroke-width="2"><path d="M12 5v14M5 12h14"/></g></svg>',
-        'preferences': '<svg width="24" height="24"><path d="M20.1 13.5l-1.9.2a5.8 5.8 0 0 1-.6 1.5l1.2 1.5c.4.4.3 1 0 1.4l-.7.7a1 1 0 0 1-1.4 0l-1.5-1.2a6.2 6.2 0 0 1-1.5.6l-.2 1.9c0 .5-.5.9-1 .9h-1a1 1 0 0 1-1-.9l-.2-1.9a5.8 5.8 0 0 1-1.5-.6l-1.5 1.2a1 1 0 0 1-1.4 0l-.7-.7a1 1 0 0 1 0-1.4l1.2-1.5a6.2 6.2 0 0 1-.6-1.5l-1.9-.2a1 1 0 0 1-.9-1v-1c0-.5.4-1 .9-1l1.9-.2a5.8 5.8 0 0 1 .6-1.5L5.2 7.3a1 1 0 0 1 0-1.4l.7-.7a1 1 0 0 1 1.4 0l1.5 1.2a6.2 6.2 0 0 1 1.5-.6l.2-1.9c0-.5.5-.9 1-.9h1c.5 0 1 .4 1 .9l.2 1.9a5.8 5.8 0 0 1 1.5.6l1.5-1.2a1 1 0 0 1 1.4 0l.7.7c.3.4.4 1 0 1.4l-1.2 1.5a6.2 6.2 0 0 1 .6 1.5l1.9.2c.5 0 .9.5.9 1v1c0 .5-.4 1-.9 1zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" fill-rule="evenodd"/></svg>',
-        'preview': '<svg width="24" height="24"><path d="M3.5 12.5c.5.8 1.1 1.6 1.8 2.3 2 2 4.2 3.2 6.7 3.2s4.7-1.2 6.7-3.2a16.2 16.2 0 0 0 2.1-2.8 15.7 15.7 0 0 0-2.1-2.8c-2-2-4.2-3.2-6.7-3.2a9.3 9.3 0 0 0-6.7 3.2A16.2 16.2 0 0 0 3.2 12c0 .2.2.3.3.5zm-2.4-1l.7-1.2L4 7.8C6.2 5.4 8.9 4 12 4c3 0 5.8 1.4 8.1 3.8a18.2 18.2 0 0 1 2.8 3.7v1l-.7 1.2-2.1 2.5c-2.3 2.4-5 3.8-8.1 3.8-3 0-5.8-1.4-8.1-3.8a18.2 18.2 0 0 1-2.8-3.7 1 1 0 0 1 0-1zm12-3.3a2 2 0 1 0 2.7 2.6 4 4 0 1 1-2.6-2.6z" fill-rule="nonzero"/></svg>',
-        'print': '<svg width="24" height="24"><path d="M18 8H6a3 3 0 0 0-3 3v6h2v3h14v-3h2v-6a3 3 0 0 0-3-3zm-1 10H7v-4h10v4zm.5-5c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5 1.5.7 1.5 1.5-.7 1.5-1.5 1.5zm.5-8H6v2h12V5z" fill-rule="nonzero"/></svg>',
-        'quote': '<svg width="24" height="24"><path d="M7.5 17h.9c.4 0 .7-.2.9-.6L11 13V8c0-.6-.4-1-1-1H6a1 1 0 0 0-1 1v4c0 .6.4 1 1 1h2l-1.3 2.7a1 1 0 0 0 .8 1.3zm8 0h.9c.4 0 .7-.2.9-.6L19 13V8c0-.6-.4-1-1-1h-4a1 1 0 0 0-1 1v4c0 .6.4 1 1 1h2l-1.3 2.7a1 1 0 0 0 .8 1.3z" fill-rule="nonzero"/></svg>',
-        'redo': '<svg width="24" height="24"><path d="M17.6 10H12c-2.8 0-4.4 1.4-4.9 3.5-.4 2 .3 4 1.4 4.6a1 1 0 1 1-1 1.8c-2-1.2-2.9-4.1-2.3-6.8.6-3 3-5.1 6.8-5.1h5.6l-3.3-3.3a1 1 0 1 1 1.4-1.4l5 5a1 1 0 0 1 0 1.4l-5 5a1 1 0 0 1-1.4-1.4l3.3-3.3z" fill-rule="nonzero"/></svg>',
-        'reload': '<svg width="24" height="24"><g fill-rule="nonzero"><path d="M5 22.1l-1.2-4.7v-.2a1 1 0 0 1 1-1l5 .4a1 1 0 1 1-.2 2l-2.2-.2a7.8 7.8 0 0 0 8.4.2 7.5 7.5 0 0 0 3.5-6.4 1 1 0 1 1 2 0 9.5 9.5 0 0 1-4.5 8 9.9 9.9 0 0 1-10.2 0l.4 1.4a1 1 0 1 1-2 .5zM13.6 7.4c0-.5.5-1 1-.9l2.8.2a8 8 0 0 0-9.5-1 7.5 7.5 0 0 0-3.6 7 1 1 0 0 1-2 0 9.5 9.5 0 0 1 4.5-8.6 10 10 0 0 1 10.9.3l-.3-1a1 1 0 0 1 2-.5l1.1 4.8a1 1 0 0 1-1 1.2l-5-.4a1 1 0 0 1-.9-1z"/></g></svg>',
-        'remove-formatting': '<svg width="24" height="24"><path d="M13.2 6a1 1 0 0 1 0 .2l-2.6 10a1 1 0 0 1-1 .8h-.2a.8.8 0 0 1-.8-1l2.6-10H8a1 1 0 1 1 0-2h9a1 1 0 0 1 0 2h-3.8zM5 18h7a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2zm13 1.5L16.5 18 15 19.5a.7.7 0 0 1-1-1l1.5-1.5-1.5-1.5a.7.7 0 0 1 1-1l1.5 1.5 1.5-1.5a.7.7 0 0 1 1 1L17.5 17l1.5 1.5a.7.7 0 0 1-1 1z" fill-rule="evenodd"/></svg>',
-        'remove': '<svg width="24" height="24"><path d="M16 7h3a1 1 0 0 1 0 2h-1v9a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3V9H5a1 1 0 1 1 0-2h3V6a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3v1zm-2 0V6c0-.6-.4-1-1-1h-2a1 1 0 0 0-1 1v1h4zm2 2H8v9c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V9zm-7 3a1 1 0 0 1 2 0v4a1 1 0 0 1-2 0v-4zm4 0a1 1 0 0 1 2 0v4a1 1 0 0 1-2 0v-4z" fill-rule="nonzero"/></svg>',
-        'resize-handle': '<svg width="10" height="10"><g fill-rule="nonzero"><path d="M8.1 1.1A.5.5 0 1 1 9 2l-7 7A.5.5 0 1 1 1 8l7-7zM8.1 5.1A.5.5 0 1 1 9 6l-3 3A.5.5 0 1 1 5 8l3-3z"/></g></svg>',
-        'resize': '<svg width="24" height="24"><path d="M4 5c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h6c.3 0 .5.1.7.3.2.2.3.4.3.7 0 .3-.1.5-.3.7a1 1 0 0 1-.7.3H7.4L18 16.6V13c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3.3 0 .5.1.7.3.2.2.3.4.3.7v6c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3h-6a1 1 0 0 1-.7-.3 1 1 0 0 1-.3-.7c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h3.6L6 7.4V11c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3 1 1 0 0 1-.7-.3A1 1 0 0 1 4 11V5z" fill-rule="evenodd"/></svg>',
-        'restore-draft': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M17 13c0 .6-.4 1-1 1h-4V8c0-.6.4-1 1-1s1 .4 1 1v4h2c.6 0 1 .4 1 1z"/><path d="M4.7 10H9a1 1 0 0 1 0 2H3a1 1 0 0 1-1-1V5a1 1 0 1 1 2 0v3l2.5-2.4a9.2 9.2 0 0 1 10.8-1.5A9 9 0 0 1 13.4 21c-2.4.1-4.7-.7-6.5-2.2a1 1 0 1 1 1.3-1.5 7.2 7.2 0 0 0 11.6-3.7 7 7 0 0 0-3.5-7.7A7.2 7.2 0 0 0 8 7L4.7 10z" fill-rule="nonzero"/></g></svg>',
-        'rotate-left': '<svg width="24" height="24"><path d="M4.7 10H9a1 1 0 0 1 0 2H3a1 1 0 0 1-1-1V5a1 1 0 1 1 2 0v3l2.5-2.4a9.2 9.2 0 0 1 10.8-1.5A9 9 0 0 1 13.4 21c-2.4.1-4.7-.7-6.5-2.2a1 1 0 1 1 1.3-1.5 7.2 7.2 0 0 0 11.6-3.7 7 7 0 0 0-3.5-7.7A7.2 7.2 0 0 0 8 7L4.7 10z" fill-rule="nonzero"/></svg>',
-        'rotate-right': '<svg width="24" height="24"><path d="M20 8V5a1 1 0 0 1 2 0v6c0 .6-.4 1-1 1h-6a1 1 0 0 1 0-2h4.3L16 7A7.2 7.2 0 0 0 7.7 6a7 7 0 0 0 3 13.1c1.9.1 3.7-.5 5-1.7a1 1 0 0 1 1.4 1.5A9.2 9.2 0 0 1 2.2 14c-.9-3.9 1-8 4.5-9.9 3.5-1.9 8-1.3 10.8 1.5L20 8z" fill-rule="nonzero"/></svg>',
-        'rtl': '<svg width="24" height="24"><path d="M8 5h8v2h-2v12h-2V7h-2v12H8v-7c-.5 0-1 0-1.4-.3A3.4 3.4 0 0 1 4.8 10a3.3 3.3 0 0 1 0-2.8 3.4 3.4 0 0 1 1.8-1.8L8 5zm12 11.2a1 1 0 1 1-1 1.6l-3-2a1 1 0 0 1 0-1.6l3-2a1 1 0 1 1 1 1.6L18.4 15l1.8 1.2z" fill-rule="evenodd"/></svg>',
-        'save': '<svg width="24" height="24"><path d="M5 16h14a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2c0-1.1.9-2 2-2zm0 2v2h14v-2H5zm10 0h2v2h-2v-2zm-4-6.4L8.7 9.3a1 1 0 1 0-1.4 1.4l4 4c.4.4 1 .4 1.4 0l4-4a1 1 0 1 0-1.4-1.4L13 11.6V4a1 1 0 0 0-2 0v7.6z" fill-rule="nonzero"/></svg>',
-        'search': '<svg width="24" height="24"><path d="M16 17.3a8 8 0 1 1 1.4-1.4l4.3 4.4a1 1 0 0 1-1.4 1.4l-4.4-4.3zm-5-.3a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" fill-rule="nonzero"/></svg>',
-        'select-all': '<svg width="24" height="24"><path d="M3 5h2V3a2 2 0 0 0-2 2zm0 8h2v-2H3v2zm4 8h2v-2H7v2zM3 9h2V7H3v2zm10-6h-2v2h2V3zm6 0v2h2a2 2 0 0 0-2-2zM5 21v-2H3c0 1.1.9 2 2 2zm-2-4h2v-2H3v2zM9 3H7v2h2V3zm2 18h2v-2h-2v2zm8-8h2v-2h-2v2zm0 8a2 2 0 0 0 2-2h-2v2zm0-12h2V7h-2v2zm0 8h2v-2h-2v2zm-4 4h2v-2h-2v2zm0-16h2V3h-2v2zM7 17h10V7H7v10zm2-8h6v6H9V9z" fill-rule="nonzero"/></svg>',
-        'selected': '<svg width="24" height="24"><path d="M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zm-2.4-6.1L7 12.3a.7.7 0 0 0-1 1L9.6 17 18 8.6a.7.7 0 0 0 0-1 .7.7 0 0 0-1 0l-7.4 7.3z" fill-rule="evenodd"/></svg>',
-        'settings': '<svg width="24" height="24"><path d="M11 6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8v.3c0 .2 0 .3-.2.5l-.6.2H7.8c-.3 0-.4 0-.6-.2a.7.7 0 0 1-.2-.6V8H5a1 1 0 1 1 0-2h2v-.3c0-.2 0-.3.2-.5l.5-.2h2.5c.3 0 .4 0 .6.2l.2.5V6zM8 8h2V6H8v2zm9 2.8v.2h2c.6 0 1 .4 1 1s-.4 1-1 1h-2v.3c0 .2 0 .3-.2.5l-.6.2h-2.4c-.3 0-.4 0-.6-.2a.7.7 0 0 1-.2-.6V13H5a1 1 0 0 1 0-2h8v-.3c0-.2 0-.3.2-.5l.6-.2h2.4c.3 0 .4 0 .6.2l.2.6zM14 13h2v-2h-2v2zm-3 2.8v.2h8c.6 0 1 .4 1 1s-.4 1-1 1h-8v.3c0 .2 0 .3-.2.5l-.6.2H7.8c-.3 0-.4 0-.6-.2a.7.7 0 0 1-.2-.6V18H5a1 1 0 0 1 0-2h2v-.3c0-.2 0-.3.2-.5l.5-.2h2.5c.3 0 .4 0 .6.2l.2.6zM8 18h2v-2H8v2z" fill-rule="evenodd"/></svg>',
-        'sharpen': '<svg width="24" height="24"><path d="M16 6l4 4-8 9-8-9 4-4h8zm-4 10.2l5.5-6.2-.1-.1H12v-.3h5.1l-.2-.2H12V9h4.6l-.2-.2H12v-.3h4.1l-.2-.2H12V8h3.6l-.2-.2H8.7L6.5 10l.1.1H12v.3H6.9l.2.2H12v.3H7.3l.2.2H12v.3H7.7l.3.2h4v.3H8.2l.2.2H12v.3H8.6l.3.2H12v.3H9l.3.2H12v.3H9.5l.2.2H12v.3h-2l.2.2H12v.3h-1.6l.2.2H12v.3h-1.1l.2.2h.9v.3h-.7l.2.2h.5v.3h-.3l.3.2z" fill-rule="evenodd"/></svg>',
-        'sourcecode': '<svg width="24" height="24"><g fill-rule="nonzero"><path d="M9.8 15.7c.3.3.3.8 0 1-.3.4-.9.4-1.2 0l-4.4-4.1a.8.8 0 0 1 0-1.2l4.4-4.2c.3-.3.9-.3 1.2 0 .3.3.3.8 0 1.1L6 12l3.8 3.7zM14.2 15.7c-.3.3-.3.8 0 1 .4.4.9.4 1.2 0l4.4-4.1c.3-.3.3-.9 0-1.2l-4.4-4.2a.8.8 0 0 0-1.2 0c-.3.3-.3.8 0 1.1L18 12l-3.8 3.7z"/></g></svg>',
-        'spell-check': '<svg width="24" height="24"><path d="M6 8v3H5V5c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h2c.3 0 .5.1.7.3.2.2.3.4.3.7v6H8V8H6zm0-3v2h2V5H6zm13 0h-3v5h3v1h-3a1 1 0 0 1-.7-.3 1 1 0 0 1-.3-.7V5c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h3v1zm-5 1.5l-.1.7c-.1.2-.3.3-.6.3.3 0 .5.1.6.3l.1.7V10c0 .3-.1.5-.3.7a1 1 0 0 1-.7.3h-3V4h3c.3 0 .5.1.7.3.2.2.3.4.3.7v1.5zM13 10V8h-2v2h2zm0-3V5h-2v2h2zm3 5l1 1-6.5 7L7 15.5l1.3-1 2.2 2.2L16 12z" fill-rule="evenodd"/></svg>',
-        'strike-through': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M15.6 8.5c-.5-.7-1-1.1-1.3-1.3-.6-.4-1.3-.6-2-.6-2.7 0-2.8 1.7-2.8 2.1 0 1.6 1.8 2 3.2 2.3 4.4.9 4.6 2.8 4.6 3.9 0 1.4-.7 4.1-5 4.1A6.2 6.2 0 0 1 7 16.4l1.5-1.1c.4.6 1.6 2 3.7 2 1.6 0 2.5-.4 3-1.2.4-.8.3-2-.8-2.6-.7-.4-1.6-.7-2.9-1-1-.2-3.9-.8-3.9-3.6C7.6 6 10.3 5 12.4 5c2.9 0 4.2 1.6 4.7 2.4l-1.5 1.1z"/><path d="M5 11h14a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2z" fill-rule="nonzero"/></g></svg>',
-        'subscript': '<svg width="24" height="24"><path d="M10.4 10l4.6 4.6-1.4 1.4L9 11.4 4.4 16 3 14.6 7.6 10 3 5.4 4.4 4 9 8.6 13.6 4 15 5.4 10.4 10zM21 19h-5v-1l1-.8 1.7-1.6c.3-.4.5-.8.5-1.2 0-.3 0-.6-.2-.7-.2-.2-.5-.3-.9-.3a2 2 0 0 0-.8.2l-.7.3-.4-1.1 1-.6 1.2-.2c.8 0 1.4.3 1.8.7.4.4.6.9.6 1.5s-.2 1.1-.5 1.6a8 8 0 0 1-1.3 1.3l-.6.6h2.6V19z" fill-rule="nonzero"/></svg>',
-        'superscript': '<svg width="24" height="24"><path d="M15 9.4L10.4 14l4.6 4.6-1.4 1.4L9 15.4 4.4 20 3 18.6 7.6 14 3 9.4 4.4 8 9 12.6 13.6 8 15 9.4zm5.9 1.6h-5v-1l1-.8 1.7-1.6c.3-.5.5-.9.5-1.3 0-.3 0-.5-.2-.7-.2-.2-.5-.3-.9-.3l-.8.2-.7.4-.4-1.2c.2-.2.5-.4 1-.5.3-.2.8-.2 1.2-.2.8 0 1.4.2 1.8.6.4.4.6 1 .6 1.6 0 .5-.2 1-.5 1.5l-1.3 1.4-.6.5h2.6V11z" fill-rule="nonzero"/></svg>',
-        'table-cell-properties': '<svg width="24" height="24"><path d="M4 5h16v14H4V5zm10 10h-4v3h4v-3zm0-8h-4v3h4V7zM9 7H5v3h4V7zm-4 4v3h4v-3H5zm10 0v3h4v-3h-4zm0-1h4V7h-4v3zM5 15v3h4v-3H5zm10 3h4v-3h-4v3z" fill-rule="evenodd"/></svg>',
-        'table-cell-select-all': '<svg width="24" height="24"><path d="M12.5 5.5v6h6v-6h-6zm-1 0h-6v6h6v-6zm1 13h6v-6h-6v6zm-1 0v-6h-6v6h6zm-7-14h15v15h-15v-15z" fill-rule="nonzero"/></svg>',
-        'table-cell-select-inner': '<svg width="24" height="24"><g fill-rule="nonzero"><path d="M5.5 5.5v13h13v-13h-13zm-1-1h15v15h-15v-15z" opacity=".2"/><path d="M11.5 11.5v-7h1v7h7v1h-7v7h-1v-7h-7v-1h7z"/></g></svg>',
-        'table-delete-column': '<svg width="24" height="24"><path d="M9 11.2l1 1v.2l-1 1v-2.2zm5 1l1-1v2.2l-1-1v-.2zM20 5v14H4V5h16zm-1 2h-4v.8l-.2-.2-.8.8V7h-4v1.4l-.8-.8-.2.2V7H5v11h4v-1.8l.5.5.5-.4V18h4v-1.8l.8.8.2-.3V18h4V7zm-3.9 3.4l-1.8 1.9 1.8 1.9c.4.3.4.9 0 1.2-.3.3-.8.3-1.2 0L12 13.5l-1.8 1.9a.8.8 0 0 1-1.2 0 .9.9 0 0 1 0-1.2l1.8-1.9-1.9-2a.9.9 0 0 1 1.2-1.2l2 2 1.8-1.8c.3-.4.9-.4 1.2 0a.8.8 0 0 1 0 1.1z" fill-rule="evenodd"/></svg>',
-        'table-delete-row': '<svg width="24" height="24"><path d="M16.7 8.8l1.1 1.2-2.4 2.5L18 15l-1.2 1.2-2.5-2.5-2.4 2.5-1.3-1.2 2.5-2.5-2.5-2.5 1.2-1.3 2.6 2.6 2.4-2.5zM4 5h16v14H4V5zm15 5V7H5v3h4.8l1 1H5v3h5.8l-1 1H5v3h14v-3h-.4l-1-1H19v-3h-1.3l1-1h.3z" fill-rule="evenodd"/></svg>',
-        'table-delete-table': '<svg width="24" height="26"><path d="M4 6h16v14H4V6zm1 2v11h14V8H5zm11.7 8.7l-1.5 1.5L12 15l-3.3 3.2-1.4-1.5 3.2-3.2-3.3-3.2 1.5-1.5L12 12l3.2-3.2 1.5 1.5-3.2 3.2 3.2 3.2z" fill-rule="evenodd"/></svg>',
-        'table-insert-column-after': '<svg width="24" height="24"><path d="M14.3 9c.4 0 .7.3.7.6v2.2h2.1c.4 0 .7.3.7.7 0 .4-.3.7-.7.7H15v2.2c0 .3-.3.6-.7.6a.7.7 0 0 1-.6-.6v-2.2h-2.2a.7.7 0 0 1 0-1.4h2.2V9.6c0-.3.3-.6.6-.6zM4 5h16v14H4V5zm5 13v-3H5v3h4zm0-4v-3H5v3h4zm0-4V7H5v3h4zm10 8V7h-9v11h9z" fill-rule="evenodd"/></svg>',
-        'table-insert-column-before': '<svg width="24" height="24"><path d="M9.7 16a.7.7 0 0 1-.7-.6v-2.2H6.9a.7.7 0 0 1 0-1.4H9V9.6c0-.3.3-.6.7-.6.3 0 .6.3.6.6v2.2h2.2c.4 0 .8.3.8.7 0 .4-.4.7-.8.7h-2.2v2.2c0 .3-.3.6-.6.6zM4 5h16v14H4V5zm10 13V7H5v11h9zm5 0v-3h-4v3h4zm0-4v-3h-4v3h4zm0-4V7h-4v3h4z" fill-rule="evenodd"/></svg>',
-        'table-insert-row-above': '<svg width="24" height="24"><path d="M14.8 10.5c0 .3-.2.5-.5.5h-1.8v1.8c0 .3-.2.5-.5.5a.5.5 0 0 1-.5-.6V11H9.7a.5.5 0 0 1 0-1h1.8V8.3c0-.3.2-.6.5-.6s.5.3.5.6V10h1.8c.3 0 .5.2.5.5zM4 5h16v14H4V5zm5 13v-3H5v3h4zm5 0v-3h-4v3h4zm5 0v-3h-4v3h4zm0-4V7H5v7h14z" fill-rule="evenodd"/></svg>',
-        'table-insert-row-after': '<svg width="24" height="24"><path d="M9.2 14.5c0-.3.2-.5.5-.5h1.8v-1.8c0-.3.2-.5.5-.5s.5.2.5.6V14h1.8c.3 0 .5.2.5.5s-.2.5-.5.5h-1.8v1.7c0 .3-.2.6-.5.6a.5.5 0 0 1-.5-.6V15H9.7a.5.5 0 0 1-.5-.5zM4 5h16v14H4V5zm6 2v3h4V7h-4zM5 7v3h4V7H5zm14 11v-7H5v7h14zm0-8V7h-4v3h4z" fill-rule="evenodd"/></svg>',
-        'table-left-header': '<svg width="24" height="24"><path d="M4 5h16v13H4V5zm10 12v-3h-4v3h4zm0-4v-3h-4v3h4zm0-4V6h-4v3h4zm5 8v-3h-4v3h4zm0-4v-3h-4v3h4zm0-4V6h-4v3h4z" fill-rule="evenodd"/></svg>',
-        'table-merge-cells': '<svg width="24" height="24"><path d="M4 5h16v14H4V5zm6 13h9v-7h-9v7zm4-11h-4v3h4V7zM9 7H5v3h4V7zm-4 4v3h4v-3H5zm10-1h4V7h-4v3zM5 15v3h4v-3H5z" fill-rule="evenodd"/></svg>',
-        'table-row-properties': '<svg width="24" height="24"><path d="M4 5h16v14H4V5zm10 10h-4v3h4v-3zm0-8h-4v3h4V7zM9 7H5v3h4V7zm6 3h4V7h-4v3zM5 15v3h4v-3H5zm10 3h4v-3h-4v3z" fill-rule="evenodd"/></svg>',
-        'table-split-cells': '<svg width="24" height="24"><path d="M4 5h16v14H4V5zm6 2v3h4V7h-4zM9 18v-3H5v3h4zm0-4v-3H5v3h4zm0-4V7H5v3h4zm10 8v-7h-9v7h9zm0-8V7h-4v3h4zm-3.5 4.5l1.5 1.6c.3.2.3.7 0 1-.2.2-.7.2-1 0l-1.5-1.6-1.6 1.5c-.2.3-.7.3-1 0a.7.7 0 0 1 0-1l1.6-1.5-1.5-1.6a.7.7 0 0 1 1-1l1.5 1.6 1.6-1.5c.2-.3.7-.3 1 0 .2.2.2.7 0 1l-1.6 1.5z" fill-rule="evenodd"/></svg>',
-        'table-top-header': '<svg width="24" height="24"><path d="M4 5h16v13H4V5zm5 12v-3H5v3h4zm0-4v-3H5v3h4zm5 4v-3h-4v3h4zm0-4v-3h-4v3h4zm5 4v-3h-4v3h4zm0-4v-3h-4v3h4z" fill-rule="evenodd"/></svg>',
-        'table': '<svg width="24" height="24"><path d="M4 5h16v14H4V5zm6 9h4v-3h-4v3zm4 1h-4v3h4v-3zm0-8h-4v3h4V7zM9 7H5v3h4V7zm-4 4v3h4v-3H5zm10 0v3h4v-3h-4zm0-1h4V7h-4v3zM5 15v3h4v-3H5zm10 3h4v-3h-4v3z" fill-rule="evenodd"/></svg>',
-        'template': '<svg width="24" height="24"><path d="M19 19v-1H5v1h14zM9 16v-4a5 5 0 1 1 6 0v4h4a2 2 0 0 1 2 2v3H3v-3c0-1.1.9-2 2-2h4zm4 0v-5l.8-.6a3 3 0 1 0-3.6 0l.8.6v5h2z" fill-rule="nonzero"/></svg>',
-        'temporary-placeholder': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M9 7.6V6h2.5V4.5a.5.5 0 1 1 1 0V6H15v1.6a8 8 0 1 1-6 0zm-2.6 5.3a.5.5 0 0 0 .3.6c.3 0 .6 0 .6-.3l.1-.2a5 5 0 0 1 3.3-2.8c.3-.1.4-.4.4-.6-.1-.3-.4-.5-.6-.4a6 6 0 0 0-4.1 3.7z"/><circle cx="14" cy="4" r="1"/><circle cx="12" cy="2" r="1"/><circle cx="10" cy="4" r="1"/></g></svg>',
-        'text-color': '<svg width="24" height="24"><g fill-rule="evenodd"><path id="tox-icon-text-color__color" d="M3 18h18v3H3z"/><path d="M8.7 16h-.8a.5.5 0 0 1-.5-.6l2.7-9c.1-.3.3-.4.5-.4h2.8c.2 0 .4.1.5.4l2.7 9a.5.5 0 0 1-.5.6h-.8a.5.5 0 0 1-.4-.4l-.7-2.2c0-.3-.3-.4-.5-.4h-3.4c-.2 0-.4.1-.5.4l-.7 2.2c0 .3-.2.4-.4.4zm2.6-7.6l-.6 2a.5.5 0 0 0 .5.6h1.6a.5.5 0 0 0 .5-.6l-.6-2c0-.3-.3-.4-.5-.4h-.4c-.2 0-.4.1-.5.4z"/></g></svg>',
-        'toc': '<svg width="24" height="24"><path d="M5 5c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 1 1 0-2zm3 0h11c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 1 1 0-2zm-3 8c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zm3 0h11c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 0 1 0-2zm0-4c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 1 1 0-2zm3 0h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm-3 8c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zm3 0h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
-        'translate': '<svg width="24" height="24"><path d="M12.7 14.3l-.3.7-.4.7-2.2-2.2-3.1 3c-.3.4-.8.4-1 0a.7.7 0 0 1 0-1l3.1-3A12.4 12.4 0 0 1 6.7 9H8a10.1 10.1 0 0 0 1.7 2.4c.5-.5 1-1.1 1.4-1.8l.9-2H4.7a.7.7 0 1 1 0-1.5h4.4v-.7c0-.4.3-.8.7-.8.4 0 .7.4.7.8v.7H15c.4 0 .8.3.8.7 0 .4-.4.8-.8.8h-1.4a12.3 12.3 0 0 1-1 2.4 13.5 13.5 0 0 1-1.7 2.3l1.9 1.8zm4.3-3l2.7 7.3a.5.5 0 0 1-.4.7 1 1 0 0 1-1-.7l-.6-1.5h-3.4l-.6 1.5a1 1 0 0 1-1 .7.5.5 0 0 1-.4-.7l2.7-7.4a1 1 0 1 1 2 0zm-2.2 4.4h2.4L16 12.5l-1.2 3.2z" fill-rule="evenodd"/></svg>',
-        'underline': '<svg width="24" height="24"><path d="M16 5c.6 0 1 .4 1 1v5.5a4 4 0 0 1-.4 1.8l-1 1.4a5.3 5.3 0 0 1-5.5 1 5 5 0 0 1-1.6-1c-.5-.4-.8-.9-1.1-1.4a4 4 0 0 1-.4-1.8V6c0-.6.4-1 1-1s1 .4 1 1v5.5c0 .3 0 .6.2 1l.6.7a3.3 3.3 0 0 0 2.2.8 3.4 3.4 0 0 0 2.2-.8c.3-.2.4-.5.6-.8l.2-.9V6c0-.6.4-1 1-1zM8 17h8c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 0 1 0-2z" fill-rule="evenodd"/></svg>',
-        'undo': '<svg width="24" height="24"><path d="M6.4 8H12c3.7 0 6.2 2 6.8 5.1.6 2.7-.4 5.6-2.3 6.8a1 1 0 0 1-1-1.8c1.1-.6 1.8-2.7 1.4-4.6-.5-2.1-2.1-3.5-4.9-3.5H6.4l3.3 3.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 1.4L6.4 8z" fill-rule="nonzero"/></svg>',
-        'unlink': '<svg width="24" height="24"><path d="M6.2 12.3a1 1 0 0 1 1.4 1.4l-2 2a2 2 0 1 0 2.6 2.8l4.8-4.8a1 1 0 0 0 0-1.4 1 1 0 1 1 1.4-1.3 2.9 2.9 0 0 1 0 4L9.6 20a3.9 3.9 0 0 1-5.5-5.5l2-2zm11.6-.6a1 1 0 0 1-1.4-1.4l2.1-2a2 2 0 1 0-2.7-2.8L11 10.3a1 1 0 0 0 0 1.4A1 1 0 1 1 9.6 13a2.9 2.9 0 0 1 0-4L14.4 4a3.9 3.9 0 0 1 5.5 5.5l-2 2zM7.6 6.3a.8.8 0 0 1-1 1.1L3.3 4.2a.7.7 0 1 1 1-1l3.2 3.1zM5.1 8.6a.8.8 0 0 1 0 1.5H3a.8.8 0 0 1 0-1.5H5zm5-3.5a.8.8 0 0 1-1.5 0V3a.8.8 0 0 1 1.5 0V5zm6 11.8a.8.8 0 0 1 1-1l3.2 3.2a.8.8 0 0 1-1 1L16 17zm-2.2 2a.8.8 0 0 1 1.5 0V21a.8.8 0 0 1-1.5 0V19zm5-3.5a.7.7 0 1 1 0-1.5H21a.8.8 0 0 1 0 1.5H19z" fill-rule="nonzero"/></svg>',
-        'unlock': '<svg width="24" height="24"><path d="M16 5c.8 0 1.5.3 2.1.9.6.6.9 1.3.9 2.1v3h-2V8a1 1 0 0 0-.3-.7A1 1 0 0 0 16 7h-2a1 1 0 0 0-.7.3 1 1 0 0 0-.3.7v3h.3c.2 0 .3 0 .5.2l.2.6v7.4c0 .3 0 .4-.2.6l-.6.2H4.8c-.3 0-.4 0-.6-.2a.7.7 0 0 1-.2-.6v-7.4c0-.3 0-.4.2-.6l.5-.2H11V8c0-.8.3-1.5.9-2.1.6-.6 1.3-.9 2.1-.9h2z" fill-rule="evenodd"/></svg>',
-        'unordered-list': '<svg width="24" height="24"><path d="M11 5h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0 6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zm0 6h8c.6 0 1 .4 1 1s-.4 1-1 1h-8a1 1 0 0 1 0-2zM4.5 6c0-.4.1-.8.4-1 .3-.4.7-.5 1.1-.5.4 0 .8.1 1 .4.4.3.5.7.5 1.1 0 .4-.1.8-.4 1-.3.4-.7.5-1.1.5-.4 0-.8-.1-1-.4-.4-.3-.5-.7-.5-1.1zm0 6c0-.4.1-.8.4-1 .3-.4.7-.5 1.1-.5.4 0 .8.1 1 .4.4.3.5.7.5 1.1 0 .4-.1.8-.4 1-.3.4-.7.5-1.1.5-.4 0-.8-.1-1-.4-.4-.3-.5-.7-.5-1.1zm0 6c0-.4.1-.8.4-1 .3-.4.7-.5 1.1-.5.4 0 .8.1 1 .4.4.3.5.7.5 1.1 0 .4-.1.8-.4 1-.3.4-.7.5-1.1.5-.4 0-.8-.1-1-.4-.4-.3-.5-.7-.5-1.1z" fill-rule="evenodd"/></svg>',
-        'unselected': '<svg width="24" height="24"><path d="M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zm0-1a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" fill-rule="evenodd"/></svg>',
-        'upload': '<svg width="24" height="24"><path d="M18 19v-2a1 1 0 0 1 2 0v3c0 .6-.4 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 2 0v2h12zM11 6.4L8.7 8.7a1 1 0 0 1-1.4-1.4l4-4a1 1 0 0 1 1.4 0l4 4a1 1 0 1 1-1.4 1.4L13 6.4V16a1 1 0 0 1-2 0V6.4z" fill-rule="nonzero"/></svg>',
-        'user': '<svg width="24" height="24"><path d="M12 24a12 12 0 1 1 0-24 12 12 0 0 1 0 24zm-8.7-5.3a11 11 0 0 0 17.4 0C19.4 16.3 14.6 15 12 15c-2.6 0-7.4 1.3-8.7 3.7zM12 13c2.2 0 4-2 4-4.5S14.2 4 12 4 8 6 8 8.5 9.8 13 12 13z" fill-rule="nonzero"/></svg>',
-        'warning': '<svg width="24" height="24"><path d="M19.8 18.3c.2.5.3.9 0 1.2-.1.3-.5.5-1 .5H5.2c-.5 0-.9-.2-1-.5-.3-.3-.2-.7 0-1.2L11 4.7l.5-.5.5-.2c.2 0 .3 0 .5.2.2 0 .3.3.5.5l6.8 13.6zM12 18c.3 0 .5-.1.7-.3.2-.2.3-.4.3-.7a1 1 0 0 0-.3-.7 1 1 0 0 0-.7-.3 1 1 0 0 0-.7.3 1 1 0 0 0-.3.7c0 .3.1.5.3.7.2.2.4.3.7.3zm.7-3l.3-4a1 1 0 0 0-.3-.7 1 1 0 0 0-.7-.3 1 1 0 0 0-.7.3 1 1 0 0 0-.3.7l.3 4h1.4z" fill-rule="evenodd"/></svg>',
-        'zoom-in': '<svg width="24" height="24"><path d="M16 17.3a8 8 0 1 1 1.4-1.4l4.3 4.4a1 1 0 0 1-1.4 1.4l-4.4-4.3zm-5-.3a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm-1-9a1 1 0 0 1 2 0v6a1 1 0 0 1-2 0V8zm-2 4a1 1 0 0 1 0-2h6a1 1 0 0 1 0 2H8z" fill-rule="nonzero"/></svg>',
-        'zoom-out': '<svg width="24" height="24"><path d="M16 17.3a8 8 0 1 1 1.4-1.4l4.3 4.4a1 1 0 0 1-1.4 1.4l-4.4-4.3zm-5-.3a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm-3-5a1 1 0 0 1 0-2h6a1 1 0 0 1 0 2H8z" fill-rule="nonzero"/></svg>'
-      };
-    };
-
     var DOM$4 = DOMUtils$1.DOM;
     var initPlugin = function (editor, initializedPlugins, plugin) {
       var Plugin = PluginManager$1.get(plugin);
@@ -23474,7 +24041,8 @@
     };
     var renderFromThemeFunc = function (editor) {
       var elm = editor.getElement();
-      var info = editor.settings.theme(editor, elm);
+      var theme = editor.settings.theme;
+      var info = theme(editor, elm);
       if (info.editorContainer.nodeType) {
         info.editorContainer.id = info.editorContainer.id || editor.id + '_parent';
       }
@@ -23500,11 +24068,11 @@
       return editor.inline ? createThemeFalseResult(null) : renderThemeFalseIframe(targetElement);
     };
     var renderThemeUi = function (editor) {
-      var settings = editor.settings, elm = editor.getElement();
+      var elm = editor.getElement();
       editor.orgDisplay = elm.style.display;
-      if (isString(settings.theme)) {
+      if (isString(editor.settings.theme)) {
         return renderFromLoadedTheme(editor);
-      } else if (isFunction(settings.theme)) {
+      } else if (isFunction(editor.settings.theme)) {
         return renderFromThemeFunc(editor);
       } else {
         return renderThemeFalse(editor);
@@ -23655,7 +24223,7 @@
         };
         DOM$5.bind(form, 'submit reset', editor.formEventDelegate);
         editor.on('reset', function () {
-          editor.setContent(editor.startContent, { format: 'raw' });
+          editor.resetContent();
         });
         if (settings.submit_patch && !form.submit.nodeType && !form.submit.length && !form._mceOldSubmit) {
           form._mceOldSubmit = form.submit;
@@ -23699,12 +24267,6 @@
     };
     var Render = { render: render };
 
-    var setEditorCommandState = function (editor, cmd, state) {
-      try {
-        editor.getDoc().execCommand(cmd, false, state);
-      } catch (ex) {
-      }
-    };
     var toggleClass = function (elm, cls, state) {
       if (has$2(elm, cls) && state === false) {
         remove$4(elm, cls);
@@ -23712,40 +24274,103 @@
         add$3(elm, cls);
       }
     };
-    var toggleReadOnly = function (editor, state) {
-      toggleClass(Element.fromDom(editor.getBody()), 'mce-content-readonly', state);
-      if (state) {
-        editor.selection.controlSelection.hideResizeRect();
-        editor.readonly = true;
-        editor.getBody().contentEditable = 'false';
-      } else {
-        editor.readonly = false;
-        editor.getBody().contentEditable = 'true';
-        setEditorCommandState(editor, 'StyleWithCSS', false);
-        setEditorCommandState(editor, 'enableInlineTableEditing', false);
-        setEditorCommandState(editor, 'enableObjectResizing', false);
-        editor.focus();
-        editor.nodeChanged();
-      }
-    };
-    var setMode = function (editor, mode) {
-      if (mode === getMode(editor)) {
-        return;
-      }
-      if (editor.initialized) {
-        toggleReadOnly(editor, mode === 'readonly');
-      } else {
-        editor.on('init', function () {
-          toggleReadOnly(editor, mode === 'readonly');
+    var create$3 = function (editor) {
+      var activeMode = 'design';
+      var defaultModes = [
+        'design',
+        'readonly'
+      ];
+      var availableModes = {
+        design: {
+          activate: noop,
+          deactivate: noop,
+          editorReadOnly: false
+        },
+        readonly: {
+          activate: noop,
+          deactivate: noop,
+          editorReadOnly: true
+        }
+      };
+      var setEditorCommandState = function (cmd, state) {
+        try {
+          editor.getDoc().execCommand(cmd, false, state);
+        } catch (ex) {
+        }
+      };
+      var toggleReadOnly = function (state) {
+        toggleClass(Element.fromDom(editor.getBody()), 'mce-content-readonly', state);
+        if (state) {
+          editor.selection.controlSelection.hideResizeRect();
+          editor.readonly = true;
+          editor.getBody().contentEditable = 'false';
+        } else {
+          editor.readonly = false;
+          editor.getBody().contentEditable = 'true';
+          setEditorCommandState('StyleWithCSS', false);
+          setEditorCommandState('enableInlineTableEditing', false);
+          setEditorCommandState('enableObjectResizing', false);
+          editor.focus();
+          editor.nodeChanged();
+        }
+      };
+      var switchToMode = function (mode) {
+        var oldMode = availableModes[activeMode];
+        var newMode = availableModes[mode];
+        try {
+          newMode.activate();
+        } catch (e) {
+          domGlobals.console.error('problem while activating editor mode ' + mode + ':', e);
+          return;
+        }
+        oldMode.deactivate();
+        if (oldMode.editorReadOnly !== newMode.editorReadOnly) {
+          toggleReadOnly(newMode.editorReadOnly);
+        }
+        activeMode = mode;
+        Events.fireSwitchMode(editor, mode);
+      };
+      var set = function (mode) {
+        if (mode === activeMode) {
+          return;
+        } else if (!has(availableModes, mode)) {
+          throw new Error('Editor mode \'' + mode + '\' is invalid');
+        }
+        if (editor.initialized) {
+          switchToMode(mode);
+        } else {
+          editor.on('init', function () {
+            return switchToMode(mode);
+          });
+        }
+      };
+      var get = function () {
+        return activeMode;
+      };
+      var isReadOnly = function () {
+        return editor.readonly === true;
+      };
+      var register = function (mode, api) {
+        if (contains(defaultModes, mode)) {
+          throw new Error('Cannot override default mode ' + mode);
+        }
+        availableModes[mode] = __assign({}, api, {
+          deactivate: function () {
+            try {
+              api.deactivate();
+            } catch (e) {
+              domGlobals.console.error('problem while deactivating editor mode ' + mode + ':');
+              domGlobals.console.error(e);
+            }
+          }
         });
-      }
-      Events.fireSwitchMode(editor, mode);
-    };
-    var getMode = function (editor) {
-      return editor.readonly ? 'readonly' : 'design';
-    };
-    var isReadOnly = function (editor) {
-      return editor.readonly === true;
+      };
+      return {
+        isReadOnly: isReadOnly,
+        set: set,
+        get: get,
+        register: register
+      };
     };
 
     var hasOnlyOneChild$1 = function (node) {
@@ -24197,7 +24822,7 @@
         return;
       } else if (CefBoundaryDelete.backspaceDelete(editor, false)) {
         return;
-      } else if (InlineBoundaryDelete.backspaceDelete(editor, false)) {
+      } else if (BoundaryDelete.backspaceDelete(editor, false)) {
         return;
       } else if (BlockBoundaryDelete.backspaceDelete(editor, false)) {
         return;
@@ -24217,7 +24842,7 @@
         return;
       } else if (CefBoundaryDelete.backspaceDelete(editor, true)) {
         return;
-      } else if (InlineBoundaryDelete.backspaceDelete(editor, true)) {
+      } else if (BoundaryDelete.backspaceDelete(editor, true)) {
         return;
       } else if (BlockBoundaryDelete.backspaceDelete(editor, true)) {
         return;
@@ -24348,7 +24973,7 @@
       return isNaN(number) ? 0 : number;
     };
     var getIndentStyleName = function (useMargin, element) {
-      var indentStyleName = useMargin || isTable(element) ? 'margin' : 'padding';
+      var indentStyleName = useMargin || isTable$1(element) ? 'margin' : 'padding';
       var suffix = get$2(element, 'direction') === 'rtl' ? '-right' : '-left';
       return indentStyleName + suffix;
     };
@@ -24402,32 +25027,30 @@
       });
     };
 
-    var each$g = Tools.each, extend$3 = Tools.extend;
+    var each$g = Tools.each;
     var map$3 = Tools.map, inArray$2 = Tools.inArray;
-    function EditorCommands (editor) {
-      var dom, selection, formatter;
-      var commands = {
-        state: {},
-        exec: {},
-        value: {}
-      };
-      var bookmark;
-      editor.on('PreInit', function () {
-        dom = editor.dom;
-        selection = editor.selection;
-        formatter = editor.formatter;
-      });
-      var execCommand = function (command, ui, value, args) {
+    var EditorCommands = function () {
+      function EditorCommands(editor) {
+        this.commands = {
+          state: {},
+          exec: {},
+          value: {}
+        };
+        this.editor = editor;
+        this.setupCommands(editor);
+      }
+      EditorCommands.prototype.execCommand = function (command, ui, value, args) {
         var func, customCommand, state = false;
-        if (editor.removed) {
+        var self = this;
+        if (self.editor.removed) {
           return;
         }
         if (!/^(mceAddUndoLevel|mceEndUndoLevel|mceBeginUndoLevel|mceRepaint)$/.test(command) && (!args || !args.skip_focus)) {
-          editor.focus();
+          self.editor.focus();
         } else {
-          SelectionBookmark.restore(editor);
+          SelectionBookmark.restore(self.editor);
         }
-        args = editor.fire('BeforeExecCommand', {
+        args = self.editor.fire('BeforeExecCommand', {
           command: command,
           ui: ui,
           value: value
@@ -24436,18 +25059,18 @@
           return false;
         }
         customCommand = command.toLowerCase();
-        if (func = commands.exec[customCommand]) {
+        if (func = self.commands.exec[customCommand]) {
           func(customCommand, ui, value);
-          editor.fire('ExecCommand', {
+          self.editor.fire('ExecCommand', {
             command: command,
             ui: ui,
             value: value
           });
           return true;
         }
-        each$g(editor.plugins, function (p) {
+        each$g(this.editor.plugins, function (p) {
           if (p.execCommand && p.execCommand(command, ui, value)) {
-            editor.fire('ExecCommand', {
+            self.editor.fire('ExecCommand', {
               command: command,
               ui: ui,
               value: value
@@ -24459,8 +25082,8 @@
         if (state) {
           return state;
         }
-        if (editor.theme && editor.theme.execCommand && editor.theme.execCommand(command, ui, value)) {
-          editor.fire('ExecCommand', {
+        if (self.editor.theme && self.editor.theme.execCommand && self.editor.theme.execCommand(command, ui, value)) {
+          self.editor.fire('ExecCommand', {
             command: command,
             ui: ui,
             value: value
@@ -24468,11 +25091,11 @@
           return true;
         }
         try {
-          state = editor.getDoc().execCommand(command, ui, value);
+          state = self.editor.getDoc().execCommand(command, ui, value);
         } catch (ex) {
         }
         if (state) {
-          editor.fire('ExecCommand', {
+          self.editor.fire('ExecCommand', {
             command: command,
             ui: ui,
             value: value
@@ -24481,384 +25104,385 @@
         }
         return false;
       };
-      var queryCommandState = function (command) {
+      EditorCommands.prototype.queryCommandState = function (command) {
         var func;
-        if (editor.quirks.isHidden() || editor.removed) {
+        if (this.editor.quirks.isHidden() || this.editor.removed) {
           return;
         }
         command = command.toLowerCase();
-        if (func = commands.state[command]) {
+        if (func = this.commands.state[command]) {
           return func(command);
         }
         try {
-          return editor.getDoc().queryCommandState(command);
+          return this.editor.getDoc().queryCommandState(command);
         } catch (ex) {
         }
         return false;
       };
-      var queryCommandValue = function (command) {
+      EditorCommands.prototype.queryCommandValue = function (command) {
         var func;
-        if (editor.quirks.isHidden() || editor.removed) {
+        if (this.editor.quirks.isHidden() || this.editor.removed) {
           return;
         }
         command = command.toLowerCase();
-        if (func = commands.value[command]) {
+        if (func = this.commands.value[command]) {
           return func(command);
         }
         try {
-          return editor.getDoc().queryCommandValue(command);
+          return this.editor.getDoc().queryCommandValue(command);
         } catch (ex) {
         }
       };
-      var addCommands = function (commandList, type) {
+      EditorCommands.prototype.addCommands = function (commandList, type) {
+        var self = this;
         type = type || 'exec';
         each$g(commandList, function (callback, command) {
           each$g(command.toLowerCase().split(','), function (command) {
-            commands[type][command] = callback;
+            self.commands[type][command] = callback;
           });
         });
       };
-      var addCommand = function (command, callback, scope) {
+      EditorCommands.prototype.addCommand = function (command, callback, scope) {
+        var _this = this;
         command = command.toLowerCase();
-        commands.exec[command] = function (command, ui, value, args) {
-          return callback.call(scope || editor, ui, value, args);
+        this.commands.exec[command] = function (command, ui, value, args) {
+          return callback.call(scope || _this.editor, ui, value, args);
         };
       };
-      var queryCommandSupported = function (command) {
+      EditorCommands.prototype.queryCommandSupported = function (command) {
         command = command.toLowerCase();
-        if (commands.exec[command]) {
+        if (this.commands.exec[command]) {
           return true;
         }
         try {
-          return editor.getDoc().queryCommandSupported(command);
+          return this.editor.getDoc().queryCommandSupported(command);
         } catch (ex) {
         }
         return false;
       };
-      var addQueryStateHandler = function (command, callback, scope) {
+      EditorCommands.prototype.addQueryStateHandler = function (command, callback, scope) {
+        var _this = this;
         command = command.toLowerCase();
-        commands.state[command] = function () {
-          return callback.call(scope || editor);
+        this.commands.state[command] = function () {
+          return callback.call(scope || _this.editor);
         };
       };
-      var addQueryValueHandler = function (command, callback, scope) {
+      EditorCommands.prototype.addQueryValueHandler = function (command, callback, scope) {
+        var _this = this;
         command = command.toLowerCase();
-        commands.value[command] = function () {
-          return callback.call(scope || editor);
+        this.commands.value[command] = function () {
+          return callback.call(scope || _this.editor);
         };
       };
-      var hasCustomCommand = function (command) {
+      EditorCommands.prototype.hasCustomCommand = function (command) {
         command = command.toLowerCase();
-        return !!commands.exec[command];
+        return !!this.commands.exec[command];
       };
-      extend$3(this, {
-        execCommand: execCommand,
-        queryCommandState: queryCommandState,
-        queryCommandValue: queryCommandValue,
-        queryCommandSupported: queryCommandSupported,
-        addCommands: addCommands,
-        addCommand: addCommand,
-        addQueryStateHandler: addQueryStateHandler,
-        addQueryValueHandler: addQueryValueHandler,
-        hasCustomCommand: hasCustomCommand
-      });
-      var execNativeCommand = function (command, ui, value) {
+      EditorCommands.prototype.execNativeCommand = function (command, ui, value) {
         if (ui === undefined) {
           ui = false;
         }
         if (value === undefined) {
           value = null;
         }
-        return editor.getDoc().execCommand(command, ui, value);
+        return this.editor.getDoc().execCommand(command, ui, value);
       };
-      var isFormatMatch = function (name) {
-        return formatter.match(name);
+      EditorCommands.prototype.isFormatMatch = function (name) {
+        return this.editor.formatter.match(name);
       };
-      var toggleFormat = function (name, value) {
-        formatter.toggle(name, value ? { value: value } : undefined);
-        editor.nodeChanged();
+      EditorCommands.prototype.toggleFormat = function (name, value) {
+        this.editor.formatter.toggle(name, value ? { value: value } : undefined);
+        this.editor.nodeChanged();
       };
-      var storeSelection = function (type) {
-        bookmark = selection.getBookmark(type);
+      EditorCommands.prototype.storeSelection = function (type) {
+        this.selectionBookmark = this.editor.selection.getBookmark(type);
       };
-      var restoreSelection = function () {
-        selection.moveToBookmark(bookmark);
+      EditorCommands.prototype.restoreSelection = function () {
+        this.editor.selection.moveToBookmark(this.selectionBookmark);
       };
-      addCommands({
-        'mceResetDesignMode,mceBeginUndoLevel': function () {
-        },
-        'mceEndUndoLevel,mceAddUndoLevel': function () {
-          editor.undoManager.add();
-        },
-        'Cut,Copy,Paste': function (command) {
-          var doc = editor.getDoc();
-          var failed;
-          try {
-            execNativeCommand(command);
-          } catch (ex) {
-            failed = true;
-          }
-          if (command === 'paste' && !doc.queryCommandEnabled(command)) {
-            failed = true;
-          }
-          if (failed || !doc.queryCommandSupported(command)) {
-            var msg = editor.translate('Your browser doesn\'t support direct access to the clipboard. ' + 'Please use the Ctrl+X/C/V keyboard shortcuts instead.');
-            if (Env.mac) {
-              msg = msg.replace(/Ctrl\+/g, '\u2318+');
+      EditorCommands.prototype.setupCommands = function (editor) {
+        var self = this;
+        this.addCommands({
+          'mceResetDesignMode,mceBeginUndoLevel': function () {
+          },
+          'mceEndUndoLevel,mceAddUndoLevel': function () {
+            editor.undoManager.add();
+          },
+          'Cut,Copy,Paste': function (command) {
+            var doc = editor.getDoc();
+            var failed;
+            try {
+              self.execNativeCommand(command);
+            } catch (ex) {
+              failed = true;
             }
-            editor.notificationManager.open({
-              text: msg,
-              type: 'error'
+            if (command === 'paste' && !doc.queryCommandEnabled(command)) {
+              failed = true;
+            }
+            if (failed || !doc.queryCommandSupported(command)) {
+              var msg = editor.translate('Your browser doesn\'t support direct access to the clipboard. ' + 'Please use the Ctrl+X/C/V keyboard shortcuts instead.');
+              if (Env.mac) {
+                msg = msg.replace(/Ctrl\+/g, '\u2318+');
+              }
+              editor.notificationManager.open({
+                text: msg,
+                type: 'error'
+              });
+            }
+          },
+          'unlink': function () {
+            if (editor.selection.isCollapsed()) {
+              var elm = editor.dom.getParent(editor.selection.getStart(), 'a');
+              if (elm) {
+                editor.dom.remove(elm, true);
+              }
+              return;
+            }
+            editor.formatter.remove('link');
+          },
+          'JustifyLeft,JustifyCenter,JustifyRight,JustifyFull,JustifyNone': function (command) {
+            var align = command.substring(7);
+            if (align === 'full') {
+              align = 'justify';
+            }
+            each$g('left,center,right,justify'.split(','), function (name) {
+              if (align !== name) {
+                editor.formatter.remove('align' + name);
+              }
             });
-          }
-        },
-        'unlink': function () {
-          if (selection.isCollapsed()) {
-            var elm = editor.dom.getParent(editor.selection.getStart(), 'a');
-            if (elm) {
-              editor.dom.remove(elm, true);
+            if (align !== 'none') {
+              self.toggleFormat('align' + align);
             }
-            return;
-          }
-          formatter.remove('link');
-        },
-        'JustifyLeft,JustifyCenter,JustifyRight,JustifyFull,JustifyNone': function (command) {
-          var align = command.substring(7);
-          if (align === 'full') {
-            align = 'justify';
-          }
-          each$g('left,center,right,justify'.split(','), function (name) {
-            if (align !== name) {
-              formatter.remove('align' + name);
+          },
+          'InsertUnorderedList,InsertOrderedList': function (command) {
+            var listElm, listParent;
+            self.execNativeCommand(command);
+            listElm = editor.dom.getParent(editor.selection.getNode(), 'ol,ul');
+            if (listElm) {
+              listParent = listElm.parentNode;
+              if (/^(H[1-6]|P|ADDRESS|PRE)$/.test(listParent.nodeName)) {
+                self.storeSelection();
+                editor.dom.split(listParent, listElm);
+                self.restoreSelection();
+              }
             }
-          });
-          if (align !== 'none') {
-            toggleFormat('align' + align);
-          }
-        },
-        'InsertUnorderedList,InsertOrderedList': function (command) {
-          var listElm, listParent;
-          execNativeCommand(command);
-          listElm = dom.getParent(selection.getNode(), 'ol,ul');
-          if (listElm) {
-            listParent = listElm.parentNode;
-            if (/^(H[1-6]|P|ADDRESS|PRE)$/.test(listParent.nodeName)) {
-              storeSelection();
-              dom.split(listParent, listElm);
-              restoreSelection();
+          },
+          'Bold,Italic,Underline,Strikethrough,Superscript,Subscript': function (command) {
+            self.toggleFormat(command);
+          },
+          'ForeColor,HiliteColor': function (command, ui, value) {
+            self.toggleFormat(command, value);
+          },
+          'FontName': function (command, ui, value) {
+            fontNameAction(editor, value);
+          },
+          'FontSize': function (command, ui, value) {
+            fontSizeAction(editor, value);
+          },
+          'RemoveFormat': function (command) {
+            editor.formatter.remove(command);
+          },
+          'mceBlockQuote': function () {
+            self.toggleFormat('blockquote');
+          },
+          'FormatBlock': function (command, ui, value) {
+            return self.toggleFormat(value || 'p');
+          },
+          'mceCleanup': function () {
+            var bookmark = editor.selection.getBookmark();
+            editor.setContent(editor.getContent());
+            editor.selection.moveToBookmark(bookmark);
+          },
+          'mceRemoveNode': function (command, ui, value) {
+            var node = value || editor.selection.getNode();
+            if (node !== editor.getBody()) {
+              self.storeSelection();
+              editor.dom.remove(node, true);
+              self.restoreSelection();
             }
-          }
-        },
-        'Bold,Italic,Underline,Strikethrough,Superscript,Subscript': function (command) {
-          toggleFormat(command);
-        },
-        'ForeColor,HiliteColor': function (command, ui, value) {
-          toggleFormat(command, value);
-        },
-        'FontName': function (command, ui, value) {
-          fontNameAction(editor, value);
-        },
-        'FontSize': function (command, ui, value) {
-          fontSizeAction(editor, value);
-        },
-        'RemoveFormat': function (command) {
-          formatter.remove(command);
-        },
-        'mceBlockQuote': function () {
-          toggleFormat('blockquote');
-        },
-        'FormatBlock': function (command, ui, value) {
-          return toggleFormat(value || 'p');
-        },
-        'mceCleanup': function () {
-          var bookmark = selection.getBookmark();
-          editor.setContent(editor.getContent());
-          selection.moveToBookmark(bookmark);
-        },
-        'mceRemoveNode': function (command, ui, value) {
-          var node = value || selection.getNode();
-          if (node !== editor.getBody()) {
-            storeSelection();
-            editor.dom.remove(node, true);
-            restoreSelection();
-          }
-        },
-        'mceSelectNodeDepth': function (command, ui, value) {
-          var counter = 0;
-          dom.getParent(selection.getNode(), function (node) {
-            if (node.nodeType === 1 && counter++ === value) {
-              selection.select(node);
-              return false;
+          },
+          'mceSelectNodeDepth': function (command, ui, value) {
+            var counter = 0;
+            editor.dom.getParent(editor.selection.getNode(), function (node) {
+              if (node.nodeType === 1 && counter++ === value) {
+                editor.selection.select(node);
+                return false;
+              }
+            }, editor.getBody());
+          },
+          'mceSelectNode': function (command, ui, value) {
+            editor.selection.select(value);
+          },
+          'mceInsertContent': function (command, ui, value) {
+            InsertContent.insertAtCaret(editor, value);
+          },
+          'mceInsertRawHTML': function (command, ui, value) {
+            editor.selection.setContent('tiny_mce_marker');
+            var content = editor.getContent();
+            editor.setContent(content.replace(/tiny_mce_marker/g, function () {
+              return value;
+            }));
+          },
+          'mceInsertNewLine': function (command, ui, value) {
+            InsertNewLine.insert(editor, value);
+          },
+          'mceToggleFormat': function (command, ui, value) {
+            self.toggleFormat(value);
+          },
+          'mceSetContent': function (command, ui, value) {
+            editor.setContent(value);
+          },
+          'Indent,Outdent': function (command) {
+            handle(editor, command);
+          },
+          'mceRepaint': function () {
+          },
+          'InsertHorizontalRule': function () {
+            editor.execCommand('mceInsertContent', false, '<hr />');
+          },
+          'mceToggleVisualAid': function () {
+            editor.hasVisual = !editor.hasVisual;
+            editor.addVisual();
+          },
+          'mceReplaceContent': function (command, ui, value) {
+            editor.execCommand('mceInsertContent', false, value.replace(/\{\$selection\}/g, editor.selection.getContent({ format: 'text' })));
+          },
+          'mceInsertLink': function (command, ui, value) {
+            var anchor;
+            if (typeof value === 'string') {
+              value = { href: value };
             }
-          }, editor.getBody());
-        },
-        'mceSelectNode': function (command, ui, value) {
-          selection.select(value);
-        },
-        'mceInsertContent': function (command, ui, value) {
-          InsertContent.insertAtCaret(editor, value);
-        },
-        'mceInsertRawHTML': function (command, ui, value) {
-          selection.setContent('tiny_mce_marker');
-          var content = editor.getContent();
-          editor.setContent(content.replace(/tiny_mce_marker/g, function () {
-            return value;
-          }));
-        },
-        'mceInsertNewLine': function (command, ui, value) {
-          InsertNewLine.insert(editor, value);
-        },
-        'mceToggleFormat': function (command, ui, value) {
-          toggleFormat(value);
-        },
-        'mceSetContent': function (command, ui, value) {
-          editor.setContent(value);
-        },
-        'Indent,Outdent': function (command) {
-          handle(editor, command);
-        },
-        'mceRepaint': function () {
-        },
-        'InsertHorizontalRule': function () {
-          editor.execCommand('mceInsertContent', false, '<hr />');
-        },
-        'mceToggleVisualAid': function () {
-          editor.hasVisual = !editor.hasVisual;
-          editor.addVisual();
-        },
-        'mceReplaceContent': function (command, ui, value) {
-          editor.execCommand('mceInsertContent', false, value.replace(/\{\$selection\}/g, selection.getContent({ format: 'text' })));
-        },
-        'mceInsertLink': function (command, ui, value) {
-          var anchor;
-          if (typeof value === 'string') {
-            value = { href: value };
+            anchor = editor.dom.getParent(editor.selection.getNode(), 'a');
+            value.href = value.href.replace(' ', '%20');
+            if (!anchor || !value.href) {
+              editor.formatter.remove('link');
+            }
+            if (value.href) {
+              editor.formatter.apply('link', value, anchor);
+            }
+          },
+          'selectAll': function () {
+            var editingHost = editor.dom.getParent(editor.selection.getStart(), NodeType.isContentEditableTrue);
+            if (editingHost) {
+              var rng = editor.dom.createRng();
+              rng.selectNodeContents(editingHost);
+              editor.selection.setRng(rng);
+            }
+          },
+          'delete': function () {
+            DeleteCommands.deleteCommand(editor);
+          },
+          'forwardDelete': function () {
+            DeleteCommands.forwardDeleteCommand(editor);
+          },
+          'mceNewDocument': function () {
+            editor.setContent('');
+          },
+          'InsertLineBreak': function (command, ui, value) {
+            InsertBr.insert(editor, value);
+            return true;
           }
-          anchor = dom.getParent(selection.getNode(), 'a');
-          value.href = value.href.replace(' ', '%20');
-          if (!anchor || !value.href) {
-            formatter.remove('link');
-          }
-          if (value.href) {
-            formatter.apply('link', value, anchor);
-          }
-        },
-        'selectAll': function () {
-          var editingHost = dom.getParent(selection.getStart(), NodeType.isContentEditableTrue);
-          if (editingHost) {
-            var rng = dom.createRng();
-            rng.selectNodeContents(editingHost);
-            selection.setRng(rng);
-          }
-        },
-        'delete': function () {
-          DeleteCommands.deleteCommand(editor);
-        },
-        'forwardDelete': function () {
-          DeleteCommands.forwardDeleteCommand(editor);
-        },
-        'mceNewDocument': function () {
-          editor.setContent('');
-        },
-        'InsertLineBreak': function (command, ui, value) {
-          InsertBr.insert(editor, value);
-          return true;
-        }
-      });
-      var alignStates = function (name) {
-        return function () {
-          var nodes = selection.isCollapsed() ? [dom.getParent(selection.getNode(), dom.isBlock)] : selection.getSelectedBlocks();
-          var matches = map$3(nodes, function (node) {
-            return !!formatter.matchNode(node, name);
-          });
-          return inArray$2(matches, true) !== -1;
+        });
+        var alignStates = function (name) {
+          return function () {
+            var nodes = editor.selection.isCollapsed() ? [editor.dom.getParent(editor.selection.getNode(), editor.dom.isBlock)] : editor.selection.getSelectedBlocks();
+            var matches = map$3(nodes, function (node) {
+              return !!editor.formatter.matchNode(node, name);
+            });
+            return inArray$2(matches, true) !== -1;
+          };
         };
+        self.addCommands({
+          'JustifyLeft': alignStates('alignleft'),
+          'JustifyCenter': alignStates('aligncenter'),
+          'JustifyRight': alignStates('alignright'),
+          'JustifyFull': alignStates('alignjustify'),
+          'Bold,Italic,Underline,Strikethrough,Superscript,Subscript': function (command) {
+            return self.isFormatMatch(command);
+          },
+          'mceBlockQuote': function () {
+            return self.isFormatMatch('blockquote');
+          },
+          'Outdent': function () {
+            return canOutdent(editor);
+          },
+          'InsertUnorderedList,InsertOrderedList': function (command) {
+            var list = editor.dom.getParent(editor.selection.getNode(), 'ul,ol');
+            return list && (command === 'insertunorderedlist' && list.tagName === 'UL' || command === 'insertorderedlist' && list.tagName === 'OL');
+          }
+        }, 'state');
+        self.addCommands({
+          Undo: function () {
+            editor.undoManager.undo();
+          },
+          Redo: function () {
+            editor.undoManager.redo();
+          }
+        });
+        self.addQueryValueHandler('FontName', function () {
+          return fontNameQuery(editor);
+        }, this);
+        self.addQueryValueHandler('FontSize', function () {
+          return fontSizeQuery(editor);
+        }, this);
       };
-      addCommands({
-        'JustifyLeft': alignStates('alignleft'),
-        'JustifyCenter': alignStates('aligncenter'),
-        'JustifyRight': alignStates('alignright'),
-        'JustifyFull': alignStates('alignjustify'),
-        'Bold,Italic,Underline,Strikethrough,Superscript,Subscript': function (command) {
-          return isFormatMatch(command);
-        },
-        'mceBlockQuote': function () {
-          return isFormatMatch('blockquote');
-        },
-        'Outdent': function () {
-          return canOutdent(editor);
-        },
-        'InsertUnorderedList,InsertOrderedList': function (command) {
-          var list = dom.getParent(selection.getNode(), 'ul,ol');
-          return list && (command === 'insertunorderedlist' && list.tagName === 'UL' || command === 'insertorderedlist' && list.tagName === 'OL');
-        }
-      }, 'state');
-      addCommands({
-        Undo: function () {
-          editor.undoManager.undo();
-        },
-        Redo: function () {
-          editor.undoManager.redo();
-        }
-      });
-      addQueryValueHandler('FontName', function () {
-        return fontNameQuery(editor);
-      }, this);
-      addQueryValueHandler('FontSize', function () {
-        return fontSizeQuery(editor);
-      }, this);
-    }
+      return EditorCommands;
+    }();
 
     var nativeEvents = Tools.makeMap('focus blur focusin focusout click dblclick mousedown mouseup mousemove mouseover beforepaste paste cut copy selectionchange ' + 'mouseout mouseenter mouseleave wheel keydown keypress keyup input contextmenu dragstart dragend dragover ' + 'draggesture dragdrop drop drag submit ' + 'compositionstart compositionend compositionupdate touchstart touchmove touchend', ' ');
-    var Dispatcher = function (settings) {
-      var self = this;
-      var scope, bindings = {}, toggleEvent;
-      var returnFalse = function () {
-        return false;
+    var returnFalse$1 = function () {
+      return false;
+    };
+    var returnTrue$1 = function () {
+      return true;
+    };
+    var EventDispatcher = function () {
+      function EventDispatcher(settings) {
+        this.bindings = {};
+        this.settings = settings || {};
+        this.scope = this.settings.scope || this;
+        this.toggleEvent = this.settings.toggleEvent || returnFalse$1;
+      }
+      EventDispatcher.isNative = function (name) {
+        return !!nativeEvents[name.toLowerCase()];
       };
-      var returnTrue = function () {
-        return true;
-      };
-      settings = settings || {};
-      scope = settings.scope || self;
-      toggleEvent = settings.toggleEvent || returnFalse;
-      var fire = function (name, args) {
+      EventDispatcher.prototype.fire = function (name, args) {
         var handlers, i, l, callback;
         name = name.toLowerCase();
         args = args || {};
         args.type = name;
         if (!args.target) {
-          args.target = scope;
+          args.target = this.scope;
         }
         if (!args.preventDefault) {
           args.preventDefault = function () {
-            args.isDefaultPrevented = returnTrue;
+            args.isDefaultPrevented = returnTrue$1;
           };
           args.stopPropagation = function () {
-            args.isPropagationStopped = returnTrue;
+            args.isPropagationStopped = returnTrue$1;
           };
           args.stopImmediatePropagation = function () {
-            args.isImmediatePropagationStopped = returnTrue;
+            args.isImmediatePropagationStopped = returnTrue$1;
           };
-          args.isDefaultPrevented = returnFalse;
-          args.isPropagationStopped = returnFalse;
-          args.isImmediatePropagationStopped = returnFalse;
+          args.isDefaultPrevented = returnFalse$1;
+          args.isPropagationStopped = returnFalse$1;
+          args.isImmediatePropagationStopped = returnFalse$1;
         }
-        if (settings.beforeFire) {
-          settings.beforeFire(args);
+        if (this.settings.beforeFire) {
+          this.settings.beforeFire(args);
         }
-        handlers = bindings[name];
+        handlers = this.bindings[name];
         if (handlers) {
           for (i = 0, l = handlers.length; i < l; i++) {
             callback = handlers[i];
             if (callback.once) {
-              off(name, callback.func);
+              this.off(name, callback.func);
             }
             if (args.isImmediatePropagationStopped()) {
               args.stopPropagation();
               return args;
             }
-            if (callback.func.call(scope, args) === false) {
+            if (callback.func.call(this.scope, args) === false) {
               args.preventDefault();
               return args;
             }
@@ -24866,48 +25490,48 @@
         }
         return args;
       };
-      var on = function (name, callback, prepend, extra) {
+      EventDispatcher.prototype.on = function (name, callback, prepend, extra) {
         var handlers, names, i;
         if (callback === false) {
-          callback = returnFalse;
+          callback = returnFalse$1;
         }
         if (callback) {
-          callback = { func: callback };
+          var wrappedCallback = { func: callback };
           if (extra) {
-            Tools.extend(callback, extra);
+            Tools.extend(wrappedCallback, extra);
           }
           names = name.toLowerCase().split(' ');
           i = names.length;
           while (i--) {
             name = names[i];
-            handlers = bindings[name];
+            handlers = this.bindings[name];
             if (!handlers) {
-              handlers = bindings[name] = [];
-              toggleEvent(name, true);
+              handlers = this.bindings[name] = [];
+              this.toggleEvent(name, true);
             }
             if (prepend) {
-              handlers.unshift(callback);
+              handlers.unshift(wrappedCallback);
             } else {
-              handlers.push(callback);
+              handlers.push(wrappedCallback);
             }
           }
         }
-        return self;
+        return this;
       };
-      var off = function (name, callback) {
+      EventDispatcher.prototype.off = function (name, callback) {
         var i, handlers, bindingName, names, hi;
         if (name) {
           names = name.toLowerCase().split(' ');
           i = names.length;
           while (i--) {
             name = names[i];
-            handlers = bindings[name];
+            handlers = this.bindings[name];
             if (!name) {
-              for (bindingName in bindings) {
-                toggleEvent(bindingName, false);
-                delete bindings[bindingName];
+              for (bindingName in this.bindings) {
+                this.toggleEvent(bindingName, false);
+                delete this.bindings[bindingName];
               }
-              return self;
+              return this;
             }
             if (handlers) {
               if (!callback) {
@@ -24917,47 +25541,40 @@
                 while (hi--) {
                   if (handlers[hi].func === callback) {
                     handlers = handlers.slice(0, hi).concat(handlers.slice(hi + 1));
-                    bindings[name] = handlers;
+                    this.bindings[name] = handlers;
                   }
                 }
               }
               if (!handlers.length) {
-                toggleEvent(name, false);
-                delete bindings[name];
+                this.toggleEvent(name, false);
+                delete this.bindings[name];
               }
             }
           }
         } else {
-          for (name in bindings) {
-            toggleEvent(name, false);
+          for (name in this.bindings) {
+            this.toggleEvent(name, false);
           }
-          bindings = {};
+          this.bindings = {};
         }
-        return self;
+        return this;
       };
-      var once = function (name, callback, prepend) {
-        return on(name, callback, prepend, { once: true });
+      EventDispatcher.prototype.once = function (name, callback, prepend) {
+        return this.on(name, callback, prepend, { once: true });
       };
-      var has = function (name) {
+      EventDispatcher.prototype.has = function (name) {
         name = name.toLowerCase();
-        return !(!bindings[name] || bindings[name].length === 0);
+        return !(!this.bindings[name] || this.bindings[name].length === 0);
       };
-      self.fire = fire;
-      self.on = on;
-      self.off = off;
-      self.once = once;
-      self.has = has;
-    };
-    Dispatcher.isNative = function (name) {
-      return !!nativeEvents[name.toLowerCase()];
-    };
+      return EventDispatcher;
+    }();
 
     var getEventDispatcher = function (obj) {
       if (!obj._eventDispatcher) {
-        obj._eventDispatcher = new Dispatcher({
+        obj._eventDispatcher = new EventDispatcher({
           scope: obj,
           toggleEvent: function (name, state) {
-            if (Dispatcher.isNative(name) && obj.toggleNativeEvent) {
+            if (EventDispatcher.isNative(name) && obj.toggleNativeEvent) {
               obj.toggleNativeEvent(name, state);
             }
           }
@@ -24971,15 +25588,15 @@
         if (self.removed && name !== 'remove' && name !== 'detach') {
           return args;
         }
-        args = getEventDispatcher(self).fire(name, args, bubble);
+        var dispatcherArgs = getEventDispatcher(self).fire(name, args);
         if (bubble !== false && self.parent) {
           var parent = self.parent();
-          while (parent && !args.isPropagationStopped()) {
-            parent.fire(name, args, false);
+          while (parent && !dispatcherArgs.isPropagationStopped()) {
+            parent.fire(name, dispatcherArgs, false);
             parent = parent.parent();
           }
         }
-        return args;
+        return dispatcherArgs;
       },
       on: function (name, callback, prepend) {
         return getEventDispatcher(this).on(name, callback, prepend);
@@ -25018,7 +25635,7 @@
     var fireEvent = function (editor, eventName, e) {
       if (isListening(editor)) {
         editor.fire(eventName, e);
-      } else if (isReadOnly(editor)) {
+      } else if (editor.readonly) {
         e.preventDefault();
       }
     };
@@ -25070,7 +25687,7 @@
         editor.delegates[eventName] = delegate;
       }
     };
-    var EditorObservable = {
+    var EditorObservable = __assign({}, Observable, {
       bindPendingEventDelegates: function () {
         var self = this;
         Tools.each(self._pendingNativeEvents, function (name) {
@@ -25118,9 +25735,7 @@
           dom.unbind(self.getContainer());
         }
       }
-    };
-    EditorObservable = Tools.extend({}, Observable, EditorObservable);
-    var EditorObservable$1 = EditorObservable;
+    });
 
     var each$h = Tools.each, explode$3 = Tools.explode;
     var keyCodeLookup = {
@@ -25138,11 +25753,62 @@
       f12: 123
     };
     var modifierNames = Tools.makeMap('alt,ctrl,shift,meta,access');
-    function Shortcuts (editor) {
-      var self = this;
-      var shortcuts = {};
-      var pendingPatterns = [];
-      var parseShortcut = function (pattern) {
+    var Shortcuts = function () {
+      function Shortcuts(editor) {
+        this.shortcuts = {};
+        this.pendingPatterns = [];
+        this.editor = editor;
+        var self = this;
+        editor.on('keyup keypress keydown', function (e) {
+          if ((self.hasModifier(e) || self.isFunctionKey(e)) && !e.isDefaultPrevented()) {
+            each$h(self.shortcuts, function (shortcut) {
+              if (self.matchShortcut(e, shortcut)) {
+                self.pendingPatterns = shortcut.subpatterns.slice(0);
+                if (e.type === 'keydown') {
+                  self.executeShortcutAction(shortcut);
+                }
+                return true;
+              }
+            });
+            if (self.matchShortcut(e, self.pendingPatterns[0])) {
+              if (self.pendingPatterns.length === 1) {
+                if (e.type === 'keydown') {
+                  self.executeShortcutAction(self.pendingPatterns[0]);
+                }
+              }
+              self.pendingPatterns.shift();
+            }
+          }
+        });
+      }
+      Shortcuts.prototype.add = function (pattern, desc, cmdFunc, scope) {
+        var self = this;
+        var cmd;
+        cmd = cmdFunc;
+        if (typeof cmdFunc === 'string') {
+          cmdFunc = function () {
+            self.editor.execCommand(cmd, false, null);
+          };
+        } else if (Tools.isArray(cmd)) {
+          cmdFunc = function () {
+            self.editor.execCommand(cmd[0], cmd[1], cmd[2]);
+          };
+        }
+        each$h(explode$3(Tools.trim(pattern.toLowerCase())), function (pattern) {
+          var shortcut = self.createShortcut(pattern, desc, cmdFunc, scope);
+          self.shortcuts[shortcut.id] = shortcut;
+        });
+        return true;
+      };
+      Shortcuts.prototype.remove = function (pattern) {
+        var shortcut = this.createShortcut(pattern);
+        if (this.shortcuts[shortcut.id]) {
+          delete this.shortcuts[shortcut.id];
+          return true;
+        }
+        return false;
+      };
+      Shortcuts.prototype.parseShortcut = function (pattern) {
         var id, key;
         var shortcut = {};
         each$h(explode$3(pattern, '+'), function (value) {
@@ -25184,25 +25850,25 @@
         }
         return shortcut;
       };
-      var createShortcut = function (pattern, desc, cmdFunc, scope) {
+      Shortcuts.prototype.createShortcut = function (pattern, desc, cmdFunc, scope) {
         var shortcuts;
-        shortcuts = Tools.map(explode$3(pattern, '>'), parseShortcut);
+        shortcuts = Tools.map(explode$3(pattern, '>'), this.parseShortcut);
         shortcuts[shortcuts.length - 1] = Tools.extend(shortcuts[shortcuts.length - 1], {
           func: cmdFunc,
-          scope: scope || editor
+          scope: scope || this.editor
         });
         return Tools.extend(shortcuts[0], {
-          desc: editor.translate(desc),
+          desc: this.editor.translate(desc),
           subpatterns: shortcuts.slice(1)
         });
       };
-      var hasModifier = function (e) {
+      Shortcuts.prototype.hasModifier = function (e) {
         return e.altKey || e.ctrlKey || e.metaKey;
       };
-      var isFunctionKey = function (e) {
+      Shortcuts.prototype.isFunctionKey = function (e) {
         return e.type === 'keydown' && e.keyCode >= 112 && e.keyCode <= 123;
       };
-      var matchShortcut = function (e, shortcut) {
+      Shortcuts.prototype.matchShortcut = function (e, shortcut) {
         if (!shortcut) {
           return false;
         }
@@ -25218,57 +25884,11 @@
         }
         return false;
       };
-      var executeShortcutAction = function (shortcut) {
+      Shortcuts.prototype.executeShortcutAction = function (shortcut) {
         return shortcut.func ? shortcut.func.call(shortcut.scope) : null;
       };
-      editor.on('keyup keypress keydown', function (e) {
-        if ((hasModifier(e) || isFunctionKey(e)) && !e.isDefaultPrevented()) {
-          each$h(shortcuts, function (shortcut) {
-            if (matchShortcut(e, shortcut)) {
-              pendingPatterns = shortcut.subpatterns.slice(0);
-              if (e.type === 'keydown') {
-                executeShortcutAction(shortcut);
-              }
-              return true;
-            }
-          });
-          if (matchShortcut(e, pendingPatterns[0])) {
-            if (pendingPatterns.length === 1) {
-              if (e.type === 'keydown') {
-                executeShortcutAction(pendingPatterns[0]);
-              }
-            }
-            pendingPatterns.shift();
-          }
-        }
-      });
-      self.add = function (pattern, desc, cmdFunc, scope) {
-        var cmd;
-        cmd = cmdFunc;
-        if (typeof cmdFunc === 'string') {
-          cmdFunc = function () {
-            editor.execCommand(cmd, false, null);
-          };
-        } else if (Tools.isArray(cmd)) {
-          cmdFunc = function () {
-            editor.execCommand(cmd[0], cmd[1], cmd[2]);
-          };
-        }
-        each$h(explode$3(Tools.trim(pattern.toLowerCase())), function (pattern) {
-          var shortcut = createShortcut(pattern, desc, cmdFunc, scope);
-          shortcuts[shortcut.id] = shortcut;
-        });
-        return true;
-      };
-      self.remove = function (pattern) {
-        var shortcut = createShortcut(pattern);
-        if (shortcuts[shortcut.id]) {
-          delete shortcuts[shortcut.id];
-          return true;
-        }
-        return false;
-      };
-    }
+      return Shortcuts;
+    }();
 
     var each$i = Tools.each, trim$4 = Tools.trim;
     var queryParts = 'source protocol authority userInfo user password host port relative path directory file query anchor'.split(' ');
@@ -25278,95 +25898,119 @@
       https: 443,
       mailto: 25
     };
-    var URI = function (url, settings) {
-      var self = this;
-      var baseUri, baseUrl;
-      url = trim$4(url);
-      settings = self.settings = settings || {};
-      baseUri = settings.base_uri;
-      if (/^([\w\-]+):([^\/]{2})/i.test(url) || /^\s*#/.test(url)) {
-        self.source = url;
-        return;
+    var URI = function () {
+      function URI(url, settings) {
+        url = trim$4(url);
+        this.settings = settings || {};
+        var baseUri = this.settings.base_uri;
+        var self = this;
+        if (/^([\w\-]+):([^\/]{2})/i.test(url) || /^\s*#/.test(url)) {
+          self.source = url;
+          return;
+        }
+        var isProtocolRelative = url.indexOf('//') === 0;
+        if (url.indexOf('/') === 0 && !isProtocolRelative) {
+          url = (baseUri ? baseUri.protocol || 'http' : 'http') + '://mce_host' + url;
+        }
+        if (!/^[\w\-]*:?\/\//.test(url)) {
+          var baseUrl = this.settings.base_uri ? this.settings.base_uri.path : new URI(domGlobals.document.location.href).directory;
+          if (this.settings.base_uri.protocol == '') {
+            url = '//mce_host' + self.toAbsPath(baseUrl, url);
+          } else {
+            var match = /([^#?]*)([#?]?.*)/.exec(url);
+            url = (baseUri && baseUri.protocol || 'http') + '://mce_host' + self.toAbsPath(baseUrl, match[1]) + match[2];
+          }
+        }
+        url = url.replace(/@@/g, '(mce_at)');
+        var urlMatch = /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@\/]*):?([^:@\/]*))?@)?([^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/.exec(url);
+        each$i(queryParts, function (v, i) {
+          var part = urlMatch[i];
+          if (part) {
+            part = part.replace(/\(mce_at\)/g, '@@');
+          }
+          self[v] = part;
+        });
+        if (baseUri) {
+          if (!self.protocol) {
+            self.protocol = baseUri.protocol;
+          }
+          if (!self.userInfo) {
+            self.userInfo = baseUri.userInfo;
+          }
+          if (!self.port && self.host === 'mce_host') {
+            self.port = baseUri.port;
+          }
+          if (!self.host || self.host === 'mce_host') {
+            self.host = baseUri.host;
+          }
+          self.source = '';
+        }
+        if (isProtocolRelative) {
+          self.protocol = '';
+        }
       }
-      var isProtocolRelative = url.indexOf('//') === 0;
-      if (url.indexOf('/') === 0 && !isProtocolRelative) {
-        url = (baseUri ? baseUri.protocol || 'http' : 'http') + '://mce_host' + url;
-      }
-      if (!/^[\w\-]*:?\/\//.test(url)) {
-        baseUrl = settings.base_uri ? settings.base_uri.path : new URI(domGlobals.document.location.href).directory;
-        if (settings.base_uri.protocol == '') {
-          url = '//mce_host' + self.toAbsPath(baseUrl, url);
+      URI.parseDataUri = function (uri) {
+        var type;
+        var uriComponents = decodeURIComponent(uri).split(',');
+        var matches = /data:([^;]+)/.exec(uriComponents[0]);
+        if (matches) {
+          type = matches[1];
+        }
+        return {
+          type: type,
+          data: uriComponents[1]
+        };
+      };
+      URI.getDocumentBaseUrl = function (loc) {
+        var baseUrl;
+        if (loc.protocol.indexOf('http') !== 0 && loc.protocol !== 'file:') {
+          baseUrl = loc.href;
         } else {
-          url = /([^#?]*)([#?]?.*)/.exec(url);
-          url = (baseUri && baseUri.protocol || 'http') + '://mce_host' + self.toAbsPath(baseUrl, url[1]) + url[2];
+          baseUrl = loc.protocol + '//' + loc.host + loc.pathname;
         }
-      }
-      url = url.replace(/@@/g, '(mce_at)');
-      url = /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@\/]*):?([^:@\/]*))?@)?([^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/.exec(url);
-      each$i(queryParts, function (v, i) {
-        var part = url[i];
-        if (part) {
-          part = part.replace(/\(mce_at\)/g, '@@');
+        if (/^[^:]+:\/\/\/?[^\/]+\//.test(baseUrl)) {
+          baseUrl = baseUrl.replace(/[\?#].*$/, '').replace(/[\/\\][^\/]+$/, '');
+          if (!/[\/\\]$/.test(baseUrl)) {
+            baseUrl += '/';
+          }
         }
-        self[v] = part;
-      });
-      if (baseUri) {
-        if (!self.protocol) {
-          self.protocol = baseUri.protocol;
-        }
-        if (!self.userInfo) {
-          self.userInfo = baseUri.userInfo;
-        }
-        if (!self.port && self.host === 'mce_host') {
-          self.port = baseUri.port;
-        }
-        if (!self.host || self.host === 'mce_host') {
-          self.host = baseUri.host;
-        }
-        self.source = '';
-      }
-      if (isProtocolRelative) {
-        self.protocol = '';
-      }
-    };
-    URI.prototype = {
-      setPath: function (path) {
-        var self = this;
-        path = /^(.*?)\/?(\w+)?$/.exec(path);
-        self.path = path[0];
-        self.directory = path[1];
-        self.file = path[2];
-        self.source = '';
-        self.getURI();
-      },
-      toRelative: function (uri) {
-        var self = this;
+        return baseUrl;
+      };
+      URI.prototype.setPath = function (path) {
+        var pathMatch = /^(.*?)\/?(\w+)?$/.exec(path);
+        this.path = pathMatch[0];
+        this.directory = pathMatch[1];
+        this.file = pathMatch[2];
+        this.source = '';
+        this.getURI();
+      };
+      URI.prototype.toRelative = function (uri) {
         var output;
         if (uri === './') {
           return uri;
         }
-        uri = new URI(uri, { base_uri: self });
-        if (uri.host !== 'mce_host' && self.host !== uri.host && uri.host || self.port !== uri.port || self.protocol !== uri.protocol && uri.protocol !== '') {
-          return uri.getURI();
+        var relativeUri = new URI(uri, { base_uri: this });
+        if (relativeUri.host !== 'mce_host' && this.host !== relativeUri.host && relativeUri.host || this.port !== relativeUri.port || this.protocol !== relativeUri.protocol && relativeUri.protocol !== '') {
+          return relativeUri.getURI();
         }
-        var tu = self.getURI(), uu = uri.getURI();
+        var tu = this.getURI(), uu = relativeUri.getURI();
         if (tu === uu || tu.charAt(tu.length - 1) === '/' && tu.substr(0, tu.length - 1) === uu) {
           return tu;
         }
-        output = self.toRelPath(self.path, uri.path);
-        if (uri.query) {
-          output += '?' + uri.query;
+        output = this.toRelPath(this.path, relativeUri.path);
+        if (relativeUri.query) {
+          output += '?' + relativeUri.query;
         }
-        if (uri.anchor) {
-          output += '#' + uri.anchor;
+        if (relativeUri.anchor) {
+          output += '#' + relativeUri.anchor;
         }
         return output;
-      },
-      toAbsolute: function (uri, noHost) {
-        uri = new URI(uri, { base_uri: this });
-        return uri.getURI(noHost && this.isSameOrigin(uri));
-      },
-      isSameOrigin: function (uri) {
+      };
+      URI.prototype.toAbsolute = function (uri, noHost) {
+        var absoluteUri = new URI(uri, { base_uri: this });
+        return absoluteUri.getURI(noHost && this.isSameOrigin(absoluteUri));
+      };
+      URI.prototype.isSameOrigin = function (uri) {
         if (this.host == uri.host && this.protocol == uri.protocol) {
           if (this.port == uri.port) {
             return true;
@@ -25377,23 +26021,22 @@
           }
         }
         return false;
-      },
-      toRelPath: function (base, path) {
+      };
+      URI.prototype.toRelPath = function (base, path) {
         var items, breakPoint = 0, out = '', i, l;
-        base = base.substring(0, base.lastIndexOf('/'));
-        base = base.split('/');
+        var normalizedBase = base.substring(0, base.lastIndexOf('/')).split('/');
         items = path.split('/');
-        if (base.length >= items.length) {
-          for (i = 0, l = base.length; i < l; i++) {
-            if (i >= items.length || base[i] !== items[i]) {
+        if (normalizedBase.length >= items.length) {
+          for (i = 0, l = normalizedBase.length; i < l; i++) {
+            if (i >= items.length || normalizedBase[i] !== items[i]) {
               breakPoint = i + 1;
               break;
             }
           }
         }
-        if (base.length < items.length) {
+        if (normalizedBase.length < items.length) {
           for (i = 0, l = items.length; i < l; i++) {
-            if (i >= base.length || base[i] !== items[i]) {
+            if (i >= normalizedBase.length || normalizedBase[i] !== items[i]) {
               breakPoint = i + 1;
               break;
             }
@@ -25402,7 +26045,7 @@
         if (breakPoint === 1) {
           return path;
         }
-        for (i = 0, l = base.length - (breakPoint - 1); i < l; i++) {
+        for (i = 0, l = normalizedBase.length - (breakPoint - 1); i < l; i++) {
           out += '../';
         }
         for (i = breakPoint - 1, l = items.length; i < l; i++) {
@@ -25413,23 +26056,23 @@
           }
         }
         return out;
-      },
-      toAbsPath: function (base, path) {
+      };
+      URI.prototype.toAbsPath = function (base, path) {
         var i, nb = 0, o = [], tr, outPath;
         tr = /\/$/.test(path) ? '/' : '';
-        base = base.split('/');
-        path = path.split('/');
-        each$i(base, function (k) {
+        var normalizedBase = base.split('/');
+        var normalizedPath = path.split('/');
+        each$i(normalizedBase, function (k) {
           if (k) {
             o.push(k);
           }
         });
-        base = o;
-        for (i = path.length - 1, o = []; i >= 0; i--) {
-          if (path[i].length === 0 || path[i] === '.') {
+        normalizedBase = o;
+        for (i = normalizedPath.length - 1, o = []; i >= 0; i--) {
+          if (normalizedPath[i].length === 0 || normalizedPath[i] === '.') {
             continue;
           }
-          if (path[i] === '..') {
+          if (normalizedPath[i] === '..') {
             nb++;
             continue;
           }
@@ -25437,13 +26080,13 @@
             nb--;
             continue;
           }
-          o.push(path[i]);
+          o.push(normalizedPath[i]);
         }
-        i = base.length - nb;
+        i = normalizedBase.length - nb;
         if (i <= 0) {
           outPath = o.reverse().join('/');
         } else {
-          outPath = base.slice(0, i).join('/') + '/' + o.reverse().join('/');
+          outPath = normalizedBase.slice(0, i).join('/') + '/' + o.reverse().join('/');
         }
         if (outPath.indexOf('/') !== 0) {
           outPath = '/' + outPath;
@@ -25452,71 +26095,47 @@
           outPath += tr;
         }
         return outPath;
-      },
-      getURI: function (noProtoHost) {
+      };
+      URI.prototype.getURI = function (noProtoHost) {
+        if (noProtoHost === void 0) {
+          noProtoHost = false;
+        }
         var s;
-        var self = this;
-        if (!self.source || noProtoHost) {
+        if (!this.source || noProtoHost) {
           s = '';
           if (!noProtoHost) {
-            if (self.protocol) {
-              s += self.protocol + '://';
+            if (this.protocol) {
+              s += this.protocol + '://';
             } else {
               s += '//';
             }
-            if (self.userInfo) {
-              s += self.userInfo + '@';
+            if (this.userInfo) {
+              s += this.userInfo + '@';
             }
-            if (self.host) {
-              s += self.host;
+            if (this.host) {
+              s += this.host;
             }
-            if (self.port) {
-              s += ':' + self.port;
+            if (this.port) {
+              s += ':' + this.port;
             }
           }
-          if (self.path) {
-            s += self.path;
+          if (this.path) {
+            s += this.path;
           }
-          if (self.query) {
-            s += '?' + self.query;
+          if (this.query) {
+            s += '?' + this.query;
           }
-          if (self.anchor) {
-            s += '#' + self.anchor;
+          if (this.anchor) {
+            s += '#' + this.anchor;
           }
-          self.source = s;
+          this.source = s;
         }
-        return self.source;
-      }
-    };
-    URI.parseDataUri = function (uri) {
-      var type, matches;
-      uri = decodeURIComponent(uri).split(',');
-      matches = /data:([^;]+)/.exec(uri[0]);
-      if (matches) {
-        type = matches[1];
-      }
-      return {
-        type: type,
-        data: uri[1]
+        return this.source;
       };
-    };
-    URI.getDocumentBaseUrl = function (loc) {
-      var baseUrl;
-      if (loc.protocol.indexOf('http') !== 0 && loc.protocol !== 'file:') {
-        baseUrl = loc.href;
-      } else {
-        baseUrl = loc.protocol + '//' + loc.host + loc.pathname;
-      }
-      if (/^[^:]+:\/\/\/?[^\/]+\//.test(baseUrl)) {
-        baseUrl = baseUrl.replace(/[\?#].*$/, '').replace(/[\/\\][^\/]+$/, '');
-        if (!/[\/\\]$/.test(baseUrl)) {
-          baseUrl += '/';
-        }
-      }
-      return baseUrl;
-    };
+      return URI;
+    }();
 
-    var create$3 = function () {
+    var create$4 = function () {
       var buttons = {};
       var menuItems = {};
       var popups = {};
@@ -25561,7 +26180,7 @@
     };
 
     var registry = function () {
-      var bridge = create$3();
+      var bridge = create$4();
       return {
         addAutocompleter: bridge.addAutocompleter,
         addButton: bridge.addButton,
@@ -25581,59 +26200,62 @@
     };
 
     var DOM$7 = DOMUtils$1.DOM;
-    var extend$4 = Tools.extend, each$j = Tools.each;
+    var extend$3 = Tools.extend, each$j = Tools.each;
     var resolve$4 = Tools.resolve;
     var ie$2 = Env.ie;
-    var Editor = function (id, settings, editorManager) {
-      var self = this;
-      var documentBaseUrl = self.documentBaseUrl = editorManager.documentBaseURL;
-      var baseUri = editorManager.baseURI;
-      settings = getEditorSettings(self, id, documentBaseUrl, editorManager.defaultSettings, settings);
-      self.settings = settings;
-      AddOnManager.languageLoad = settings.language_load;
-      AddOnManager.baseURL = editorManager.baseURL;
-      self.id = id;
-      self.setDirty(false);
-      self.plugins = {};
-      self.documentBaseURI = new URI(settings.document_base_url, { base_uri: baseUri });
-      self.baseURI = baseUri;
-      self.contentCSS = [];
-      self.contentStyles = [];
-      self.shortcuts = new Shortcuts(self);
-      self.loadedCSS = {};
-      self.editorCommands = new EditorCommands(self);
-      self.suffix = editorManager.suffix;
-      self.editorManager = editorManager;
-      self.inline = settings.inline;
-      self.buttons = {};
-      self.menuItems = {};
-      if (settings.cache_suffix) {
-        Env.cacheSuffix = settings.cache_suffix.replace(/^[\?\&]+/, '');
+    var Editor = function () {
+      function Editor(id, settings, editorManager) {
+        var _this = this;
+        this.plugins = {};
+        this.contentCSS = [];
+        this.contentStyles = [];
+        this.loadedCSS = {};
+        this.isNotDirty = false;
+        this.editorManager = editorManager;
+        this.documentBaseUrl = editorManager.documentBaseURL;
+        this.baseUri = editorManager.baseURI;
+        extend$3(this, EditorObservable);
+        this.settings = getEditorSettings(this, id, this.documentBaseUrl, editorManager.defaultSettings, settings);
+        AddOnManager$1.languageLoad = this.settings.language_load;
+        AddOnManager$1.baseURL = editorManager.baseURL;
+        this.id = id;
+        this.setDirty(false);
+        this.documentBaseURI = new URI(this.settings.document_base_url, { base_uri: this.baseUri });
+        this.baseURI = this.baseUri;
+        this.inline = this.settings.inline;
+        this.suffix = editorManager.suffix;
+        this.shortcuts = new Shortcuts(this);
+        this.editorCommands = new EditorCommands(this);
+        if (this.settings.cache_suffix) {
+          Env.cacheSuffix = this.settings.cache_suffix.replace(/^[\?\&]+/, '');
+        }
+        if (this.settings.override_viewport === false) {
+          Env.overrideViewPort = false;
+        }
+        this.ui = { registry: registry() };
+        var self = this;
+        var modeInstance = create$3(self);
+        this.mode = modeInstance;
+        this.setMode = modeInstance.set;
+        editorManager.fire('SetupEditor', { editor: this });
+        this.execCallback('setup', this);
+        this.$ = DomQuery.overrideDefaults(function () {
+          return {
+            context: _this.inline ? _this.getBody() : _this.getDoc(),
+            element: _this.getBody()
+          };
+        });
       }
-      if (settings.override_viewport === false) {
-        Env.overrideViewPort = false;
-      }
-      self.ui = { registry: registry() };
-      editorManager.fire('SetupEditor', { editor: self });
-      self.execCallback('setup', self);
-      self.$ = DomQuery.overrideDefaults(function () {
-        return {
-          context: self.inline ? self.getBody() : self.getDoc(),
-          element: self.getBody()
-        };
-      });
-    };
-    Editor.prototype = {
-      render: function () {
+      Editor.prototype.render = function () {
         Render.render(this);
-      },
-      focus: function (skipFocus) {
+      };
+      Editor.prototype.focus = function (skipFocus) {
         EditorFocus.focus(this, skipFocus);
-      },
-      hasFocus: function () {
+      };
+      Editor.prototype.hasFocus = function () {
         return EditorFocus.hasFocus(this);
-      },
-      execCallback: function (name) {
+      };
+      Editor.prototype.execCallback = function (name) {
         var x = [];
         for (var _i = 1; _i < arguments.length; _i++) {
           x[_i - 1] = arguments[_i];
@@ -25658,58 +26280,46 @@
           };
         }
         return callback.apply(scope || self, Array.prototype.slice.call(arguments, 1));
-      },
-      translate: function (text) {
+      };
+      Editor.prototype.translate = function (text) {
         return I18n.translate(text);
-      },
-      getParam: function (name, defaultVal, type) {
+      };
+      Editor.prototype.getParam = function (name, defaultVal, type) {
         return getParam(this, name, defaultVal, type);
-      },
-      nodeChanged: function (args) {
+      };
+      Editor.prototype.nodeChanged = function (args) {
         this._nodeChangeDispatcher.nodeChanged(args);
-      },
-      addButton: function () {
-        throw new Error('editor.addButton has been removed in tinymce 5x, use editor.ui.registry.addButton or editor.ui.registry.addToggleButton or editor.ui.registry.addSplitButton instead');
-      },
-      addSidebar: function () {
-        throw new Error('editor.addSidebar has been removed in tinymce 5x, use editor.ui.registry.addSidebar instead');
-      },
-      addMenuItem: function () {
-        throw new Error('editor.addMenuItem has been removed in tinymce 5x, use editor.ui.registry.addMenuItem instead');
-      },
-      addContextToolbar: function () {
-        throw new Error('editor.addContextToolbar has been removed in tinymce 5x, use editor.ui.registry.addContextToolbar instead');
-      },
-      addCommand: function (name, callback, scope) {
+      };
+      Editor.prototype.addCommand = function (name, callback, scope) {
         this.editorCommands.addCommand(name, callback, scope);
-      },
-      addQueryStateHandler: function (name, callback, scope) {
+      };
+      Editor.prototype.addQueryStateHandler = function (name, callback, scope) {
         this.editorCommands.addQueryStateHandler(name, callback, scope);
-      },
-      addQueryValueHandler: function (name, callback, scope) {
+      };
+      Editor.prototype.addQueryValueHandler = function (name, callback, scope) {
         this.editorCommands.addQueryValueHandler(name, callback, scope);
-      },
-      addShortcut: function (pattern, desc, cmdFunc, scope) {
+      };
+      Editor.prototype.addShortcut = function (pattern, desc, cmdFunc, scope) {
         this.shortcuts.add(pattern, desc, cmdFunc, scope);
-      },
-      execCommand: function (cmd, ui, value, args) {
+      };
+      Editor.prototype.execCommand = function (cmd, ui, value, args) {
         return this.editorCommands.execCommand(cmd, ui, value, args);
-      },
-      queryCommandState: function (cmd) {
+      };
+      Editor.prototype.queryCommandState = function (cmd) {
         return this.editorCommands.queryCommandState(cmd);
-      },
-      queryCommandValue: function (cmd) {
+      };
+      Editor.prototype.queryCommandValue = function (cmd) {
         return this.editorCommands.queryCommandValue(cmd);
-      },
-      queryCommandSupported: function (cmd) {
+      };
+      Editor.prototype.queryCommandSupported = function (cmd) {
         return this.editorCommands.queryCommandSupported(cmd);
-      },
-      show: function () {
+      };
+      Editor.prototype.show = function () {
         var self = this;
         if (self.hidden) {
           self.hidden = false;
           if (self.inline) {
-            self.getBody().contentEditable = true;
+            self.getBody().contentEditable = 'true';
           } else {
             DOM$7.show(self.getContainer());
             DOM$7.hide(self.id);
@@ -25717,8 +26327,8 @@
           self.load();
           self.fire('show');
         }
-      },
-      hide: function () {
+      };
+      Editor.prototype.hide = function () {
         var self = this, doc = self.getDoc();
         if (!self.hidden) {
           if (ie$2 && doc && !self.inline) {
@@ -25726,7 +26336,7 @@
           }
           self.save();
           if (self.inline) {
-            self.getBody().contentEditable = false;
+            self.getBody().contentEditable = 'false';
             if (self === self.editorManager.focusedEditor) {
               self.editorManager.focusedEditor = null;
             }
@@ -25737,17 +26347,17 @@
           self.hidden = true;
           self.fire('hide');
         }
-      },
-      isHidden: function () {
+      };
+      Editor.prototype.isHidden = function () {
         return !!this.hidden;
-      },
-      setProgressState: function (state, time) {
+      };
+      Editor.prototype.setProgressState = function (state, time) {
         this.fire('ProgressState', {
           state: state,
           time: time
         });
-      },
-      load: function (args) {
+      };
+      Editor.prototype.load = function (args) {
         var self = this;
         var elm = self.getElement(), html;
         if (self.removed) {
@@ -25756,7 +26366,8 @@
         if (elm) {
           args = args || {};
           args.load = true;
-          html = self.setContent(elm.value !== undefined ? elm.value : elm.innerHTML, args);
+          var value = elm.value;
+          html = self.setContent(value !== undefined ? value : elm.innerHTML, args);
           args.element = elm;
           if (!args.no_events) {
             self.fire('LoadContent', args);
@@ -25764,8 +26375,8 @@
           args.element = elm = null;
           return html;
         }
-      },
-      save: function (args) {
+      };
+      Editor.prototype.save = function (args) {
         var self = this;
         var elm = self.getElement(), html, form;
         if (!elm || !self.initialized || self.removed) {
@@ -25802,49 +26413,56 @@
           self.setDirty(false);
         }
         return html;
-      },
-      setContent: function (content, args) {
+      };
+      Editor.prototype.setContent = function (content, args) {
         return setContent(this, content, args);
-      },
-      getContent: function (args) {
+      };
+      Editor.prototype.getContent = function (args) {
         return getContent(this, args);
-      },
-      insertContent: function (content, args) {
+      };
+      Editor.prototype.insertContent = function (content, args) {
         if (args) {
-          content = extend$4({ content: content }, args);
+          content = extend$3({ content: content }, args);
         }
         this.execCommand('mceInsertContent', false, content);
-      },
-      isDirty: function () {
+      };
+      Editor.prototype.resetContent = function (initialContent) {
+        if (initialContent === undefined) {
+          setContent(this, this.startContent, { format: 'raw' });
+        } else {
+          setContent(this, initialContent);
+        }
+        this.undoManager.reset();
+        this.setDirty(false);
+        this.nodeChanged();
+      };
+      Editor.prototype.isDirty = function () {
         return !this.isNotDirty;
-      },
-      setDirty: function (state) {
+      };
+      Editor.prototype.setDirty = function (state) {
         var oldState = !this.isNotDirty;
         this.isNotDirty = !state;
         if (state && state !== oldState) {
           this.fire('dirty');
         }
-      },
-      setMode: function (mode) {
-        setMode(this, mode);
-      },
-      getContainer: function () {
+      };
+      Editor.prototype.getContainer = function () {
         var self = this;
         if (!self.container) {
           self.container = DOM$7.get(self.editorContainer || self.id + '_parent');
         }
         return self.container;
-      },
-      getContentAreaContainer: function () {
+      };
+      Editor.prototype.getContentAreaContainer = function () {
         return this.contentAreaContainer;
-      },
-      getElement: function () {
+      };
+      Editor.prototype.getElement = function () {
         if (!this.targetElm) {
           this.targetElm = DOM$7.get(this.id);
         }
         return this.targetElm;
-      },
-      getWin: function () {
+      };
+      Editor.prototype.getWin = function () {
         var self = this;
         var elm;
         if (!self.contentWindow) {
@@ -25854,8 +26472,8 @@
           }
         }
         return self.contentWindow;
-      },
-      getDoc: function () {
+      };
+      Editor.prototype.getDoc = function () {
         var self = this;
         var win;
         if (!self.contentDocument) {
@@ -25865,12 +26483,12 @@
           }
         }
         return self.contentDocument;
-      },
-      getBody: function () {
+      };
+      Editor.prototype.getBody = function () {
         var doc = this.getDoc();
         return this.bodyElement || (doc ? doc.body : null);
-      },
-      convertURL: function (url, name, elm) {
+      };
+      Editor.prototype.convertURL = function (url, name, elm) {
         var self = this, settings = self.settings;
         if (settings.urlconverter_callback) {
           return self.execCallback('urlconverter_callback', url, elm, true, name);
@@ -25883,8 +26501,8 @@
         }
         url = self.documentBaseURI.toAbsolute(url, settings.remove_script_host);
         return url;
-      },
-      addVisual: function (elm) {
+      };
+      Editor.prototype.addVisual = function (elm) {
         var self = this;
         var settings = self.settings;
         var dom = self.dom;
@@ -25922,21 +26540,33 @@
           element: elm,
           hasVisual: self.hasVisual
         });
-      },
-      remove: function () {
+      };
+      Editor.prototype.remove = function () {
         remove$6(this);
-      },
-      destroy: function (automatic) {
+      };
+      Editor.prototype.destroy = function (automatic) {
         destroy(this, automatic);
-      },
-      uploadImages: function (callback) {
+      };
+      Editor.prototype.uploadImages = function (callback) {
         return this.editorUpload.uploadImages(callback);
-      },
-      _scanForImages: function () {
+      };
+      Editor.prototype._scanForImages = function () {
         return this.editorUpload.scanForImages();
-      }
-    };
-    extend$4(Editor.prototype, EditorObservable$1);
+      };
+      Editor.prototype.addButton = function () {
+        throw new Error('editor.addButton has been removed in tinymce 5x, use editor.ui.registry.addButton or editor.ui.registry.addToggleButton or editor.ui.registry.addSplitButton instead');
+      };
+      Editor.prototype.addSidebar = function () {
+        throw new Error('editor.addSidebar has been removed in tinymce 5x, use editor.ui.registry.addSidebar instead');
+      };
+      Editor.prototype.addMenuItem = function () {
+        throw new Error('editor.addMenuItem has been removed in tinymce 5x, use editor.ui.registry.addMenuItem instead');
+      };
+      Editor.prototype.addContextToolbar = function () {
+        throw new Error('editor.addContextToolbar has been removed in tinymce 5x, use editor.ui.registry.addContextToolbar instead');
+      };
+      return Editor;
+    }();
 
     var isEditorUIElement = function (elm) {
       return elm.className.toString().indexOf('tox-') !== -1 || elm.className.toString().indexOf('mce-') !== -1;
@@ -25972,7 +26602,7 @@
       } else {
         registerMouseUp(editor, throttledStore);
       }
-      editor.on('keyup nodechange', function (e) {
+      editor.on('keyup NodeChange', function (e) {
         if (!isManualNodeChange(e)) {
           SelectionBookmark.store(editor);
         }
@@ -26074,8 +26704,8 @@
     };
 
     var DOM$9 = DOMUtils$1.DOM;
-    var explode$4 = Tools.explode, each$k = Tools.each, extend$5 = Tools.extend;
-    var instanceCounter = 0, beforeUnloadDelegate, EditorManager, boundGlobalEvents = false;
+    var explode$4 = Tools.explode, each$k = Tools.each, extend$4 = Tools.extend;
+    var instanceCounter = 0, beforeUnloadDelegate, boundGlobalEvents = false;
     var legacyEditors = [];
     var editors = [];
     var isValidLegacyKey = function (id) {
@@ -26134,15 +26764,21 @@
       }
       return editor;
     };
-    EditorManager = {
+    var EditorManager = __assign({}, Observable, {
+      _beforeUnloadHandler: null,
+      baseURI: null,
+      baseURL: null,
       defaultSettings: {},
+      documentBaseURL: null,
+      suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '0.3',
-      releaseDate: '2019-03-19',
+      minorVersion: '0.4',
+      releaseDate: '2019-04-23',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
+      focusedEditor: null,
       settings: {},
       setup: function () {
         var self = this;
@@ -26199,7 +26835,7 @@
         this.defaultSettings = defaultSettings;
         var pluginBaseUrls = defaultSettings.plugin_base_urls;
         for (var name in pluginBaseUrls) {
-          AddOnManager.PluginManager.urls[name] = pluginBaseUrls[name];
+          AddOnManager$1.PluginManager.urls[name] = pluginBaseUrls[name];
         }
       },
       init: function (settings) {
@@ -26309,7 +26945,7 @@
             each$k(settings.types, function (type) {
               Tools.each(targets, function (elm) {
                 if (DOM$9.is(elm, type.selector)) {
-                  createEditor(createId(elm), extend$5({}, settings, type), elm);
+                  createEditor(createId(elm), extend$4({}, settings, type), elm);
                   return false;
                 }
                 return true;
@@ -26471,16 +27107,14 @@
         }
         this.activeEditor = editor;
       }
-    };
-    extend$5(EditorManager, Observable);
+    });
     EditorManager.setup();
-    var EditorManager$1 = EditorManager;
 
     function RangeUtils(dom) {
       var walk = function (rng, callback) {
         return RangeWalk.walk(dom, rng, callback);
       };
-      var split = SplitRange.split;
+      var split = split$1;
       var normalize = function (rng) {
         return NormalizeRange.normalize(dom, rng).fold(constant(false), function (normalizedRng) {
           rng.setStart(normalizedRng.startContainer, normalizedRng.startOffset);
@@ -26536,7 +27170,7 @@
       if (rel[4] === 'c') {
         x -= round$2(w / 2);
       }
-      return create$4(x, y, w, h);
+      return create$5(x, y, w, h);
     };
     var findBestRelativePosition = function (rect, targetRect, constrainRect, rels) {
       var pos, i;
@@ -26549,7 +27183,7 @@
       return null;
     };
     var inflate = function (rect, w, h) {
-      return create$4(rect.x - w, rect.y - h, rect.w + w * 2, rect.h + h * 2);
+      return create$5(rect.x - w, rect.y - h, rect.w + w * 2, rect.h + h * 2);
     };
     var intersect = function (rect, cropRect) {
       var x1, y1, x2, y2;
@@ -26560,7 +27194,7 @@
       if (x2 - x1 < 0 || y2 - y1 < 0) {
         return null;
       }
-      return create$4(x1, y1, x2 - x1, y2 - y1);
+      return create$5(x1, y1, x2 - x1, y2 - y1);
     };
     var clamp$1 = function (rect, clampRect, fixedSize) {
       var underflowX1, underflowY1, overflowX2, overflowY2, x1, y1, x2, y2, cx2, cy2;
@@ -26584,9 +27218,9 @@
       }
       x2 -= overflowX2;
       y2 -= overflowY2;
-      return create$4(x1, y1, x2 - x1, y2 - y1);
+      return create$5(x1, y1, x2 - x1, y2 - y1);
     };
-    var create$4 = function (x, y, w, h) {
+    var create$5 = function (x, y, w, h) {
       return {
         x: x,
         y: y,
@@ -26595,7 +27229,7 @@
       };
     };
     var fromClientRect = function (clientRect) {
-      return create$4(clientRect.left, clientRect.top, clientRect.width, clientRect.height);
+      return create$5(clientRect.left, clientRect.top, clientRect.width, clientRect.height);
     };
     var Rect = {
       inflate: inflate,
@@ -26603,11 +27237,11 @@
       findBestRelativePosition: findBestRelativePosition,
       intersect: intersect,
       clamp: clamp$1,
-      create: create$4,
+      create: create$5,
       fromClientRect: fromClientRect
     };
 
-    var each$l = Tools.each, extend$6 = Tools.extend;
+    var each$l = Tools.each, extend$5 = Tools.extend;
     var extendClass, initializing;
     var Class = function () {
     };
@@ -26687,7 +27321,7 @@
         });
       }
       if (prop.Defaults && _super.Defaults) {
-        prop.Defaults = extend$6({}, _super.Defaults, prop.Defaults);
+        prop.Defaults = extend$5({}, _super.Defaults, prop.Defaults);
       }
       for (name in prop) {
         member = prop[name];
@@ -26856,7 +27490,7 @@
         return '\\u' + '0000'.substring(hexCode.length) + hexCode;
       });
     };
-    var JSON$1 = {
+    var JSONUtils = {
       serialize: serialize,
       parse: function (text) {
         try {
@@ -26886,7 +27520,7 @@
       }
     };
 
-    var XHR = {
+    var XHR = __assign({}, Observable, {
       send: function (settings) {
         var xhr, count = 0;
         var ready = function () {
@@ -26904,7 +27538,7 @@
         settings.scope = settings.scope || this;
         settings.success_scope = settings.success_scope || settings.scope;
         settings.error_scope = settings.error_scope || settings.scope;
-        settings.async = settings.async === false ? false : true;
+        settings.async = settings.async !== false;
         settings.data = settings.data || '';
         XHR.fire('beforeInitialize', { settings: settings });
         xhr = XMLHttpRequest();
@@ -26936,48 +27570,48 @@
           Delay.setTimeout(ready, 10);
         }
       }
-    };
-    Tools.extend(XHR, Observable);
+    });
 
-    var extend$7 = Tools.extend;
-    var JSONRequest = function (settings) {
-      this.settings = extend$7({}, settings);
-      this.count = 0;
-    };
-    JSONRequest.sendRPC = function (o) {
-      return new JSONRequest().send(o);
-    };
-    JSONRequest.prototype = {
-      send: function (args) {
+    var extend$6 = Tools.extend;
+    var JSONRequest = function () {
+      function JSONRequest(settings) {
+        this.settings = extend$6({}, settings);
+        this.count = 0;
+      }
+      JSONRequest.sendRPC = function (o) {
+        return new JSONRequest().send(o);
+      };
+      JSONRequest.prototype.send = function (args) {
         var ecb = args.error, scb = args.success;
-        args = extend$7(this.settings, args);
-        args.success = function (c, x) {
-          c = JSON$1.parse(c);
+        var xhrArgs = extend$6(this.settings, args);
+        xhrArgs.success = function (c, x) {
+          c = JSONUtils.parse(c);
           if (typeof c === 'undefined') {
             c = { error: 'JSON Parse error.' };
           }
           if (c.error) {
-            ecb.call(args.error_scope || args.scope, c.error, x);
+            ecb.call(xhrArgs.error_scope || xhrArgs.scope, c.error, x);
           } else {
-            scb.call(args.success_scope || args.scope, c.result);
+            scb.call(xhrArgs.success_scope || xhrArgs.scope, c.result);
           }
         };
-        args.error = function (ty, x) {
+        xhrArgs.error = function (ty, x) {
           if (ecb) {
-            ecb.call(args.error_scope || args.scope, ty, x);
+            ecb.call(xhrArgs.error_scope || xhrArgs.scope, ty, x);
           }
         };
-        args.data = JSON$1.serialize({
+        xhrArgs.data = JSONUtils.serialize({
           id: args.id || 'c' + this.count++,
           method: args.method,
           params: args.params
         });
-        args.content_type = 'application/json';
-        XHR.send(args);
-      }
-    };
+        xhrArgs.content_type = 'application/json';
+        XHR.send(xhrArgs);
+      };
+      return JSONRequest;
+    }();
 
-    var create$5 = function () {
+    var create$6 = function () {
       return function () {
         var data = {};
         var keys = [];
@@ -27020,11 +27654,10 @@
     try {
       localStorage = domGlobals.window.localStorage;
     } catch (e) {
-      localStorage = create$5();
+      localStorage = create$6();
     }
     var LocalStorage = localStorage;
 
-    var tinymce = EditorManager$1;
     var publicApi = {
       geom: { Rect: Rect },
       util: {
@@ -27034,11 +27667,11 @@
         VK: VK,
         URI: URI,
         Class: Class,
-        EventDispatcher: Dispatcher,
+        EventDispatcher: EventDispatcher,
         Observable: Observable,
         I18n: I18n,
         XHR: XHR,
-        JSON: JSON$1,
+        JSON: JSONUtils,
         JSONRequest: JSONRequest,
         JSONP: JSONP,
         LocalStorage: LocalStorage,
@@ -27069,22 +27702,22 @@
         Serializer: Serializer
       },
       Env: Env,
-      AddOnManager: AddOnManager,
+      AddOnManager: AddOnManager$1,
       Annotator: Annotator,
       Formatter: Formatter,
       UndoManager: UndoManager,
       EditorCommands: EditorCommands,
       WindowManager: WindowManager,
       NotificationManager: NotificationManager,
-      EditorObservable: EditorObservable$1,
+      EditorObservable: EditorObservable,
       Shortcuts: Shortcuts,
       Editor: Editor,
       FocusManager: FocusManager,
-      EditorManager: EditorManager$1,
+      EditorManager: EditorManager,
       DOM: DOMUtils$1.DOM,
       ScriptLoader: ScriptLoader.ScriptLoader,
-      PluginManager: AddOnManager.PluginManager,
-      ThemeManager: AddOnManager.ThemeManager,
+      PluginManager: AddOnManager$1.PluginManager,
+      ThemeManager: AddOnManager$1.ThemeManager,
       IconManager: IconManager,
       trim: Tools.trim,
       isArray: Tools.isArray,
@@ -27108,8 +27741,7 @@
       isGecko: Env.gecko,
       isMac: Env.mac
     };
-    tinymce = Tools.extend(tinymce, publicApi);
-    var Tinymce = tinymce;
+    var tinymce = Tools.extend(EditorManager, publicApi);
 
     var exportToModuleLoaders = function (tinymce) {
       if (typeof module === 'object') {
@@ -27123,8 +27755,8 @@
       window.tinymce = tinymce;
       window.tinyMCE = tinymce;
     };
-    exportToWindowGlobal(Tinymce);
-    exportToModuleLoaders(Tinymce);
+    exportToWindowGlobal(tinymce);
+    exportToModuleLoaders(tinymce);
 
 }(window));
 })();
