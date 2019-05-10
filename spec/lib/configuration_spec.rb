@@ -3,7 +3,7 @@ require 'spec_helper'
 module TinyMCE::Rails
   describe Configuration do
     it "has default options" do
-      expect(Configuration.defaults).to eq("selector" => "textarea.tinymce")
+      expect(Configuration.defaults).to eq("selector" => "textarea.tinymce", "cache_suffix" => "?v=#{VERSION}")
     end
 
     it "is instantiable with an options hash" do
