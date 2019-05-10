@@ -1,7 +1,7 @@
 Rails Integration for TinyMCE
 =============================
 
-The `tinymce-rails` gem integrates the [TinyMCE](http://www.tinymce.com/) editor with the Rails asset pipeline.
+The `tinymce-rails` gem integrates the [TinyMCE](https://www.tiny.cloud/) editor with the Rails asset pipeline.
 
 This gem is compatible with Rails 4.2 and higher.
 
@@ -52,7 +52,7 @@ alternate:
     - table
 ```
 
-See the [TinyMCE 4 Documentation](https://www.tinymce.com/docs/configure/) for a full list of configuration options.
+See the [TinyMCE 5 Documentation](https://www.tiny.cloud/docs/configure/) for a full list of configuration options.
 
 
 **3. Include the TinyMCE assets**
