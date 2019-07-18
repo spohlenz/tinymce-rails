@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.0.10 (2019-07-02)
+ * Version: 5.0.12 (2019-07-18)
  */
 (function (domGlobals) {
     'use strict';
@@ -113,8 +113,9 @@
         },
         toString: constant('none()')
       };
-      if (Object.freeze)
+      if (Object.freeze) {
         Object.freeze(me);
+      }
       return me;
     }();
     var some = function (a) {
@@ -189,13 +190,16 @@
     };
 
     var typeOf = function (x) {
-      if (x === null)
+      if (x === null) {
         return 'null';
+      }
       var t = typeof x;
-      if (t === 'object' && (Array.prototype.isPrototypeOf(x) || x.constructor && x.constructor.name === 'Array'))
+      if (t === 'object' && (Array.prototype.isPrototypeOf(x) || x.constructor && x.constructor.name === 'Array')) {
         return 'array';
-      if (t === 'object' && (String.prototype.isPrototypeOf(x) || x.constructor && x.constructor.name === 'String'))
+      }
+      if (t === 'object' && (String.prototype.isPrototypeOf(x) || x.constructor && x.constructor.name === 'String')) {
         return 'string';
+      }
       return t;
     };
     var isType = function (type) {
@@ -318,8 +322,9 @@
     var flatten = function (xs) {
       var r = [];
       for (var i = 0, len = xs.length; i < len; ++i) {
-        if (!Array.prototype.isPrototypeOf(xs[i]))
+        if (!isArray(xs[i])) {
           throw new Error('Arr.flatten item ' + i + ' was not an array, input: ' + xs);
+        }
         push.apply(r, xs[i]);
       }
       return r;
@@ -399,8 +404,9 @@
 
     var path = function (parts, scope) {
       var o = scope !== undefined && scope !== null ? scope : Global;
-      for (var i = 0; i < parts.length && o !== undefined && o !== null; ++i)
+      for (var i = 0; i < parts.length && o !== undefined && o !== null; ++i) {
         o = o[parts[i]];
+      }
       return o;
     };
     var resolve = function (p, scope) {
@@ -413,8 +419,9 @@
     };
     var getOrDie = function (name, scope) {
       var actual = unsafe(name, scope);
-      if (actual === undefined || actual === null)
-        throw name + ' not available on this browser';
+      if (actual === undefined || actual === null) {
+        throw new Error(name + ' not available on this browser');
+      }
       return actual;
     };
     var Global$1 = { getOrDie: getOrDie };
@@ -3282,18 +3289,20 @@
     var firstMatch = function (regexes, s) {
       for (var i = 0; i < regexes.length; i++) {
         var x = regexes[i];
-        if (x.test(s))
+        if (x.test(s)) {
           return x;
+        }
       }
       return undefined;
     };
     var find$2 = function (regexes, agent) {
       var r = firstMatch(regexes, agent);
-      if (!r)
+      if (!r) {
         return {
           major: 0,
           minor: 0
         };
+      }
       var group = function (i) {
         return Number(agent.replace(r, '$' + i));
       };
@@ -3301,8 +3310,9 @@
     };
     var detect = function (versionRegexes, agent) {
       var cleanedAgent = String(agent).toLowerCase();
-      if (versionRegexes.length === 0)
+      if (versionRegexes.length === 0) {
         return unknown();
+      }
       return find$2(versionRegexes, cleanedAgent);
     };
     var unknown = function () {
@@ -3458,10 +3468,12 @@
     };
 
     var checkRange = function (str, substr, start) {
-      if (substr === '')
+      if (substr === '') {
         return true;
-      if (str.length < substr.length)
+      }
+      if (str.length < substr.length) {
         return false;
+      }
       var x = str.substr(start, start + substr.length);
       return x === substr;
     };
@@ -3492,8 +3504,7 @@
         name: 'Edge',
         versionRegexes: [/.*?edge\/ ?([0-9]+)\.([0-9]+)$/],
         search: function (uastring) {
-          var monstrosity = contains$2(uastring, 'edge/') && contains$2(uastring, 'chrome') && contains$2(uastring, 'safari') && contains$2(uastring, 'applewebkit');
-          return monstrosity;
+          return contains$2(uastring, 'edge/') && contains$2(uastring, 'chrome') && contains$2(uastring, 'safari') && contains$2(uastring, 'applewebkit');
         }
       },
       {
@@ -4010,10 +4021,11 @@
         });
       };
       var get = function (nCallback) {
-        if (isReady())
+        if (isReady()) {
           call(nCallback);
-        else
+        } else {
           callbacks.push(nCallback);
+        }
       };
       var set = function (x) {
         data = Option.some(x);
@@ -6002,7 +6014,7 @@
       var getViewPort = function (argWin) {
         var actWin = !argWin ? win : argWin;
         var doc = actWin.document;
-        var rootElm = doc.documentElement;
+        var rootElm =  doc.documentElement ;
         return {
           x: actWin.pageXOffset || rootElm.scrollLeft,
           y: actWin.pageYOffset || rootElm.scrollTop,
@@ -7170,8 +7182,9 @@
         for (var _i = 0; _i < arguments.length; _i++) {
           args[_i] = arguments[_i];
         }
-        if (timer !== null)
+        if (timer !== null) {
           domGlobals.clearTimeout(timer);
+        }
         timer = domGlobals.setTimeout(function () {
           fn.apply(null, args);
           timer = null;
@@ -11207,8 +11220,9 @@
             throw new Error('Wrong number of arguments to case ' + key + '. Expected ' + value.length + ' (' + value + '), got ' + argLength);
           }
           var args = new Array(argLength);
-          for (var i = 0; i < args.length; i++)
+          for (var i = 0; i < args.length; i++) {
             args[i] = arguments[i];
+          }
           var match = function (branches) {
             var branchKeys = keys(branches);
             if (constructors.length !== branchKeys.length) {
@@ -11217,8 +11231,9 @@
             var allReqd = forall(constructors, function (reqKey) {
               return contains(branchKeys, reqKey);
             });
-            if (!allReqd)
+            if (!allReqd) {
               throw new Error('Not all branches were specified when using match. Specified: ' + branchKeys.join(', ') + '\nRequired: ' + constructors.join(', '));
+            }
             return branches[key].apply(null, args);
           };
           return {
@@ -11603,18 +11618,18 @@
       var body = editor.getBody();
       var rng = selection.getRng();
       editor.quirks.refreshContentEditable();
+      if (editor.bookmark !== undefined && hasFocus$1(editor) === false) {
+        SelectionBookmark.getRng(editor).each(function (bookmarkRng) {
+          editor.selection.setRng(bookmarkRng);
+          rng = bookmarkRng;
+        });
+      }
       var contentEditableHost = getContentEditableHost(editor, selection.getNode());
       if (editor.$.contains(body, contentEditableHost)) {
         focusBody(contentEditableHost);
         normalizeSelection(editor, rng);
         activateEditor(editor);
         return;
-      }
-      if (editor.bookmark !== undefined && hasFocus$1(editor) === false) {
-        SelectionBookmark.getRng(editor).each(function (bookmarkRng) {
-          editor.selection.setRng(bookmarkRng);
-          rng = bookmarkRng;
-        });
       }
       if (!editor.inline) {
         if (!Env.opera) {
@@ -17186,17 +17201,20 @@
     var baseMerge = function (merger) {
       return function () {
         var objects = new Array(arguments.length);
-        for (var i = 0; i < objects.length; i++)
+        for (var i = 0; i < objects.length; i++) {
           objects[i] = arguments[i];
-        if (objects.length === 0)
+        }
+        if (objects.length === 0) {
           throw new Error('Can\'t merge zero objects');
+        }
         var ret = {};
         for (var j = 0; j < objects.length; j++) {
           var curObject = objects[j];
-          for (var key in curObject)
+          for (var key in curObject) {
             if (hasOwnProperty$2.call(curObject, key)) {
               ret[key] = merger(ret[key], curObject[key]);
             }
+          }
         }
         return ret;
       };
@@ -24476,8 +24494,7 @@
           try {
             api.deactivate();
           } catch (e) {
-            domGlobals.console.error('problem while deactivating editor mode ' + mode + ':');
-            domGlobals.console.error(e);
+            domGlobals.console.error('problem while deactivating editor mode ' + mode + ':', e);
           }
         }
       }), _a));
@@ -25880,7 +25897,7 @@
             self.editor.execCommand(cmd[0], cmd[1], cmd[2]);
           };
         }
-        each$h(explode$3(Tools.trim(pattern.toLowerCase())), function (pattern) {
+        each$h(explode$3(Tools.trim(pattern)), function (pattern) {
           var shortcut = self.createShortcut(pattern, desc, cmdFunc, scope);
           self.shortcuts[shortcut.id] = shortcut;
         });
@@ -25897,7 +25914,7 @@
       Shortcuts.prototype.parseShortcut = function (pattern) {
         var id, key;
         var shortcut = {};
-        each$h(explode$3(pattern, '+'), function (value) {
+        each$h(explode$3(pattern.toLowerCase(), '+'), function (value) {
           if (value in modifierNames) {
             shortcut[value] = true;
           } else {
@@ -26231,7 +26248,7 @@
       var sidebars = {};
       var add = function (collection, type) {
         return function (name, spec) {
-          return collection[name.toLowerCase()] = merge({ type: type }, spec);
+          return collection[name.toLowerCase()] = __assign({}, spec, { type: type });
         };
       };
       var addIcon = function (name, svgData) {
@@ -26728,8 +26745,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '0.10',
-      releaseDate: '2019-07-02',
+      minorVersion: '0.12',
+      releaseDate: '2019-07-18',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
