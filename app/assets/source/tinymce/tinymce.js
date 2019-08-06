@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.0.12 (2019-07-18)
+ * Version: 5.0.13 (2019-08-06)
  */
 (function (domGlobals) {
     'use strict';
@@ -400,46 +400,6 @@
       return t;
     }
 
-    var Global = typeof domGlobals.window !== 'undefined' ? domGlobals.window : Function('return this;')();
-
-    var path = function (parts, scope) {
-      var o = scope !== undefined && scope !== null ? scope : Global;
-      for (var i = 0; i < parts.length && o !== undefined && o !== null; ++i) {
-        o = o[parts[i]];
-      }
-      return o;
-    };
-    var resolve = function (p, scope) {
-      var parts = p.split('.');
-      return path(parts, scope);
-    };
-
-    var unsafe = function (name, scope) {
-      return resolve(name, scope);
-    };
-    var getOrDie = function (name, scope) {
-      var actual = unsafe(name, scope);
-      if (actual === undefined || actual === null) {
-        throw new Error(name + ' not available on this browser');
-      }
-      return actual;
-    };
-    var Global$1 = { getOrDie: getOrDie };
-
-    var url = function () {
-      return Global$1.getOrDie('URL');
-    };
-    var createObjectURL = function (blob) {
-      return url().createObjectURL(blob);
-    };
-    var revokeObjectURL = function (u) {
-      url().revokeObjectURL(u);
-    };
-    var URL = {
-      createObjectURL: createObjectURL,
-      revokeObjectURL: revokeObjectURL
-    };
-
     var nav = domGlobals.navigator, userAgent = nav.userAgent;
     var opera, webkit, ie, ie11, ie12, gecko, mac, iDevice, android, fileApi, phone, tablet, windowsPhone;
     var matchMediaQuery = function (query) {
@@ -456,7 +416,7 @@
     gecko = !webkit && !ie11 && /Gecko/.test(userAgent);
     mac = userAgent.indexOf('Mac') !== -1;
     iDevice = /(iPad|iPhone)/.test(userAgent);
-    fileApi = 'FormData' in domGlobals.window && 'FileReader' in domGlobals.window && 'URL' in domGlobals.window && !!URL.createObjectURL;
+    fileApi = 'FormData' in domGlobals.window && 'FileReader' in domGlobals.window && 'URL' in domGlobals.window && !!domGlobals.URL.createObjectURL;
     phone = matchMediaQuery('only screen and (max-device-width: 480px)') && (android || iDevice);
     tablet = matchMediaQuery('only screen and (min-width: 800px)') && (android || iDevice);
     windowsPhone = userAgent.indexOf('Windows Phone') !== -1;
@@ -759,7 +719,8 @@
       returnValue: 1,
       webkitMovementX: 1,
       webkitMovementY: 1,
-      keyIdentifier: 1
+      keyIdentifier: 1,
+      mozPressure: 1
     };
     var hasIsDefaultPrevented = function (event) {
       return event.isDefaultPrevented === returnTrue || event.isDefaultPrevented === returnFalse;
@@ -2369,7 +2330,7 @@
       }
       return o;
     };
-    var resolve$1 = function (n, o) {
+    var resolve = function (n, o) {
       var i, l;
       o = o || domGlobals.window;
       n = n.split('.');
@@ -2409,7 +2370,7 @@
       create: create,
       walk: walk,
       createNS: createNS,
-      resolve: resolve$1,
+      resolve: resolve,
       explode: explode,
       _addCacheSuffix: _addCacheSuffix
     };
@@ -3825,18 +3786,14 @@
     };
     var Recurse = { toArray: toArray$1 };
 
-    var node = function () {
-      var f = Global$1.getOrDie('Node');
-      return f;
-    };
     var compareDocumentPosition = function (a, b, match) {
       return (a.compareDocumentPosition(b) & match) !== 0;
     };
     var documentPositionPreceding = function (a, b) {
-      return compareDocumentPosition(a, b, node().DOCUMENT_POSITION_PRECEDING);
+      return compareDocumentPosition(a, b, domGlobals.Node.DOCUMENT_POSITION_PRECEDING);
     };
     var documentPositionContainedBy = function (a, b) {
-      return compareDocumentPosition(a, b, node().DOCUMENT_POSITION_CONTAINED_BY);
+      return compareDocumentPosition(a, b, domGlobals.Node.DOCUMENT_POSITION_CONTAINED_BY);
     };
     var Node = {
       documentPositionPreceding: documentPositionPreceding,
@@ -4010,6 +3967,503 @@
     };
     var Position = { getPos: getPos };
 
+    var exports$1 = {}, module$1 = { exports: exports$1 };
+    (function (define, exports, module, require) {
+      (function (f) {
+        if (typeof exports === 'object' && typeof module !== 'undefined') {
+          module.exports = f();
+        } else if (typeof define === 'function' && define.amd) {
+          define([], f);
+        } else {
+          var g;
+          if (typeof window !== 'undefined') {
+            g = window;
+          } else if (typeof global !== 'undefined') {
+            g = global;
+          } else if (typeof self !== 'undefined') {
+            g = self;
+          } else {
+            g = this;
+          }
+          g.EphoxContactWrapper = f();
+        }
+      }(function () {
+        return function () {
+          function r(e, n, t) {
+            function o(i, f) {
+              if (!n[i]) {
+                if (!e[i]) {
+                  var c = 'function' == typeof require && require;
+                  if (!f && c)
+                    return c(i, !0);
+                  if (u)
+                    return u(i, !0);
+                  var a = new Error('Cannot find module \'' + i + '\'');
+                  throw a.code = 'MODULE_NOT_FOUND', a;
+                }
+                var p = n[i] = { exports: {} };
+                e[i][0].call(p.exports, function (r) {
+                  var n = e[i][1][r];
+                  return o(n || r);
+                }, p, p.exports, r, e, n, t);
+              }
+              return n[i].exports;
+            }
+            for (var u = 'function' == typeof require && require, i = 0; i < t.length; i++)
+              o(t[i]);
+            return o;
+          }
+          return r;
+        }()({
+          1: [
+            function (require, module, exports) {
+              var process = module.exports = {};
+              var cachedSetTimeout;
+              var cachedClearTimeout;
+              function defaultSetTimout() {
+                throw new Error('setTimeout has not been defined');
+              }
+              function defaultClearTimeout() {
+                throw new Error('clearTimeout has not been defined');
+              }
+              (function () {
+                try {
+                  if (typeof setTimeout === 'function') {
+                    cachedSetTimeout = setTimeout;
+                  } else {
+                    cachedSetTimeout = defaultSetTimout;
+                  }
+                } catch (e) {
+                  cachedSetTimeout = defaultSetTimout;
+                }
+                try {
+                  if (typeof clearTimeout === 'function') {
+                    cachedClearTimeout = clearTimeout;
+                  } else {
+                    cachedClearTimeout = defaultClearTimeout;
+                  }
+                } catch (e) {
+                  cachedClearTimeout = defaultClearTimeout;
+                }
+              }());
+              function runTimeout(fun) {
+                if (cachedSetTimeout === setTimeout) {
+                  return setTimeout(fun, 0);
+                }
+                if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+                  cachedSetTimeout = setTimeout;
+                  return setTimeout(fun, 0);
+                }
+                try {
+                  return cachedSetTimeout(fun, 0);
+                } catch (e) {
+                  try {
+                    return cachedSetTimeout.call(null, fun, 0);
+                  } catch (e) {
+                    return cachedSetTimeout.call(this, fun, 0);
+                  }
+                }
+              }
+              function runClearTimeout(marker) {
+                if (cachedClearTimeout === clearTimeout) {
+                  return clearTimeout(marker);
+                }
+                if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+                  cachedClearTimeout = clearTimeout;
+                  return clearTimeout(marker);
+                }
+                try {
+                  return cachedClearTimeout(marker);
+                } catch (e) {
+                  try {
+                    return cachedClearTimeout.call(null, marker);
+                  } catch (e) {
+                    return cachedClearTimeout.call(this, marker);
+                  }
+                }
+              }
+              var queue = [];
+              var draining = false;
+              var currentQueue;
+              var queueIndex = -1;
+              function cleanUpNextTick() {
+                if (!draining || !currentQueue) {
+                  return;
+                }
+                draining = false;
+                if (currentQueue.length) {
+                  queue = currentQueue.concat(queue);
+                } else {
+                  queueIndex = -1;
+                }
+                if (queue.length) {
+                  drainQueue();
+                }
+              }
+              function drainQueue() {
+                if (draining) {
+                  return;
+                }
+                var timeout = runTimeout(cleanUpNextTick);
+                draining = true;
+                var len = queue.length;
+                while (len) {
+                  currentQueue = queue;
+                  queue = [];
+                  while (++queueIndex < len) {
+                    if (currentQueue) {
+                      currentQueue[queueIndex].run();
+                    }
+                  }
+                  queueIndex = -1;
+                  len = queue.length;
+                }
+                currentQueue = null;
+                draining = false;
+                runClearTimeout(timeout);
+              }
+              process.nextTick = function (fun) {
+                var args = new Array(arguments.length - 1);
+                if (arguments.length > 1) {
+                  for (var i = 1; i < arguments.length; i++) {
+                    args[i - 1] = arguments[i];
+                  }
+                }
+                queue.push(new Item(fun, args));
+                if (queue.length === 1 && !draining) {
+                  runTimeout(drainQueue);
+                }
+              };
+              function Item(fun, array) {
+                this.fun = fun;
+                this.array = array;
+              }
+              Item.prototype.run = function () {
+                this.fun.apply(null, this.array);
+              };
+              process.title = 'browser';
+              process.browser = true;
+              process.env = {};
+              process.argv = [];
+              process.version = '';
+              process.versions = {};
+              function noop() {
+              }
+              process.on = noop;
+              process.addListener = noop;
+              process.once = noop;
+              process.off = noop;
+              process.removeListener = noop;
+              process.removeAllListeners = noop;
+              process.emit = noop;
+              process.prependListener = noop;
+              process.prependOnceListener = noop;
+              process.listeners = function (name) {
+                return [];
+              };
+              process.binding = function (name) {
+                throw new Error('process.binding is not supported');
+              };
+              process.cwd = function () {
+                return '/';
+              };
+              process.chdir = function (dir) {
+                throw new Error('process.chdir is not supported');
+              };
+              process.umask = function () {
+                return 0;
+              };
+            },
+            {}
+          ],
+          2: [
+            function (require, module, exports) {
+              (function (setImmediate) {
+                (function (root) {
+                  var setTimeoutFunc = setTimeout;
+                  function noop() {
+                  }
+                  function bind(fn, thisArg) {
+                    return function () {
+                      fn.apply(thisArg, arguments);
+                    };
+                  }
+                  function Promise(fn) {
+                    if (typeof this !== 'object')
+                      throw new TypeError('Promises must be constructed via new');
+                    if (typeof fn !== 'function')
+                      throw new TypeError('not a function');
+                    this._state = 0;
+                    this._handled = false;
+                    this._value = undefined;
+                    this._deferreds = [];
+                    doResolve(fn, this);
+                  }
+                  function handle(self, deferred) {
+                    while (self._state === 3) {
+                      self = self._value;
+                    }
+                    if (self._state === 0) {
+                      self._deferreds.push(deferred);
+                      return;
+                    }
+                    self._handled = true;
+                    Promise._immediateFn(function () {
+                      var cb = self._state === 1 ? deferred.onFulfilled : deferred.onRejected;
+                      if (cb === null) {
+                        (self._state === 1 ? resolve : reject)(deferred.promise, self._value);
+                        return;
+                      }
+                      var ret;
+                      try {
+                        ret = cb(self._value);
+                      } catch (e) {
+                        reject(deferred.promise, e);
+                        return;
+                      }
+                      resolve(deferred.promise, ret);
+                    });
+                  }
+                  function resolve(self, newValue) {
+                    try {
+                      if (newValue === self)
+                        throw new TypeError('A promise cannot be resolved with itself.');
+                      if (newValue && (typeof newValue === 'object' || typeof newValue === 'function')) {
+                        var then = newValue.then;
+                        if (newValue instanceof Promise) {
+                          self._state = 3;
+                          self._value = newValue;
+                          finale(self);
+                          return;
+                        } else if (typeof then === 'function') {
+                          doResolve(bind(then, newValue), self);
+                          return;
+                        }
+                      }
+                      self._state = 1;
+                      self._value = newValue;
+                      finale(self);
+                    } catch (e) {
+                      reject(self, e);
+                    }
+                  }
+                  function reject(self, newValue) {
+                    self._state = 2;
+                    self._value = newValue;
+                    finale(self);
+                  }
+                  function finale(self) {
+                    if (self._state === 2 && self._deferreds.length === 0) {
+                      Promise._immediateFn(function () {
+                        if (!self._handled) {
+                          Promise._unhandledRejectionFn(self._value);
+                        }
+                      });
+                    }
+                    for (var i = 0, len = self._deferreds.length; i < len; i++) {
+                      handle(self, self._deferreds[i]);
+                    }
+                    self._deferreds = null;
+                  }
+                  function Handler(onFulfilled, onRejected, promise) {
+                    this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null;
+                    this.onRejected = typeof onRejected === 'function' ? onRejected : null;
+                    this.promise = promise;
+                  }
+                  function doResolve(fn, self) {
+                    var done = false;
+                    try {
+                      fn(function (value) {
+                        if (done)
+                          return;
+                        done = true;
+                        resolve(self, value);
+                      }, function (reason) {
+                        if (done)
+                          return;
+                        done = true;
+                        reject(self, reason);
+                      });
+                    } catch (ex) {
+                      if (done)
+                        return;
+                      done = true;
+                      reject(self, ex);
+                    }
+                  }
+                  Promise.prototype['catch'] = function (onRejected) {
+                    return this.then(null, onRejected);
+                  };
+                  Promise.prototype.then = function (onFulfilled, onRejected) {
+                    var prom = new this.constructor(noop);
+                    handle(this, new Handler(onFulfilled, onRejected, prom));
+                    return prom;
+                  };
+                  Promise.all = function (arr) {
+                    var args = Array.prototype.slice.call(arr);
+                    return new Promise(function (resolve, reject) {
+                      if (args.length === 0)
+                        return resolve([]);
+                      var remaining = args.length;
+                      function res(i, val) {
+                        try {
+                          if (val && (typeof val === 'object' || typeof val === 'function')) {
+                            var then = val.then;
+                            if (typeof then === 'function') {
+                              then.call(val, function (val) {
+                                res(i, val);
+                              }, reject);
+                              return;
+                            }
+                          }
+                          args[i] = val;
+                          if (--remaining === 0) {
+                            resolve(args);
+                          }
+                        } catch (ex) {
+                          reject(ex);
+                        }
+                      }
+                      for (var i = 0; i < args.length; i++) {
+                        res(i, args[i]);
+                      }
+                    });
+                  };
+                  Promise.resolve = function (value) {
+                    if (value && typeof value === 'object' && value.constructor === Promise) {
+                      return value;
+                    }
+                    return new Promise(function (resolve) {
+                      resolve(value);
+                    });
+                  };
+                  Promise.reject = function (value) {
+                    return new Promise(function (resolve, reject) {
+                      reject(value);
+                    });
+                  };
+                  Promise.race = function (values) {
+                    return new Promise(function (resolve, reject) {
+                      for (var i = 0, len = values.length; i < len; i++) {
+                        values[i].then(resolve, reject);
+                      }
+                    });
+                  };
+                  Promise._immediateFn = typeof setImmediate === 'function' ? function (fn) {
+                    setImmediate(fn);
+                  } : function (fn) {
+                    setTimeoutFunc(fn, 0);
+                  };
+                  Promise._unhandledRejectionFn = function _unhandledRejectionFn(err) {
+                    if (typeof console !== 'undefined' && console) {
+                      console.warn('Possible Unhandled Promise Rejection:', err);
+                    }
+                  };
+                  Promise._setImmediateFn = function _setImmediateFn(fn) {
+                    Promise._immediateFn = fn;
+                  };
+                  Promise._setUnhandledRejectionFn = function _setUnhandledRejectionFn(fn) {
+                    Promise._unhandledRejectionFn = fn;
+                  };
+                  if (typeof module !== 'undefined' && module.exports) {
+                    module.exports = Promise;
+                  } else if (!root.Promise) {
+                    root.Promise = Promise;
+                  }
+                }(this));
+              }.call(this, require('timers').setImmediate));
+            },
+            { 'timers': 3 }
+          ],
+          3: [
+            function (require, module, exports) {
+              (function (setImmediate, clearImmediate) {
+                var nextTick = require('process/browser.js').nextTick;
+                var apply = Function.prototype.apply;
+                var slice = Array.prototype.slice;
+                var immediateIds = {};
+                var nextImmediateId = 0;
+                exports.setTimeout = function () {
+                  return new Timeout(apply.call(setTimeout, window, arguments), clearTimeout);
+                };
+                exports.setInterval = function () {
+                  return new Timeout(apply.call(setInterval, window, arguments), clearInterval);
+                };
+                exports.clearTimeout = exports.clearInterval = function (timeout) {
+                  timeout.close();
+                };
+                function Timeout(id, clearFn) {
+                  this._id = id;
+                  this._clearFn = clearFn;
+                }
+                Timeout.prototype.unref = Timeout.prototype.ref = function () {
+                };
+                Timeout.prototype.close = function () {
+                  this._clearFn.call(window, this._id);
+                };
+                exports.enroll = function (item, msecs) {
+                  clearTimeout(item._idleTimeoutId);
+                  item._idleTimeout = msecs;
+                };
+                exports.unenroll = function (item) {
+                  clearTimeout(item._idleTimeoutId);
+                  item._idleTimeout = -1;
+                };
+                exports._unrefActive = exports.active = function (item) {
+                  clearTimeout(item._idleTimeoutId);
+                  var msecs = item._idleTimeout;
+                  if (msecs >= 0) {
+                    item._idleTimeoutId = setTimeout(function onTimeout() {
+                      if (item._onTimeout)
+                        item._onTimeout();
+                    }, msecs);
+                  }
+                };
+                exports.setImmediate = typeof setImmediate === 'function' ? setImmediate : function (fn) {
+                  var id = nextImmediateId++;
+                  var args = arguments.length < 2 ? false : slice.call(arguments, 1);
+                  immediateIds[id] = true;
+                  nextTick(function onNextTick() {
+                    if (immediateIds[id]) {
+                      if (args) {
+                        fn.apply(null, args);
+                      } else {
+                        fn.call(null);
+                      }
+                      exports.clearImmediate(id);
+                    }
+                  });
+                  return id;
+                };
+                exports.clearImmediate = typeof clearImmediate === 'function' ? clearImmediate : function (id) {
+                  delete immediateIds[id];
+                };
+              }.call(this, require('timers').setImmediate, require('timers').clearImmediate));
+            },
+            {
+              'process/browser.js': 1,
+              'timers': 3
+            }
+          ],
+          4: [
+            function (require, module, exports) {
+              var promisePolyfill = require('promise-polyfill');
+              var Global = function () {
+                if (typeof window !== 'undefined') {
+                  return window;
+                } else {
+                  return Function('return this;')();
+                }
+              }();
+              module.exports = { boltExport: Global.Promise || promisePolyfill };
+            },
+            { 'promise-polyfill': 2 }
+          ]
+        }, {}, [4])(4);
+      }));
+    }(undefined, exports$1, module$1, undefined));
+    var Promise = module$1.exports.boltExport;
+
     var nu$3 = function (baseFn) {
       var data = Option.none();
       var callbacks = [];
@@ -4062,42 +4516,31 @@
       pure: pure
     };
 
-    var bounce = function (f) {
-      return function () {
-        var args = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-          args[_i] = arguments[_i];
-        }
-        var me = this;
-        domGlobals.setTimeout(function () {
-          f.apply(me, args);
-        }, 0);
-      };
+    var errorReporter = function (err) {
+      domGlobals.setTimeout(function () {
+        throw err;
+      }, 0);
     };
-
-    var nu$4 = function (baseFn) {
+    var make = function (run) {
       var get = function (callback) {
-        baseFn(bounce(callback));
+        run().then(callback, errorReporter);
       };
       var map = function (fab) {
-        return nu$4(function (callback) {
-          get(function (a) {
-            var value = fab(a);
-            callback(value);
-          });
+        return make(function () {
+          return run().then(fab);
         });
       };
       var bind = function (aFutureB) {
-        return nu$4(function (callback) {
-          get(function (a) {
-            aFutureB(a).get(callback);
+        return make(function () {
+          return run().then(function (v) {
+            return aFutureB(v).toPromise();
           });
         });
       };
       var anonBind = function (futureB) {
-        return nu$4(function (callback) {
-          get(function (a) {
-            futureB.get(callback);
+        return make(function () {
+          return run().then(function () {
+            return futureB.toPromise();
           });
         });
       };
@@ -4106,25 +4549,32 @@
       };
       var toCached = function () {
         var cache = null;
-        return nu$4(function (callback) {
+        return make(function () {
           if (cache === null) {
-            cache = toLazy();
+            cache = run();
           }
-          cache.get(callback);
+          return cache;
         });
       };
+      var toPromise = run;
       return {
         map: map,
         bind: bind,
         anonBind: anonBind,
         toLazy: toLazy,
         toCached: toCached,
+        toPromise: toPromise,
         get: get
       };
     };
+    var nu$4 = function (baseFn) {
+      return make(function () {
+        return new Promise(baseFn);
+      });
+    };
     var pure$1 = function (a) {
-      return nu$4(function (callback) {
-        callback(a);
+      return make(function () {
+        return Promise.resolve(a);
       });
     };
     var Future = {
@@ -8228,7 +8678,7 @@
       }
       return CaretPosition$1(container, offset);
     };
-    var resolve$2 = function (root, path) {
+    var resolve$1 = function (root, path) {
       var parts, container, offset;
       if (!path) {
         return null;
@@ -9208,9 +9658,9 @@
     var resolveCaretPositionBookmark = function (dom, bookmark) {
       var rng, pos;
       rng = dom.createRng();
-      pos = resolve$2(dom.getRoot(), bookmark.start);
+      pos = resolve$1(dom.getRoot(), bookmark.start);
       rng.setStart(pos.container(), pos.offset());
-      pos = resolve$2(dom.getRoot(), bookmark.end);
+      pos = resolve$1(dom.getRoot(), bookmark.end);
       rng.setEnd(pos.container(), pos.offset());
       return rng;
     };
@@ -9380,7 +9830,7 @@
         return rng;
       });
     };
-    var resolve$3 = function (selection, bookmark) {
+    var resolve$2 = function (selection, bookmark) {
       var dom = selection.dom;
       if (bookmark) {
         if (isPathBookmark(bookmark)) {
@@ -9397,7 +9847,7 @@
       }
       return Option.none();
     };
-    var ResolveBookmark = { resolve: resolve$3 };
+    var ResolveBookmark = { resolve: resolve$2 };
 
     var getBookmark$1 = function (selection, type, normalized) {
       return GetBookmark.getBookmark(selection, type, normalized);
@@ -11418,7 +11868,8 @@
     };
 
     var isEditorUIElement = function (elm) {
-      return elm.className.toString().indexOf('tox-') !== -1 || elm.className.toString().indexOf('mce-') !== -1;
+      var className = elm.className.toString();
+      return className.indexOf('tox-') !== -1 || className.indexOf('mce-') !== -1;
     };
     var FocusManager = { isEditorUIElement: isEditorUIElement };
 
@@ -11461,10 +11912,10 @@
       var throttledStore = first(function () {
         SelectionBookmark.store(editor);
       }, 0);
-      if (editor.inline) {
-        registerPageMouseUp(editor, throttledStore);
-      }
       editor.on('init', function () {
+        if (editor.inline) {
+          registerPageMouseUp(editor, throttledStore);
+        }
         registerEditorEvents(editor, throttledStore);
       });
       editor.on('remove', function () {
@@ -11477,6 +11928,14 @@
     var DOM$1 = DOMUtils$1.DOM;
     var isEditorUIElement$1 = function (elm) {
       return FocusManager.isEditorUIElement(elm);
+    };
+    var isEditorContentAreaElement = function (elm) {
+      var classList = elm.classList;
+      if (classList !== undefined) {
+        return classList.contains('tox-edit-area') || classList.contains('tox-edit-area__iframe') || classList.contains('mce-content-body');
+      } else {
+        return false;
+      }
     };
     var isUIElement = function (editor, elm) {
       var customSelector = editor ? editor.settings.custom_ui_selector : '';
@@ -11549,6 +12008,7 @@
     var FocusController = {
       setup: setup$2,
       isEditorUIElement: isEditorUIElement$1,
+      isEditorContentAreaElement: isEditorContentAreaElement,
       isUIElement: isUIElement
     };
 
@@ -11603,8 +12063,8 @@
       return rawBody && hasElementFocus(Element.fromDom(rawBody));
     };
     var hasUiFocus = function (editor) {
-      return hasElementFocus(Element.fromDom(editor.getContainer())) || active().filter(function (elem) {
-        return FocusController.isUIElement(editor, elem.dom());
+      return active().filter(function (elem) {
+        return !FocusController.isEditorContentAreaElement(elem.dom()) && FocusController.isUIElement(editor, elem.dom());
       }).isSome();
     };
     var hasFocus$1 = function (editor) {
@@ -11881,6 +12341,13 @@
     var hasSection = function (sectionResult, name) {
       return sectionResult.sections().hasOwnProperty(name);
     };
+    var isSectionTheme = function (sectionResult, name, theme) {
+      var section = sectionResult.sections();
+      return hasSection(sectionResult, name) && section[name].theme === theme;
+    };
+    var getSectionConfig = function (sectionResult, name) {
+      return hasSection(sectionResult, name) ? sectionResult.sections()[name] : {};
+    };
     var getDefaultSettings = function (id, documentBaseUrl, editor) {
       return {
         id: id,
@@ -11922,8 +12389,10 @@
     };
     var processPlugins = function (isTouchDevice, sectionResult, defaultOverrideSettings, settings) {
       var forcedPlugins = normalizePlugins(defaultOverrideSettings.forced_plugins);
-      var plugins = normalizePlugins(settings.plugins);
-      var platformPlugins = isTouchDevice && hasSection(sectionResult, 'mobile') ? filterMobilePlugins(plugins) : plugins;
+      var desktopPlugins = normalizePlugins(settings.plugins);
+      var mobileConfig = getSectionConfig(sectionResult, 'mobile');
+      var mobilePlugins = mobileConfig.plugins ? normalizePlugins(mobileConfig.plugins) : desktopPlugins;
+      var platformPlugins = isTouchDevice && isSectionTheme(sectionResult, 'mobile', 'mobile') ? filterMobilePlugins(mobilePlugins) : isTouchDevice && hasSection(sectionResult, 'mobile') ? mobilePlugins : desktopPlugins;
       var combinedPlugins = combinePlugins(forcedPlugins, platformPlugins);
       return Tools.extend(settings, { plugins: combinedPlugins.join(' ') });
     };
@@ -12479,11 +12948,6 @@
 
     var ThemeManager = AddOnManager$1.ThemeManager;
 
-    function XMLHttpRequest () {
-      var f = Global$1.getOrDie('XMLHttpRequest');
-      return new f();
-    }
-
     function Uploader(uploadStatus, settings) {
       var pendingPromises = {};
       var pathJoin = function (path1, path2) {
@@ -12494,7 +12958,7 @@
       };
       var defaultHandler = function (blobInfo, success, failure, progress) {
         var xhr, formData;
-        xhr = XMLHttpRequest();
+        xhr = new domGlobals.XMLHttpRequest();
         xhr.open('POST', settings.url);
         xhr.withCredentials = settings.credentials;
         xhr.upload.onprogress = function (e) {
@@ -12613,36 +13077,13 @@
       return { upload: upload };
     }
 
-    function FileReader () {
-      var f = Global$1.getOrDie('FileReader');
-      return new f();
-    }
-
-    function Uint8Array (arr) {
-      var f = Global$1.getOrDie('Uint8Array');
-      return new f(arr);
-    }
-
-    var requestAnimationFrame$1 = function (callback) {
-      var f = Global$1.getOrDie('requestAnimationFrame');
-      f(callback);
-    };
-    var atob = function (base64) {
-      var f = Global$1.getOrDie('atob');
-      return f(base64);
-    };
-    var Window = {
-      atob: atob,
-      requestAnimationFrame: requestAnimationFrame$1
-    };
-
     var blobUriToBlob = function (url) {
       return new promiseObj(function (resolve, reject) {
         var rejectWithError = function () {
           reject('Cannot convert ' + url + ' to Blob. Resource might not exist or is inaccessible.');
         };
         try {
-          var xhr = XMLHttpRequest();
+          var xhr = new domGlobals.XMLHttpRequest();
           xhr.open('GET', url, true);
           xhr.responseType = 'blob';
           xhr.onload = function () {
@@ -12676,12 +13117,12 @@
         var str, arr, i;
         var uriParts = parseDataUri(uri);
         try {
-          str = Window.atob(uriParts.data);
+          str = domGlobals.atob(uriParts.data);
         } catch (e) {
           resolve(new domGlobals.Blob([]));
           return;
         }
-        arr = Uint8Array(str.length);
+        arr = new Uint8Array(str.length);
         for (i = 0; i < arr.length; i++) {
           arr[i] = str.charCodeAt(i);
         }
@@ -12699,7 +13140,7 @@
     };
     var blobToDataUri = function (blob) {
       return new promiseObj(function (resolve) {
-        var reader = FileReader();
+        var reader = new domGlobals.FileReader();
         reader.onloadend = function () {
           resolve(reader.result);
         };
@@ -12879,7 +13320,7 @@
           filename: constant(name + '.' + mimeToExt(o.blob.type)),
           blob: constant(o.blob),
           base64: constant(o.base64),
-          blobUri: constant(o.blobUri || URL.createObjectURL(o.blob)),
+          blobUri: constant(o.blobUri || domGlobals.URL.createObjectURL(o.blob)),
           uri: constant(o.uri)
         };
       };
@@ -12904,7 +13345,7 @@
       var removeByUri = function (blobUri) {
         cache = filter(cache, function (blobInfo) {
           if (blobInfo.blobUri() === blobUri) {
-            URL.revokeObjectURL(blobInfo.blobUri());
+            domGlobals.URL.revokeObjectURL(blobInfo.blobUri());
             return false;
           }
           return true;
@@ -12912,7 +13353,7 @@
       };
       var destroy = function () {
         each(cache, function (cachedBlobInfo) {
-          URL.revokeObjectURL(cachedBlobInfo.blobUri());
+          domGlobals.URL.revokeObjectURL(cachedBlobInfo.blobUri());
         });
         cache = [];
       };
@@ -21485,25 +21926,37 @@
         return true;
       };
     };
+    var getAncestorCe = function (editor, node) {
+      return Option.from(getContentEditableRoot$2(editor.getBody(), node));
+    };
     var backspaceDeleteCaret = function (editor, forward) {
-      var result = read$4(editor.getBody(), forward, editor.selection.getRng()).map(function (deleteAction) {
-        return deleteAction.fold(deleteElement$1(editor, forward), moveToElement(editor, forward), moveToPosition(editor));
+      var selectedNode = editor.selection.getNode();
+      return getAncestorCe(editor, selectedNode).filter(NodeType.isContentEditableFalse).fold(function () {
+        var result = read$4(editor.getBody(), forward, editor.selection.getRng()).map(function (deleteAction) {
+          return deleteAction.fold(deleteElement$1(editor, forward), moveToElement(editor, forward), moveToPosition(editor));
+        });
+        return result.getOr(false);
+      }, function () {
+        return true;
       });
-      return result.getOr(false);
     };
     var deleteOffscreenSelection = function (rootElement) {
       each(descendants$1(rootElement, '.mce-offscreen-selection'), remove$1);
     };
     var backspaceDeleteRange = function (editor, forward) {
-      var selectedElement = editor.selection.getNode();
-      if (NodeType.isContentEditableFalse(selectedElement)) {
-        deleteOffscreenSelection(Element.fromDom(editor.getBody()));
-        DeleteElement.deleteElement(editor, forward, Element.fromDom(editor.selection.getNode()));
-        DeleteUtils.paddEmptyBody(editor);
-        return true;
-      } else {
-        return false;
+      var selectedNode = editor.selection.getNode();
+      if (NodeType.isContentEditableFalse(selectedNode)) {
+        var hasCefAncestor = getAncestorCe(editor, selectedNode.parentNode).filter(NodeType.isContentEditableFalse);
+        return hasCefAncestor.fold(function () {
+          deleteOffscreenSelection(Element.fromDom(editor.getBody()));
+          DeleteElement.deleteElement(editor, forward, Element.fromDom(editor.selection.getNode()));
+          DeleteUtils.paddEmptyBody(editor);
+          return true;
+        }, function () {
+          return true;
+        });
       }
+      return false;
     };
     var getContentEditableRoot$2 = function (root, node) {
       while (node && node !== root) {
@@ -25538,7 +25991,7 @@
       return EditorCommands;
     }();
 
-    var nativeEvents = Tools.makeMap('focus blur focusin focusout click dblclick mousedown mouseup mousemove mouseover beforepaste paste cut copy selectionchange ' + 'mouseout mouseenter mouseleave wheel keydown keypress keyup input contextmenu dragstart dragend dragover ' + 'draggesture dragdrop drop drag submit ' + 'compositionstart compositionend compositionupdate touchstart touchmove touchend', ' ');
+    var nativeEvents = Tools.makeMap('focus blur focusin focusout click dblclick mousedown mouseup mousemove mouseover beforepaste paste cut copy selectionchange ' + 'mouseout mouseenter mouseleave wheel keydown keypress keyup input beforeinput contextmenu dragstart dragend dragover ' + 'draggesture dragdrop drop drag submit ' + 'compositionstart compositionend compositionupdate touchstart touchmove touchend', ' ');
     var EventDispatcher = function () {
       function EventDispatcher(settings) {
         this.bindings = {};
@@ -26304,7 +26757,7 @@
 
     var DOM$8 = DOMUtils$1.DOM;
     var extend$3 = Tools.extend, each$j = Tools.each;
-    var resolve$4 = Tools.resolve;
+    var resolve$3 = Tools.resolve;
     var ie$2 = Env.ie;
     var Editor = function () {
       function Editor(id, settings, editorManager) {
@@ -26377,8 +26830,8 @@
         }
         if (typeof callback === 'string') {
           scope = callback.replace(/\.\w+$/, '');
-          scope = scope ? resolve$4(scope) : 0;
-          callback = resolve$4(callback);
+          scope = scope ? resolve$3(scope) : 0;
+          callback = resolve$3(callback);
           self.callbackLookup = self.callbackLookup || {};
           self.callbackLookup[name] = {
             func: callback,
@@ -26745,8 +27198,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '0.12',
-      releaseDate: '2019-07-18',
+      minorVersion: '0.13',
+      releaseDate: '2019-08-06',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
@@ -27119,6 +27572,83 @@
     }(RangeUtils || (RangeUtils = {})));
     var RangeUtils$1 = RangeUtils;
 
+    var awaiter = function (resolveCb, rejectCb, timeout) {
+      if (timeout === void 0) {
+        timeout = 1000;
+      }
+      var done = false;
+      var timer = null;
+      var complete = function (completer) {
+        return function () {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          if (!done) {
+            done = true;
+            if (timer !== null) {
+              domGlobals.clearTimeout(timer);
+              timer = null;
+            }
+            completer.apply(null, args);
+          }
+        };
+      };
+      var resolve = complete(resolveCb);
+      var reject = complete(rejectCb);
+      var start = function () {
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+          args[_i] = arguments[_i];
+        }
+        if (!done && timer === null) {
+          timer = domGlobals.setTimeout(function () {
+            return reject.apply(null, args);
+          }, timeout);
+        }
+      };
+      return {
+        start: start,
+        resolve: resolve,
+        reject: reject
+      };
+    };
+    var create$6 = function () {
+      var tasks = {};
+      var resultFns = {};
+      var load = function (id, url) {
+        var loadErrMsg = 'Script at URL "' + url + '" failed to load';
+        var runErrMsg = 'Script at URL "' + url + '" did not call `tinymce.Resource.add(\'' + id + '\', data)` within 1 second';
+        if (tasks[id] !== undefined) {
+          return tasks[id];
+        } else {
+          var task = new promiseObj(function (resolve, reject) {
+            var waiter = awaiter(resolve, reject);
+            resultFns[id] = waiter.resolve;
+            ScriptLoader.ScriptLoader.loadScript(url, function () {
+              return waiter.start(runErrMsg);
+            }, function () {
+              return waiter.reject(loadErrMsg);
+            });
+          });
+          tasks[id] = task;
+          return task;
+        }
+      };
+      var add = function (id, data) {
+        if (resultFns[id] !== undefined) {
+          resultFns[id](data);
+          delete resultFns[id];
+        }
+        tasks[id] = promiseObj.resolve(data);
+      };
+      return {
+        load: load,
+        add: add
+      };
+    };
+    var Resource = create$6();
+
     var min = Math.min, max = Math.max, round$2 = Math.round;
     var relativePosition = function (rect, targetRect, rel) {
       var x, y, w, h, targetW, targetH;
@@ -27153,7 +27683,7 @@
       if (rel[4] === 'c') {
         x -= round$2(w / 2);
       }
-      return create$6(x, y, w, h);
+      return create$7(x, y, w, h);
     };
     var findBestRelativePosition = function (rect, targetRect, constrainRect, rels) {
       var pos, i;
@@ -27166,7 +27696,7 @@
       return null;
     };
     var inflate = function (rect, w, h) {
-      return create$6(rect.x - w, rect.y - h, rect.w + w * 2, rect.h + h * 2);
+      return create$7(rect.x - w, rect.y - h, rect.w + w * 2, rect.h + h * 2);
     };
     var intersect = function (rect, cropRect) {
       var x1, y1, x2, y2;
@@ -27177,7 +27707,7 @@
       if (x2 - x1 < 0 || y2 - y1 < 0) {
         return null;
       }
-      return create$6(x1, y1, x2 - x1, y2 - y1);
+      return create$7(x1, y1, x2 - x1, y2 - y1);
     };
     var clamp$1 = function (rect, clampRect, fixedSize) {
       var underflowX1, underflowY1, overflowX2, overflowY2, x1, y1, x2, y2, cx2, cy2;
@@ -27201,9 +27731,9 @@
       }
       x2 -= overflowX2;
       y2 -= overflowY2;
-      return create$6(x1, y1, x2 - x1, y2 - y1);
+      return create$7(x1, y1, x2 - x1, y2 - y1);
     };
-    var create$6 = function (x, y, w, h) {
+    var create$7 = function (x, y, w, h) {
       return {
         x: x,
         y: y,
@@ -27212,7 +27742,7 @@
       };
     };
     var fromClientRect = function (clientRect) {
-      return create$6(clientRect.left, clientRect.top, clientRect.width, clientRect.height);
+      return create$7(clientRect.left, clientRect.top, clientRect.width, clientRect.height);
     };
     var Rect = {
       inflate: inflate,
@@ -27220,7 +27750,7 @@
       findBestRelativePosition: findBestRelativePosition,
       intersect: intersect,
       clamp: clamp$1,
-      create: create$6,
+      create: create$7,
       fromClientRect: fromClientRect
     };
 
@@ -27524,7 +28054,7 @@
         settings.async = settings.async !== false;
         settings.data = settings.data || '';
         XHR.fire('beforeInitialize', { settings: settings });
-        xhr = XMLHttpRequest();
+        xhr = new domGlobals.XMLHttpRequest();
         if (xhr) {
           if (xhr.overrideMimeType) {
             xhr.overrideMimeType(settings.content_type);
@@ -27594,7 +28124,7 @@
       return JSONRequest;
     }();
 
-    var create$7 = function () {
+    var create$8 = function () {
       return function () {
         var data = {};
         var keys = [];
@@ -27637,7 +28167,7 @@
     try {
       localStorage = domGlobals.window.localStorage;
     } catch (e) {
-      localStorage = create$7();
+      localStorage = create$8();
     }
     var LocalStorage = localStorage;
 
@@ -27702,6 +28232,7 @@
       PluginManager: AddOnManager$1.PluginManager,
       ThemeManager: AddOnManager$1.ThemeManager,
       IconManager: IconManager,
+      Resource: Resource,
       trim: Tools.trim,
       isArray: Tools.isArray,
       is: Tools.is,
