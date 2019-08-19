@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.0.13 (2019-08-06)
+ * Version: 5.0.14 (2019-08-19)
  */
 (function (domGlobals) {
     'use strict';
@@ -3631,6 +3631,8 @@
     var ENTITY = domGlobals.Node.ENTITY_NODE;
     var NOTATION = domGlobals.Node.NOTATION_NODE;
 
+    var Global = typeof domGlobals.window !== 'undefined' ? domGlobals.window : Function('return this;')();
+
     var name = function (element) {
       var r = element.dom().nodeName;
       return r.toLowerCase();
@@ -3645,7 +3647,6 @@
     };
     var isElement = isType$1(ELEMENT);
     var isText = isType$1(TEXT);
-    var isDocument = isType$1(DOCUMENT);
 
     var keys = Object.keys;
     var hasOwnProperty$1 = Object.hasOwnProperty;
@@ -3803,19 +3804,22 @@
     var ELEMENT$1 = ELEMENT;
     var DOCUMENT$1 = DOCUMENT;
     var is$1 = function (element, selector) {
-      var elem = element.dom();
-      if (elem.nodeType !== ELEMENT$1) {
+      var dom = element.dom();
+      if (dom.nodeType !== ELEMENT$1) {
         return false;
-      } else if (elem.matches !== undefined) {
-        return elem.matches(selector);
-      } else if (elem.msMatchesSelector !== undefined) {
-        return elem.msMatchesSelector(selector);
-      } else if (elem.webkitMatchesSelector !== undefined) {
-        return elem.webkitMatchesSelector(selector);
-      } else if (elem.mozMatchesSelector !== undefined) {
-        return elem.mozMatchesSelector(selector);
       } else {
-        throw new Error('Browser lacks native selectors');
+        var elem = dom;
+        if (elem.matches !== undefined) {
+          return elem.matches(selector);
+        } else if (elem.msMatchesSelector !== undefined) {
+          return elem.msMatchesSelector(selector);
+        } else if (elem.webkitMatchesSelector !== undefined) {
+          return elem.webkitMatchesSelector(selector);
+        } else if (elem.mozMatchesSelector !== undefined) {
+          return elem.mozMatchesSelector(selector);
+        } else {
+          throw new Error('Browser lacks native selectors');
+        }
       }
     };
     var bypassSelector = function (dom) {
@@ -3851,16 +3855,13 @@
       return Element.fromDom(element.dom().ownerDocument.documentElement);
     };
     var defaultView = function (element) {
-      var el = element.dom();
-      var defView = el.ownerDocument.defaultView;
-      return Element.fromDom(defView);
+      return Element.fromDom(element.dom().ownerDocument.defaultView);
     };
     var parent = function (element) {
-      var dom = element.dom();
-      return Option.from(dom.parentNode).map(Element.fromDom);
+      return Option.from(element.dom().parentNode).map(Element.fromDom);
     };
     var parents = function (element, isRoot) {
-      var stop = isFunction(isRoot) ? isRoot : constant(false);
+      var stop = isFunction(isRoot) ? isRoot : never;
       var dom = element.dom();
       var ret = [];
       while (dom.parentNode !== null && dom.parentNode !== undefined) {
@@ -3876,12 +3877,10 @@
       return ret;
     };
     var prevSibling = function (element) {
-      var dom = element.dom();
-      return Option.from(dom.previousSibling).map(Element.fromDom);
+      return Option.from(element.dom().previousSibling).map(Element.fromDom);
     };
     var nextSibling = function (element) {
-      var dom = element.dom();
-      return Option.from(dom.nextSibling).map(Element.fromDom);
+      return Option.from(element.dom().nextSibling).map(Element.fromDom);
     };
     var prevSiblings = function (element) {
       return reverse(Recurse.toArray(element, prevSibling));
@@ -3890,8 +3889,7 @@
       return Recurse.toArray(element, nextSibling);
     };
     var children = function (element) {
-      var dom = element.dom();
-      return map(dom.childNodes, Element.fromDom);
+      return map(element.dom().childNodes, Element.fromDom);
     };
     var child = function (element, index) {
       var cs = element.dom().childNodes;
@@ -4953,7 +4951,7 @@
     ]);
     var isText$1 = isNodeType(3);
     var isComment = isNodeType(8);
-    var isDocument$1 = isNodeType(9);
+    var isDocument = isNodeType(9);
     var isDocumentFragment = isNodeType(11);
     var isBr = matchNodeNames(['br']);
     var isContentEditableTrue = hasContentEditableState('true');
@@ -4962,7 +4960,7 @@
       isText: isText$1,
       isElement: isElement$1,
       isComment: isComment,
-      isDocument: isDocument$1,
+      isDocument: isDocument,
       isDocumentFragment: isDocumentFragment,
       isBr: isBr,
       isContentEditableTrue: isContentEditableTrue,
@@ -7741,8 +7739,8 @@
       return Option.none();
     };
     var closest = function (scope, predicate, isRoot) {
-      var is = function (s) {
-        return predicate(s);
+      var is = function (s, test) {
+        return test(s);
       };
       return ClosestOrAncestor(is, ancestor, scope, predicate, isRoot);
     };
@@ -10366,18 +10364,9 @@
         }
         return getOption(element).getOr('');
       };
-      var getOptionIE10 = function (element) {
-        try {
-          return getOptionSafe(element);
-        } catch (e) {
-          return Option.none();
-        }
-      };
-      var getOptionSafe = function (element) {
+      var getOption = function (element) {
         return is(element) ? Option.from(element.dom().nodeValue) : Option.none();
       };
-      var browser = PlatformDetection$1.detect().browser;
-      var getOption = browser.isIE() && browser.version.major === 10 ? getOptionIE10 : getOptionSafe;
       var set = function (element, value) {
         if (!is(element)) {
           throw new Error('Can only set raw ' + name + ' value of a ' + name + ' node');
@@ -10548,19 +10537,17 @@
       '#document-fragment': 11
     };
     var walk$2 = function (node, root, prev) {
-      var sibling;
-      var parent;
       var startName = prev ? 'lastChild' : 'firstChild';
       var siblingName = prev ? 'prev' : 'next';
       if (node[startName]) {
         return node[startName];
       }
       if (node !== root) {
-        sibling = node[siblingName];
+        var sibling = node[siblingName];
         if (sibling) {
           return sibling;
         }
-        for (parent = node.parent; parent && parent !== root; parent = parent.parent) {
+        for (var parent = node.parent; parent && parent !== root; parent = parent.parent) {
           sibling = parent[siblingName];
           if (sibling) {
             return sibling;
@@ -10578,10 +10565,9 @@
         }
       }
       Node.create = function (name, attrs) {
-        var node, attrName;
-        node = new Node(name, typeLookup[name] || 1);
+        var node = new Node(name, typeLookup[name] || 1);
         if (attrs) {
-          for (attrName in attrs) {
+          for (var attrName in attrs) {
             node.attr(attrName, attrs[attrName]);
           }
         }
@@ -10598,10 +10584,10 @@
       };
       Node.prototype.attr = function (name, value) {
         var self = this;
-        var attrs, i;
+        var attrs;
         if (typeof name !== 'string') {
-          for (i in name) {
-            self.attr(i, name[i]);
+          for (var key in name) {
+            self.attr(key, name[key]);
           }
           return self;
         }
@@ -10610,10 +10596,10 @@
             if (value === null) {
               if (name in attrs.map) {
                 delete attrs.map[name];
-                i = attrs.length;
+                var i = attrs.length;
                 while (i--) {
                   if (attrs[i].name === name) {
-                    attrs = attrs.splice(i, 1);
+                    attrs.splice(i, 1);
                     return self;
                   }
                 }
@@ -10621,7 +10607,7 @@
               return self;
             }
             if (name in attrs.map) {
-              i = attrs.length;
+              var i = attrs.length;
               while (i--) {
                 if (attrs[i].name === name) {
                   attrs[i].value = value;
@@ -10643,12 +10629,12 @@
       Node.prototype.clone = function () {
         var self = this;
         var clone = new Node(self.name, self.type);
-        var i, l, selfAttrs, selfAttr, cloneAttrs;
+        var selfAttrs;
         if (selfAttrs = self.attributes) {
-          cloneAttrs = [];
+          var cloneAttrs = [];
           cloneAttrs.map = {};
-          for (i = 0, l = selfAttrs.length; i < l; i++) {
-            selfAttr = selfAttrs[i];
+          for (var i = 0, l = selfAttrs.length; i < l; i++) {
+            var selfAttr = selfAttrs[i];
             if (selfAttr.name !== 'id') {
               cloneAttrs[cloneAttrs.length] = {
                 name: selfAttr.name,
@@ -10671,9 +10657,8 @@
       };
       Node.prototype.unwrap = function () {
         var self = this;
-        var node, next;
-        for (node = self.firstChild; node;) {
-          next = node.next;
+        for (var node = self.firstChild; node;) {
+          var next = node.next;
           self.insert(node, self, true);
           node = next;
         }
@@ -10704,11 +10689,10 @@
       };
       Node.prototype.append = function (node) {
         var self = this;
-        var last;
         if (node.parent) {
           node.remove();
         }
-        last = self.lastChild;
+        var last = self.lastChild;
         if (last) {
           last.next = node;
           node.prev = last;
@@ -10720,11 +10704,10 @@
         return node;
       };
       Node.prototype.insert = function (node, refNode, before) {
-        var parent;
         if (node.parent) {
           node.remove();
         }
-        parent = refNode.parent || this;
+        var parent = refNode.parent || this;
         if (before) {
           if (refNode === parent.firstChild) {
             parent.firstChild = node;
@@ -10749,9 +10732,8 @@
       };
       Node.prototype.getAll = function (name) {
         var self = this;
-        var node;
         var collection = [];
-        for (node = self.firstChild; node; node = walk$2(node, self)) {
+        for (var node = self.firstChild; node; node = walk$2(node, self)) {
           if (node.name === name) {
             collection.push(node);
           }
@@ -10760,15 +10742,14 @@
       };
       Node.prototype.empty = function () {
         var self = this;
-        var nodes, i, node;
         if (self.firstChild) {
-          nodes = [];
-          for (node = self.firstChild; node; node = walk$2(node, self)) {
+          var nodes = [];
+          for (var node = self.firstChild; node; node = walk$2(node, self)) {
             nodes.push(node);
           }
-          i = nodes.length;
+          var i = nodes.length;
           while (i--) {
-            node = nodes[i];
+            var node = nodes[i];
             node.parent = node.firstChild = node.lastChild = node.next = node.prev = null;
           }
         }
@@ -10776,9 +10757,11 @@
         return self;
       };
       Node.prototype.isEmpty = function (elements, whitespace, predicate) {
+        if (whitespace === void 0) {
+          whitespace = {};
+        }
         var self = this;
-        var node = self.firstChild, i, name;
-        whitespace = whitespace || {};
+        var node = self.firstChild;
         if (node) {
           do {
             if (node.type === 1) {
@@ -10788,9 +10771,9 @@
               if (elements[node.name]) {
                 return false;
               }
-              i = node.attributes.length;
+              var i = node.attributes.length;
               while (i--) {
-                name = node.attributes[i].name;
+                var name = node.attributes[i].name;
                 if (name === 'name' || name.indexOf('data-mce-bookmark') === 0) {
                   return false;
                 }
@@ -11630,8 +11613,8 @@
       var doc = owner(element).dom();
       return element.dom() === doc.activeElement;
     };
-    var active = function (_DOC) {
-      var doc = _DOC !== undefined ? _DOC.dom() : domGlobals.document;
+    var active = function (_doc) {
+      var doc = _doc !== undefined ? _doc.dom() : domGlobals.document;
       return Option.from(doc.activeElement).map(Element.fromDom);
     };
     var search = function (element) {
@@ -12307,6 +12290,38 @@
       editor.destroyed = true;
     };
 
+    var hasOwnProperty$2 = Object.prototype.hasOwnProperty;
+    var shallow$1 = function (old, nu) {
+      return nu;
+    };
+    var deep$1 = function (old, nu) {
+      var bothObjects = isObject(old) && isObject(nu);
+      return bothObjects ? deepMerge(old, nu) : nu;
+    };
+    var baseMerge = function (merger) {
+      return function () {
+        var objects = new Array(arguments.length);
+        for (var i = 0; i < objects.length; i++) {
+          objects[i] = arguments[i];
+        }
+        if (objects.length === 0) {
+          throw new Error('Can\'t merge zero objects');
+        }
+        var ret = {};
+        for (var j = 0; j < objects.length; j++) {
+          var curObject = objects[j];
+          for (var key in curObject) {
+            if (hasOwnProperty$2.call(curObject, key)) {
+              ret[key] = merger(ret[key], curObject[key]);
+            }
+          }
+        }
+        return ret;
+      };
+    };
+    var deepMerge = baseMerge(deep$1);
+    var merge = baseMerge(shallow$1);
+
     var sectionResult = Immutable('sections', 'settings');
     var detection = PlatformDetection$1.detect();
     var isTouch = detection.deviceType.isTouch();
@@ -12316,7 +12331,7 @@
       'autolink',
       'autosave'
     ];
-    var defaultMobileSettings = isPhone ? { theme: 'mobile' } : {};
+    var defaultMobileSettings = { theme: 'mobile' };
     var normalizePlugins = function (plugins) {
       var pluginNames = isArray(plugins) ? plugins.join(' ') : plugins;
       var trimmedPlugins = map(isString(pluginNames) ? pluginNames.split(' ') : [], trim$2);
@@ -12334,6 +12349,9 @@
       return sectionResult(result.t, result.f);
     };
     var getSection = function (sectionResult, name, defaults) {
+      if (defaults === void 0) {
+        defaults = {};
+      }
       var sections = sectionResult.sections();
       var sectionSettings = sections.hasOwnProperty(name) ? sections[name] : {};
       return Tools.extend({}, defaults, sectionSettings);
@@ -12398,11 +12416,12 @@
     };
     var isOnMobile = function (isTouchDevice, sectionResult) {
       var isInline = sectionResult.settings().inline;
-      return isTouchDevice && !isInline;
+      return isTouchDevice && hasSection(sectionResult, 'mobile') && !isInline;
     };
-    var combineSettings = function (isTouchDevice, defaultSettings, defaultOverrideSettings, settings) {
-      var sectionResult = extractSections(['mobile'], settings);
-      var extendedSettings = Tools.extend(defaultSettings, defaultOverrideSettings, sectionResult.settings(), isOnMobile(isTouchDevice, sectionResult) ? getSection(sectionResult, 'mobile', defaultMobileSettings) : {}, {
+    var combineSettings = function (isTouchDevice, isPhone, defaultSettings, defaultOverrideSettings, settings) {
+      var defaultDeviceSettings = isPhone ? { mobile: defaultMobileSettings } : {};
+      var sectionResult = extractSections(['mobile'], deepMerge(defaultDeviceSettings, settings));
+      var extendedSettings = Tools.extend(defaultSettings, defaultOverrideSettings, sectionResult.settings(), isOnMobile(isTouchDevice, sectionResult) ? getSection(sectionResult, 'mobile') : {}, {
         validate: true,
         external_plugins: getExternalPlugins(defaultOverrideSettings, sectionResult.settings())
       });
@@ -12410,7 +12429,7 @@
     };
     var getEditorSettings = function (editor, id, documentBaseUrl, defaultOverrideSettings, settings) {
       var defaultSettings = getDefaultSettings(id, documentBaseUrl, editor);
-      return combineSettings(isTouch, defaultSettings, defaultOverrideSettings, settings);
+      return combineSettings(isTouch, isPhone, defaultSettings, defaultOverrideSettings, settings);
     };
     var getFiltered = function (predicate, editor, name) {
       return Option.from(editor.settings[name]).filter(predicate);
@@ -15816,12 +15835,8 @@
       }
     };
     var deleteNormalized = function (elm, afterDeletePosOpt, normalizeWhitespace) {
-      var prevTextOpt = prevSibling(elm).filter(function (e) {
-        return NodeType.isText(e.dom());
-      });
-      var nextTextOpt = nextSibling(elm).filter(function (e) {
-        return NodeType.isText(e.dom());
-      });
+      var prevTextOpt = prevSibling(elm).filter(isText);
+      var nextTextOpt = nextSibling(elm).filter(isText);
       remove$1(elm);
       return liftN([
         prevTextOpt,
@@ -17635,33 +17650,6 @@
       };
     };
 
-    var hasOwnProperty$2 = Object.prototype.hasOwnProperty;
-    var shallow$1 = function (old, nu) {
-      return nu;
-    };
-    var baseMerge = function (merger) {
-      return function () {
-        var objects = new Array(arguments.length);
-        for (var i = 0; i < objects.length; i++) {
-          objects[i] = arguments[i];
-        }
-        if (objects.length === 0) {
-          throw new Error('Can\'t merge zero objects');
-        }
-        var ret = {};
-        for (var j = 0; j < objects.length; j++) {
-          var curObject = objects[j];
-          for (var key in curObject) {
-            if (hasOwnProperty$2.call(curObject, key)) {
-              ret[key] = merger(ret[key], curObject[key]);
-            }
-          }
-        }
-        return ret;
-      };
-    };
-    var merge = baseMerge(shallow$1);
-
     var register$1 = function (htmlParser, settings, dom) {
       htmlParser.addAttributeFilter('data-mce-tabindex', function (nodes, name) {
         var i = nodes.length, node;
@@ -19076,18 +19064,6 @@
       return api$1.get(element);
     };
 
-    var attached = function (element, scope) {
-      var doc = scope || Element.fromDom(domGlobals.document.documentElement);
-      return ancestor(element, curry(eq, doc)).isSome();
-    };
-    var windowOf = function (element) {
-      var dom = element.dom();
-      if (dom === dom.window && element instanceof domGlobals.Window) {
-        return element;
-      }
-      return isDocument(element) ? dom.defaultView || dom.parentWindow : null;
-    };
-
     var r = function (left, top) {
       var translate = function (x, y) {
         return r(left + x, top + y);
@@ -19110,7 +19086,7 @@
     var absolute = function (element) {
       var doc = element.dom().ownerDocument;
       var body = doc.body;
-      var win = windowOf(Element.fromDom(doc));
+      var win = doc.defaultView;
       var html = doc.documentElement;
       var scrollTop = firstDefinedOrZero(win.pageYOffset, html.scrollTop);
       var scrollLeft = firstDefinedOrZero(win.pageXOffset, html.scrollLeft);
@@ -19122,11 +19098,10 @@
       var dom = element.dom();
       var doc = dom.ownerDocument;
       var body = doc.body;
-      var html = Element.fromDom(doc.documentElement);
       if (body === dom) {
         return Position$1(body.offsetLeft, body.offsetTop);
       }
-      if (!attached(element, html)) {
+      if (!inBody(element)) {
         return Position$1(0, 0);
       }
       return boxPosition(dom);
@@ -20093,7 +20068,8 @@
       }
     };
     function SelectorChanged (dom, editor) {
-      var selectorChangedData, currentSelectors;
+      var selectorChangedData;
+      var currentSelectors;
       return {
         selectorChangedWithUnbind: function (selector, callback) {
           if (!selectorChangedData) {
@@ -20163,8 +20139,10 @@
       }
     };
     var Selection$1 = function (dom, win, serializer, editor) {
-      var bookmarkManager, controlSelection;
-      var selectedRange, explicitRange;
+      var bookmarkManager;
+      var controlSelection;
+      var selectedRange;
+      var explicitRange;
       var selectorChangedWithUnbind = SelectorChanged(dom, editor).selectorChangedWithUnbind;
       var setCursorLocation = function (node, offset) {
         var rng = dom.createRng();
@@ -27198,8 +27176,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '0.13',
-      releaseDate: '2019-08-06',
+      minorVersion: '0.14',
+      releaseDate: '2019-08-19',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
