@@ -1,11 +1,9 @@
 source 'https://rubygems.org'
 
-gem 'rails', '~> 5.2.2'
+gem 'rails', '~> 6.0.0'
+#gem 'rails', '~> 5.2.2'
 #gem 'rails', '~> 5.0.0'
 #gem 'rails', '~> 4.2.5'
-#gem 'rails', '~> 4.1.14'
-#gem 'rails', '~> 4.0.13'
-#gem 'rails', '~> 3.2.22'
 
 gem 'jquery-rails'
 gem 'turbolinks'
