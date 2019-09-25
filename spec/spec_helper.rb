@@ -3,6 +3,9 @@ ENV["RAILS_ENV"] ||= 'test'
 require File.expand_path("../../sandbox/config/application", __FILE__)
 
 Sandbox::Application.config.assets.paths << File.expand_path("../assets", __FILE__)
+Sandbox::Application.config.assets.precompile += %w( editor1.css editor2.css )
+Sandbox::Application.config.assets.digest = false
+
 Sandbox::Application.initialize!
 
 require 'rspec/rails'
