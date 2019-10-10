@@ -45,7 +45,6 @@ default:
     - link
 
 alternate:
-  <<:
   selector: textarea.table-editor
   toolbar: styleselect | bold italic | undo redo | table
   plugins:
