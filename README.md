@@ -39,14 +39,13 @@ The Rails server no longer needs to be restarted when this file is updated in de
 To define multiple configuration sets, follow this syntax (a default configuration must be specified):
 
 ```yml
-default:
+default: &default
   plugins:
     - image
     - link
 
 alternate:
   <<: *default
-  selector: textarea.table-editor
   toolbar: styleselect | bold italic | undo redo | table
   plugins:
     - table
