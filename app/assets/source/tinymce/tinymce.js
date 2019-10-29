@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.0.16 (2019-09-24)
+ * Version: 5.1.1 (2019-10-28)
  */
 (function (domGlobals) {
     'use strict';
@@ -477,19 +477,21 @@
       isTextareaOrInput: isTextareaOrInput
     };
 
-    var cached = function (f) {
-      var called = false;
-      var r;
-      return function () {
-        var args = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-          args[_i] = arguments[_i];
-        }
-        if (!called) {
-          called = true;
-          r = f.apply(null, args);
-        }
-        return r;
+    var Cell = function (initial) {
+      var value = initial;
+      var get = function () {
+        return value;
+      };
+      var set = function (v) {
+        value = v;
+      };
+      var clone = function () {
+        return Cell(get());
+      };
+      return {
+        get: get,
+        set: set,
+        clone: clone
       };
     };
 
@@ -624,15 +626,15 @@
       freebsd: constant(freebsd)
     };
 
-    var DeviceType = function (os, browser, userAgent) {
+    var DeviceType = function (os, browser, userAgent, mediaMatch) {
       var isiPad = os.isiOS() && /ipad/i.test(userAgent) === true;
       var isiPhone = os.isiOS() && !isiPad;
-      var isAndroid3 = os.isAndroid() && os.version.major === 3;
-      var isAndroid4 = os.isAndroid() && os.version.major === 4;
-      var isTablet = isiPad || isAndroid3 || isAndroid4 && /mobile/i.test(userAgent) === true;
-      var isTouch = os.isiOS() || os.isAndroid();
-      var isPhone = isTouch && !isTablet;
+      var isMobile = os.isiOS() || os.isAndroid();
+      var isTouch = isMobile || mediaMatch('(pointer:coarse)');
+      var isTablet = isiPad || !isiPhone && isMobile && mediaMatch('(min-device-width:768px)');
+      var isPhone = isiPhone || isMobile && !isTablet;
       var iOSwebview = browser.isSafari() && os.isiOS() && /safari/i.test(userAgent) === false;
+      var isDesktop = !isPhone && !isTablet && !iOSwebview;
       return {
         isiPad: constant(isiPad),
         isiPhone: constant(isiPhone),
@@ -641,7 +643,8 @@
         isTouch: constant(isTouch),
         isAndroid: os.isAndroid,
         isiOS: os.isiOS,
-        isWebView: constant(iOSwebview)
+        isWebView: constant(iOSwebview),
+        isDesktop: constant(isDesktop)
       };
     };
 
@@ -806,12 +809,12 @@
       oses: constant(oses)
     };
 
-    var detect$2 = function (userAgent) {
+    var detect$2 = function (userAgent, mediaMatch) {
       var browsers = PlatformInfo.browsers();
       var oses = PlatformInfo.oses();
       var browser = UaString.detectBrowser(browsers, userAgent).fold(Browser.unknown, Browser.nu);
       var os = UaString.detectOs(oses, userAgent).fold(OperatingSystem.unknown, OperatingSystem.nu);
-      var deviceType = DeviceType(os, browser, userAgent);
+      var deviceType = DeviceType(os, browser, userAgent, mediaMatch);
       return {
         browser: browser,
         os: os,
@@ -820,11 +823,13 @@
     };
     var PlatformDetection = { detect: detect$2 };
 
-    var detect$3 = cached(function () {
-      var userAgent = domGlobals.navigator.userAgent;
-      return PlatformDetection.detect(userAgent);
-    });
-    var PlatformDetection$1 = { detect: detect$3 };
+    var mediaMatch = function (query) {
+      return domGlobals.window.matchMedia(query).matches;
+    };
+    var platform = Cell(PlatformDetection.detect(domGlobals.navigator.userAgent, mediaMatch));
+    var detect$3 = function () {
+      return platform.get();
+    };
 
     var fromHtml = function (html, scope) {
       var doc = scope || domGlobals.document;
@@ -1091,7 +1096,7 @@
     var ieContains = function (e1, e2) {
       return Node.documentPositionContainedBy(e1.dom(), e2.dom());
     };
-    var browser = PlatformDetection$1.detect().browser;
+    var browser = detect$3().browser;
     var contains$2 = browser.isIE() ? ieContains : regularContains;
 
     var owner = function (element) {
@@ -1152,7 +1157,7 @@
     };
     var spot = Immutable('element', 'offset');
 
-    var browser$1 = PlatformDetection$1.detect().browser;
+    var browser$1 = detect$3().browser;
     var firstElement = function (nodes) {
       return find(nodes, isElement$1);
     };
@@ -2224,51 +2229,65 @@
       clearTimeout: wrappedClearTimeout
     };
 
-    var nav = domGlobals.navigator, userAgent = nav.userAgent;
-    var opera$1, webkit, ie$1, ie11, ie12, gecko, mac, iDevice, android$1, fileApi, phone, tablet, windowsPhone;
-    var matchMediaQuery = function (query) {
-      return 'matchMedia' in domGlobals.window ? domGlobals.matchMedia(query).matches : false;
-    };
-    opera$1 = false;
-    android$1 = /Android/.test(userAgent);
-    webkit = /WebKit/.test(userAgent);
-    ie$1 = !webkit && !opera$1 && /MSIE/gi.test(userAgent) && /Explorer/gi.test(nav.appName);
-    ie$1 = ie$1 && /MSIE (\w+)\./.exec(userAgent)[1];
-    ie11 = userAgent.indexOf('Trident/') !== -1 && (userAgent.indexOf('rv:') !== -1 || nav.appName.indexOf('Netscape') !== -1) ? 11 : false;
-    ie12 = userAgent.indexOf('Edge/') !== -1 && !ie$1 && !ie11 ? 12 : false;
-    ie$1 = ie$1 || ie11 || ie12;
-    gecko = !webkit && !ie11 && /Gecko/.test(userAgent);
-    mac = userAgent.indexOf('Mac') !== -1;
-    iDevice = /(iPad|iPhone)/.test(userAgent);
-    fileApi = 'FormData' in domGlobals.window && 'FileReader' in domGlobals.window && 'URL' in domGlobals.window && !!domGlobals.URL.createObjectURL;
-    phone = matchMediaQuery('only screen and (max-device-width: 480px)') && (android$1 || iDevice);
-    tablet = matchMediaQuery('only screen and (min-width: 800px)') && (android$1 || iDevice);
-    windowsPhone = userAgent.indexOf('Windows Phone') !== -1;
-    if (ie12) {
-      webkit = false;
-    }
-    var contentEditable = !iDevice || fileApi || parseInt(userAgent.match(/AppleWebKit\/(\d*)/)[1], 10) >= 534;
+    var userAgent = domGlobals.navigator.userAgent;
+    var platform$1 = detect$3();
+    var browser$2 = platform$1.browser;
+    var os = platform$1.os;
+    var deviceType = platform$1.deviceType;
+    var webkit = /WebKit/.test(userAgent) && !browser$2.isEdge();
+    var fileApi = 'FormData' in domGlobals.window && 'FileReader' in domGlobals.window && 'URL' in domGlobals.window && !!domGlobals.URL.createObjectURL;
+    var windowsPhone = userAgent.indexOf('Windows Phone') !== -1;
     var Env = {
-      opera: opera$1,
+      opera: browser$2.isOpera(),
       webkit: webkit,
-      ie: ie$1,
-      gecko: gecko,
-      mac: mac,
-      iOS: iDevice,
-      android: android$1,
-      contentEditable: contentEditable,
+      ie: browser$2.isIE() || browser$2.isEdge() ? browser$2.version.major : false,
+      gecko: browser$2.isFirefox(),
+      mac: os.isOSX() || os.isiOS(),
+      iOS: deviceType.isiPad() || deviceType.isiPhone(),
+      android: os.isAndroid(),
+      contentEditable: true,
       transparentSrc: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
-      caretAfter: ie$1 !== 8,
+      caretAfter: true,
       range: domGlobals.window.getSelection && 'Range' in domGlobals.window,
-      documentMode: ie$1 && !ie12 ? domGlobals.document.documentMode || 7 : 10,
+      documentMode: browser$2.isIE() ? domGlobals.document.documentMode || 7 : 10,
       fileApi: fileApi,
-      ceFalse: ie$1 === false || ie$1 > 8,
+      ceFalse: true,
       cacheSuffix: null,
       container: null,
       experimentalShadowDom: false,
-      canHaveCSP: ie$1 === false || ie$1 > 11,
-      desktop: !phone && !tablet,
-      windowsPhone: windowsPhone
+      canHaveCSP: !browser$2.isIE(),
+      desktop: deviceType.isDesktop(),
+      windowsPhone: windowsPhone,
+      browser: {
+        current: browser$2.current,
+        version: browser$2.version,
+        isChrome: browser$2.isChrome,
+        isEdge: browser$2.isEdge,
+        isFirefox: browser$2.isFirefox,
+        isIE: browser$2.isIE,
+        isOpera: browser$2.isOpera,
+        isSafari: browser$2.isSafari
+      },
+      os: {
+        current: os.current,
+        version: os.version,
+        isAndroid: os.isAndroid,
+        isFreeBSD: os.isFreeBSD,
+        isiOS: os.isiOS,
+        isLinux: os.isLinux,
+        isOSX: os.isOSX,
+        isSolaris: os.isSolaris,
+        isWindows: os.isWindows
+      },
+      deviceType: {
+        isDesktop: deviceType.isDesktop,
+        isiPad: deviceType.isiPad,
+        isiPhone: deviceType.isiPhone,
+        isPhone: deviceType.isPhone,
+        isTablet: deviceType.isTablet,
+        isTouch: deviceType.isTouch,
+        isWebView: deviceType.isWebView
+      }
     };
 
     var isArray$1 = Array.isArray;
@@ -4062,32 +4081,10 @@
           callback(event);
         }
       };
-      var waitForDomLoaded = function () {
-        if (isDocReady()) {
-          removeEvent(doc, 'readystatechange', waitForDomLoaded);
-          readyHandler();
-        }
-      };
-      var tryScroll = function () {
-        try {
-          doc.documentElement.doScroll('left');
-        } catch (ex) {
-          Delay.setTimeout(tryScroll);
-          return;
-        }
+      if (isDocReady()) {
         readyHandler();
-      };
-      if (doc.addEventListener && !(Env.ie && Env.ie < 11)) {
-        if (isDocReady()) {
-          readyHandler();
-        } else {
-          addEvent(win, 'DOMContentLoaded', readyHandler);
-        }
       } else {
-        addEvent(doc, 'readystatechange', waitForDomLoaded);
-        if (doc.documentElement.doScroll && win.self === win.top) {
-          tryScroll();
-        }
+        addEvent(win, 'DOMContentLoaded', readyHandler);
       }
       addEvent(win, 'load', readyHandler);
     };
@@ -6123,62 +6120,6 @@
       DomQuery.extend(sub, this);
       return sub;
     };
-    var appendHooks = function (targetHooks, prop, hooks) {
-      each$4(hooks, function (name, func) {
-        targetHooks[name] = targetHooks[name] || {};
-        targetHooks[name][prop] = func;
-      });
-    };
-    if (Env.ie && Env.ie < 8) {
-      appendHooks(attrHooks, 'get', {
-        maxlength: function (elm) {
-          var value = elm.maxLength;
-          if (value === 2147483647) {
-            return undefined;
-          }
-          return value;
-        },
-        size: function (elm) {
-          var value = elm.size;
-          if (value === 20) {
-            return undefined;
-          }
-          return value;
-        },
-        class: function (elm) {
-          return elm.className;
-        },
-        style: function (elm) {
-          var value = elm.style.cssText;
-          if (value.length === 0) {
-            return undefined;
-          }
-          return value;
-        }
-      });
-      appendHooks(attrHooks, 'set', {
-        class: function (elm, value) {
-          elm.className = value;
-        },
-        style: function (elm, value) {
-          elm.style.cssText = value;
-        }
-      });
-    }
-    if (Env.ie && Env.ie < 9) {
-      cssFix.float = 'styleFloat';
-      appendHooks(cssHooks, 'set', {
-        opacity: function (elm, value) {
-          var style = elm.style;
-          if (value === null || value === '') {
-            style.removeAttribute('filter');
-          } else {
-            style.zoom = 1;
-            style.filter = 'alpha(opacity=' + value * 100 + ')';
-          }
-        }
-      });
-    }
     DomQueryConstructor.attrHooks = attrHooks;
     DomQueryConstructor.cssHooks = cssHooks;
     var DomQuery = DomQueryConstructor;
@@ -6252,6 +6193,161 @@
       };
       return TreeWalker;
     }();
+
+    var before = function (marker, element) {
+      var parent$1 = parent(marker);
+      parent$1.each(function (v) {
+        v.dom().insertBefore(element.dom(), marker.dom());
+      });
+    };
+    var after = function (marker, element) {
+      var sibling = nextSibling(marker);
+      sibling.fold(function () {
+        var parent$1 = parent(marker);
+        parent$1.each(function (v) {
+          append(v, element);
+        });
+      }, function (v) {
+        before(v, element);
+      });
+    };
+    var prepend = function (parent, element) {
+      var firstChild$1 = firstChild(parent);
+      firstChild$1.fold(function () {
+        append(parent, element);
+      }, function (v) {
+        parent.dom().insertBefore(element.dom(), v.dom());
+      });
+    };
+    var append = function (parent, element) {
+      parent.dom().appendChild(element.dom());
+    };
+    var wrap$1 = function (element, wrapper) {
+      before(element, wrapper);
+      append(wrapper, element);
+    };
+
+    var before$1 = function (marker, elements) {
+      each(elements, function (x) {
+        before(marker, x);
+      });
+    };
+    var append$1 = function (parent, elements) {
+      each(elements, function (x) {
+        append(parent, x);
+      });
+    };
+
+    var empty = function (element) {
+      element.dom().textContent = '';
+      each(children(element), function (rogue) {
+        remove$1(rogue);
+      });
+    };
+    var remove$1 = function (element) {
+      var dom = element.dom();
+      if (dom.parentNode !== null) {
+        dom.parentNode.removeChild(dom);
+      }
+    };
+    var unwrap = function (wrapper) {
+      var children$1 = children(wrapper);
+      if (children$1.length > 0) {
+        before$1(wrapper, children$1);
+      }
+      remove$1(wrapper);
+    };
+
+    var r = function (left, top) {
+      var translate = function (x, y) {
+        return r(left + x, top + y);
+      };
+      return {
+        left: constant(left),
+        top: constant(top),
+        translate: translate
+      };
+    };
+    var Position$1 = r;
+
+    var boxPosition = function (dom) {
+      var box = dom.getBoundingClientRect();
+      return Position$1(box.left, box.top);
+    };
+    var firstDefinedOrZero = function (a, b) {
+      return a !== undefined ? a : b !== undefined ? b : 0;
+    };
+    var absolute = function (element) {
+      var doc = element.dom().ownerDocument;
+      var body = doc.body;
+      var win = doc.defaultView;
+      var html = doc.documentElement;
+      if (body === element.dom()) {
+        return Position$1(body.offsetLeft, body.offsetTop);
+      }
+      var scrollTop = firstDefinedOrZero(win.pageYOffset, html.scrollTop);
+      var scrollLeft = firstDefinedOrZero(win.pageXOffset, html.scrollLeft);
+      var clientTop = firstDefinedOrZero(html.clientTop, body.clientTop);
+      var clientLeft = firstDefinedOrZero(html.clientLeft, body.clientLeft);
+      return viewport(element).translate(scrollLeft - clientLeft, scrollTop - clientTop);
+    };
+    var viewport = function (element) {
+      var dom = element.dom();
+      var doc = dom.ownerDocument;
+      var body = doc.body;
+      if (body === dom) {
+        return Position$1(body.offsetLeft, body.offsetTop);
+      }
+      if (!inBody(element)) {
+        return Position$1(0, 0);
+      }
+      return boxPosition(dom);
+    };
+
+    var isSafari = detect$3().browser.isSafari();
+    var get$3 = function (_DOC) {
+      var doc = _DOC !== undefined ? _DOC.dom() : domGlobals.document;
+      var x = doc.body.scrollLeft || doc.documentElement.scrollLeft;
+      var y = doc.body.scrollTop || doc.documentElement.scrollTop;
+      return Position$1(x, y);
+    };
+    var to = function (x, y, _DOC) {
+      var doc = _DOC !== undefined ? _DOC.dom() : domGlobals.document;
+      var win = doc.defaultView;
+      win.scrollTo(x, y);
+    };
+    var intoView = function (element, alignToTop) {
+      if (isSafari && isFunction(element.dom().scrollIntoViewIfNeeded)) {
+        element.dom().scrollIntoViewIfNeeded(false);
+      } else {
+        element.dom().scrollIntoView(alignToTop);
+      }
+    };
+
+    var bounds = function (x, y, width, height) {
+      return {
+        x: constant(x),
+        y: constant(y),
+        width: constant(width),
+        height: constant(height),
+        right: constant(x + width),
+        bottom: constant(y + height)
+      };
+    };
+    var getBounds = function (_win) {
+      var win = _win === undefined ? domGlobals.window : _win;
+      var visualViewport = win['visualViewport'];
+      if (visualViewport !== undefined) {
+        return bounds(visualViewport.pageLeft, visualViewport.pageTop, visualViewport.width, visualViewport.height);
+      } else {
+        var doc = Element.fromDom(win.document);
+        var html = win.document.documentElement;
+        var scroll = get$3(doc);
+        var width = html.clientWidth;
+        var height = html.clientHeight;
+        return bounds(scroll.left(), scroll.top(), width, height);
+      }
+    };
 
     var each$5 = Tools.each;
     var grep$1 = Tools.grep;
@@ -6441,14 +6537,12 @@
         return settings.root_element || doc.body;
       };
       var getViewPort = function (argWin) {
-        var actWin = !argWin ? win : argWin;
-        var doc = actWin.document;
-        var rootElm =  doc.documentElement ;
+        var vp = getBounds(argWin);
         return {
-          x: actWin.pageXOffset || rootElm.scrollLeft,
-          y: actWin.pageYOffset || rootElm.scrollTop,
-          w: actWin.innerWidth || rootElm.clientWidth,
-          h: actWin.innerHeight || rootElm.clientHeight
+          x: vp.x(),
+          y: vp.y(),
+          w: vp.width(),
+          h: vp.height()
         };
       };
       var getPos = function (elm, rootElm) {
@@ -6475,7 +6569,7 @@
           return b.toUpperCase();
         });
         if (name === 'float') {
-          name = Env.ie && Env.ie < 12 ? 'styleFloat' : 'cssFloat';
+          name = Env.browser.isIE() ? 'styleFloat' : 'cssFloat';
         }
         return $elm[0] && $elm[0].style ? $elm[0].style[name] : undefined;
       };
@@ -7278,24 +7372,6 @@
       return ScriptLoader;
     }();
 
-    var Cell = function (initial) {
-      var value = initial;
-      var get = function () {
-        return value;
-      };
-      var set = function (v) {
-        value = v;
-      };
-      var clone = function () {
-        return Cell(get());
-      };
-      return {
-        get: get,
-        set: set,
-        clone: clone
-      };
-    };
-
     var isRaw = function (str) {
       return isObject(str) && has(str, 'raw');
     };
@@ -7519,70 +7595,6 @@
     }(AddOnManager || (AddOnManager = {})));
     var AddOnManager$1 = AddOnManager;
 
-    var before = function (marker, element) {
-      var parent$1 = parent(marker);
-      parent$1.each(function (v) {
-        v.dom().insertBefore(element.dom(), marker.dom());
-      });
-    };
-    var after = function (marker, element) {
-      var sibling = nextSibling(marker);
-      sibling.fold(function () {
-        var parent$1 = parent(marker);
-        parent$1.each(function (v) {
-          append(v, element);
-        });
-      }, function (v) {
-        before(v, element);
-      });
-    };
-    var prepend = function (parent, element) {
-      var firstChild$1 = firstChild(parent);
-      firstChild$1.fold(function () {
-        append(parent, element);
-      }, function (v) {
-        parent.dom().insertBefore(element.dom(), v.dom());
-      });
-    };
-    var append = function (parent, element) {
-      parent.dom().appendChild(element.dom());
-    };
-    var wrap$1 = function (element, wrapper) {
-      before(element, wrapper);
-      append(wrapper, element);
-    };
-
-    var before$1 = function (marker, elements) {
-      each(elements, function (x) {
-        before(marker, x);
-      });
-    };
-    var append$1 = function (parent, elements) {
-      each(elements, function (x) {
-        append(parent, x);
-      });
-    };
-
-    var empty = function (element) {
-      element.dom().textContent = '';
-      each(children(element), function (rogue) {
-        remove$1(rogue);
-      });
-    };
-    var remove$1 = function (element) {
-      var dom = element.dom();
-      if (dom.parentNode !== null) {
-        dom.parentNode.removeChild(dom);
-      }
-    };
-    var unwrap = function (wrapper) {
-      var children$1 = children(wrapper);
-      if (children$1.length > 0) {
-        before$1(wrapper, children$1);
-      }
-      remove$1(wrapper);
-    };
-
     var first = function (fn, rate) {
       var timer = null;
       var cancel = function () {
@@ -7660,7 +7672,7 @@
     var supports = function (element) {
       return element.dom().classList !== undefined;
     };
-    var get$3 = function (element) {
+    var get$4 = function (element) {
       return read(element, 'class');
     };
     var add$2 = function (element, clazz) {
@@ -7678,7 +7690,7 @@
       }
     };
     var cleanClass = function (element) {
-      var classList = supports(element) ? element.dom().classList : get$3(element);
+      var classList = supports(element) ? element.dom().classList : get$4(element);
       if (classList.length === 0) {
         remove(element, 'class');
       }
@@ -7954,7 +7966,7 @@
       return children(Element.fromDom(div));
     };
 
-    var get$4 = function (element) {
+    var get$5 = function (element) {
       return element.dom().innerHTML;
     };
     var set$1 = function (element, content) {
@@ -8991,7 +9003,7 @@
       remove: remove$5
     };
 
-    var browser$2 = PlatformDetection$1.detect().browser;
+    var browser$3 = detect$3().browser;
     var isContentEditableFalse$3 = NodeType.isContentEditableFalse;
     var isTableCell$1 = function (node) {
       return NodeType.isElement(node) && /^(TD|TH)$/i.test(node.tagName);
@@ -9132,7 +9144,7 @@
       };
     };
     var isFakeCaretTableBrowser = function () {
-      return browser$2.isIE() || browser$2.isEdge() || browser$2.isFirefox();
+      return browser$3.isIE() || browser$3.isEdge() || browser$3.isFirefox();
     };
     var isFakeCaretTarget = function (node) {
       return isContentEditableFalse$3(node) || NodeType.isTable(node) && isFakeCaretTableBrowser();
@@ -10357,12 +10369,12 @@
     }
 
     var api = NodeValue(isText$1, 'text');
-    var get$5 = function (element) {
+    var get$6 = function (element) {
       return api.get(element);
     };
 
     var isZeroWidth = function (elem) {
-      return isText$1(elem) && get$5(elem) === zeroWidth();
+      return isText$1(elem) && get$6(elem) === zeroWidth();
     };
     var context = function (editor, elem, wrapName, nodeName) {
       return parent(elem).fold(function () {
@@ -11752,9 +11764,9 @@
       range: range
     };
 
-    var browser$3 = PlatformDetection$1.detect().browser;
+    var browser$4 = detect$3().browser;
     var clamp = function (offset, element) {
-      var max = isText$1(element) ? get$5(element).length : children(element).length + 1;
+      var max = isText$1(element) ? get$6(element).length : children(element).length + 1;
       if (offset > max) {
         return max;
       } else if (offset < 0) {
@@ -11774,7 +11786,7 @@
       };
     };
     var shouldStore = function (editor) {
-      return editor.inline === true || browser$3.isIE();
+      return editor.inline === true || browser$4.isIE();
     };
     var nativeRangeToSelectionRange = function (r) {
       return Selection.range(Element.fromDom(r.startContainer), r.startOffset, Element.fromDom(r.endContainer), r.endOffset);
@@ -11861,7 +11873,7 @@
       });
     };
     var registerEditorEvents = function (editor, throttledStore) {
-      var browser = PlatformDetection$1.detect().browser;
+      var browser = detect$3().browser;
       if (browser.isIE()) {
         registerFocusOut(editor);
       } else {
@@ -12305,15 +12317,19 @@
     var merge = baseMerge(shallow$1);
 
     var sectionResult = Immutable('sections', 'settings');
-    var detection = PlatformDetection$1.detect();
-    var isTouch = detection.deviceType.isTouch();
-    var isPhone = detection.deviceType.isPhone();
-    var mobilePlugins = [
+    var deviceDetection = detect$3().deviceType;
+    var isTouch = deviceDetection.isTouch();
+    var isPhone = deviceDetection.isPhone();
+    var legacyMobilePlugins = [
       'lists',
       'autolink',
       'autosave'
     ];
-    var defaultMobileSettings = { theme: 'mobile' };
+    var defaultTouchSettings = {
+      table_grid: false,
+      object_resizing: false,
+      resize: false
+    };
     var normalizePlugins = function (plugins) {
       var pluginNames = isArray(plugins) ? plugins.join(' ') : plugins;
       var trimmedPlugins = map(isString(pluginNames) ? pluginNames.split(' ') : [], trim);
@@ -12321,8 +12337,8 @@
         return item.length > 0;
       });
     };
-    var filterMobilePlugins = function (plugins) {
-      return filter(plugins, curry(contains, mobilePlugins));
+    var filterLegacyMobilePlugins = function (plugins) {
+      return filter(plugins, curry(contains, legacyMobilePlugins));
     };
     var extractSections = function (keys, settings) {
       var result = bifilter(settings, function (value, key) {
@@ -12348,10 +12364,11 @@
     var getSectionConfig = function (sectionResult, name) {
       return hasSection(sectionResult, name) ? sectionResult.sections()[name] : {};
     };
-    var getDefaultSettings = function (id, documentBaseUrl, editor) {
-      return {
+    var getDefaultSettings = function (id, documentBaseUrl, isTouch, editor) {
+      var baseDefaults = {
         id: id,
         theme: 'silver',
+        toolbar_drawer: 'floating',
         plugins: '',
         document_base_url: documentBaseUrl,
         add_form_submit_trigger: true,
@@ -12375,6 +12392,16 @@
         url_converter: editor.convertURL,
         url_converter_scope: editor
       };
+      return __assign(__assign({}, baseDefaults), isTouch ? defaultTouchSettings : {});
+    };
+    var getDefaultMobileSettings = function (isPhone) {
+      var defaultMobileSettings = {
+        resize: false,
+        toolbar_drawer: false,
+        toolbar_sticky: false
+      };
+      var defaultPhoneSettings = { menubar: false };
+      return __assign(__assign(__assign({}, defaultTouchSettings), defaultMobileSettings), isPhone ? defaultPhoneSettings : {});
     };
     var getExternalPlugins = function (overrideSettings, settings) {
       var userDefinedExternalPlugins = settings.external_plugins ? settings.external_plugins : {};
@@ -12392,16 +12419,15 @@
       var desktopPlugins = normalizePlugins(settings.plugins);
       var mobileConfig = getSectionConfig(sectionResult, 'mobile');
       var mobilePlugins = mobileConfig.plugins ? normalizePlugins(mobileConfig.plugins) : desktopPlugins;
-      var platformPlugins = isTouchDevice && isSectionTheme(sectionResult, 'mobile', 'mobile') ? filterMobilePlugins(mobilePlugins) : isTouchDevice && hasSection(sectionResult, 'mobile') ? mobilePlugins : desktopPlugins;
+      var platformPlugins = isTouchDevice && isSectionTheme(sectionResult, 'mobile', 'mobile') ? filterLegacyMobilePlugins(mobilePlugins) : isTouchDevice && hasSection(sectionResult, 'mobile') ? mobilePlugins : desktopPlugins;
       var combinedPlugins = combinePlugins(forcedPlugins, platformPlugins);
       return Tools.extend(settings, { plugins: combinedPlugins.join(' ') });
     };
     var isOnMobile = function (isTouchDevice, sectionResult) {
-      var isInline = sectionResult.settings().inline;
-      return isTouchDevice && hasSection(sectionResult, 'mobile') && !isInline;
+      return isTouchDevice && hasSection(sectionResult, 'mobile');
     };
     var combineSettings = function (isTouchDevice, isPhone, defaultSettings, defaultOverrideSettings, settings) {
-      var defaultDeviceSettings = isPhone ? { mobile: defaultMobileSettings } : {};
+      var defaultDeviceSettings = isTouchDevice ? { mobile: getDefaultMobileSettings(isPhone) } : {};
       var sectionResult = extractSections(['mobile'], deepMerge(defaultDeviceSettings, settings));
       var extendedSettings = Tools.extend(defaultSettings, defaultOverrideSettings, sectionResult.settings(), isOnMobile(isTouchDevice, sectionResult) ? getSection(sectionResult, 'mobile') : {}, {
         validate: true,
@@ -12410,7 +12436,7 @@
       return processPlugins(isTouchDevice, sectionResult, defaultOverrideSettings, extendedSettings);
     };
     var getEditorSettings = function (editor, id, documentBaseUrl, defaultOverrideSettings, settings) {
-      var defaultSettings = getDefaultSettings(id, documentBaseUrl, editor);
+      var defaultSettings = getDefaultSettings(id, documentBaseUrl, isTouch, editor);
       return combineSettings(isTouch, isPhone, defaultSettings, defaultOverrideSettings, settings);
     };
     var getFiltered = function (predicate, editor, name) {
@@ -12582,7 +12608,7 @@
           if (serviceMessage) {
             open({
               text: serviceMessage,
-              type: 'warn',
+              type: 'warning',
               timeout: 0
             });
           }
@@ -12858,7 +12884,6 @@
         'orientation': '<svg width="24" height="24"><path d="M7.3 6.4L1 13l6.4 6.5 6.5-6.5-6.5-6.5zM3.7 13l3.6-3.7L11 13l-3.7 3.7-3.6-3.7zM12 6l2.8 2.7c.3.3.3.8 0 1-.3.4-.9.4-1.2 0L9.2 5.7a.8.8 0 0 1 0-1.2L13.6.2c.3-.3.9-.3 1.2 0 .3.3.3.8 0 1.1L12 4h1a9 9 0 1 1-4.3 16.9l1.5-1.5A7 7 0 1 0 13 6h-1z" fill-rule="nonzero"/></svg>',
         'outdent': '<svg width="24" height="24"><path d="M7 5h12c.6 0 1 .4 1 1s-.4 1-1 1H7a1 1 0 1 1 0-2zm5 4h7c.6 0 1 .4 1 1s-.4 1-1 1h-7a1 1 0 0 1 0-2zm0 4h7c.6 0 1 .4 1 1s-.4 1-1 1h-7a1 1 0 0 1 0-2zm-5 4h12a1 1 0 0 1 0 2H7a1 1 0 0 1 0-2zm1.6-3.8a1 1 0 0 1-1.2 1.6l-3-2a1 1 0 0 1 0-1.6l3-2a1 1 0 0 1 1.2 1.6L6.8 12l1.8 1.2z" fill-rule="evenodd"/></svg>',
         'page-break': '<svg width="24" height="24"><g fill-rule="evenodd"><path d="M5 11c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zm3 0h1c.6 0 1 .4 1 1s-.4 1-1 1H8a1 1 0 0 1 0-2zm4 0c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zm3 0h1c.6 0 1 .4 1 1s-.4 1-1 1h-1a1 1 0 0 1 0-2zm4 0c.6 0 1 .4 1 1s-.4 1-1 1a1 1 0 0 1 0-2zM7 3v5h10V3c0-.6.4-1 1-1s1 .4 1 1v7H5V3c0-.6.4-1 1-1s1 .4 1 1zM6 22a1 1 0 0 1-1-1v-7h14v7c0 .6-.4 1-1 1a1 1 0 0 1-1-1v-5H7v5c0 .6-.4 1-1 1z"/></g></svg>',
-        'paragraph': '<svg width="24" height="24"><path d="M10 5h7a1 1 0 0 1 0 2h-1v11a1 1 0 0 1-2 0V7h-2v11a1 1 0 0 1-2 0v-6c-.5 0-1 0-1.4-.3A3.4 3.4 0 0 1 6.8 10a3.3 3.3 0 0 1 0-2.8 3.4 3.4 0 0 1 1.8-1.8L10 5z" fill-rule="evenodd"/></svg>',
         'paste-text': '<svg width="24" height="24"><path d="M18 9V5h-2v1c0 .6-.4 1-1 1H9a1 1 0 0 1-1-1V5H6v13h3V9h9zM9 20H6a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.2A3 3 0 0 1 12 1a3 3 0 0 1 2.8 2H18a2 2 0 0 1 2 2v4h1v12H9v-1zm1.5-9.5v9h9v-9h-9zM12 3a1 1 0 0 0-1 1c0 .5.4 1 1 1s1-.5 1-1-.4-1-1-1zm0 9h6v2h-.5l-.5-1h-1v4h.8v1h-3.6v-1h.8v-4h-1l-.5 1H12v-2z" fill-rule="nonzero"/></svg>',
         'paste': '<svg width="24" height="24"><path d="M18 9V5h-2v1c0 .6-.4 1-1 1H9a1 1 0 0 1-1-1V5H6v13h3V9h9zM9 20H6a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.2A3 3 0 0 1 12 1a3 3 0 0 1 2.8 2H18a2 2 0 0 1 2 2v4h1v12H9v-1zm1.5-9.5v9h9v-9h-9zM12 3a1 1 0 0 0-1 1c0 .5.4 1 1 1s1-.5 1-1-.4-1-1-1z" fill-rule="nonzero"/></svg>',
         'permanent-pen': '<svg width="24" height="24"><path d="M10.5 17.5L8 20H3v-3l3.5-3.5a2 2 0 0 1 0-3L14 3l1 1-7.3 7.3a1 1 0 0 0 0 1.4l3.6 3.6c.4.4 1 .4 1.4 0L20 9l1 1-7.6 7.6a2 2 0 0 1-2.8 0l-.1-.1z" fill-rule="nonzero"/></svg>',
@@ -12917,6 +12942,8 @@
         'unselected': '<svg width="24" height="24"><path fill-rule="nonzero" d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2zm0 1a1 1 0 0 0-1 1v12c0 .6.4 1 1 1h12c.6 0 1-.4 1-1V6c0-.6-.4-1-1-1H6z"/></svg>',
         'upload': '<svg width="24" height="24"><path d="M18 19v-2a1 1 0 0 1 2 0v3c0 .6-.4 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 2 0v2h12zM11 6.4L8.7 8.7a1 1 0 0 1-1.4-1.4l4-4a1 1 0 0 1 1.4 0l4 4a1 1 0 1 1-1.4 1.4L13 6.4V16a1 1 0 0 1-2 0V6.4z" fill-rule="nonzero"/></svg>',
         'user': '<svg width="24" height="24"><path d="M12 24a12 12 0 1 1 0-24 12 12 0 0 1 0 24zm-8.7-5.3a11 11 0 0 0 17.4 0C19.4 16.3 14.6 15 12 15c-2.6 0-7.4 1.3-8.7 3.7zM12 13c2.2 0 4-2 4-4.5S14.2 4 12 4 8 6 8 8.5 9.8 13 12 13z" fill-rule="nonzero"/></svg>',
+        'visualblocks': '<svg width="24" height="24"><path d="M9 19v2H7v-2h2zm-4 0v2a2 2 0 0 1-2-2h2zm8 0v2h-2v-2h2zm8 0a2 2 0 0 1-2 2v-2h2zm-4 0v2h-2v-2h2zM15 7a1 1 0 0 1 0 2v7a1 1 0 0 1-2 0V9h-1v7a1 1 0 0 1-2 0v-4a2.5 2.5 0 0 1-.2-5H15zM5 15v2H3v-2h2zm16 0v2h-2v-2h2zM5 11v2H3v-2h2zm16 0v2h-2v-2h2zM5 7v2H3V7h2zm16 0v2h-2V7h2zM5 3v2H3c0-1.1.9-2 2-2zm8 0v2h-2V3h2zm6 0a2 2 0 0 1 2 2h-2V3zM9 3v2H7V3h2zm8 0v2h-2V3h2z" fill-rule="evenodd"/></svg>',
+        'visualchars': '<svg width="24" height="24"><path d="M10 5h7a1 1 0 0 1 0 2h-1v11a1 1 0 0 1-2 0V7h-2v11a1 1 0 0 1-2 0v-6c-.5 0-1 0-1.4-.3A3.4 3.4 0 0 1 6.8 10a3.3 3.3 0 0 1 0-2.8 3.4 3.4 0 0 1 1.8-1.8L10 5z" fill-rule="evenodd"/></svg>',
         'warning': '<svg width="24" height="24"><path d="M19.8 18.3c.2.5.3.9 0 1.2-.1.3-.5.5-1 .5H5.2c-.5 0-.9-.2-1-.5-.3-.3-.2-.7 0-1.2L11 4.7l.5-.5.5-.2c.2 0 .3 0 .5.2.2 0 .3.3.5.5l6.8 13.6zM12 18c.3 0 .5-.1.7-.3.2-.2.3-.4.3-.7a1 1 0 0 0-.3-.7 1 1 0 0 0-.7-.3 1 1 0 0 0-.7.3 1 1 0 0 0-.3.7c0 .3.1.5.3.7.2.2.4.3.7.3zm.7-3l.3-4a1 1 0 0 0-.3-.7 1 1 0 0 0-.7-.3 1 1 0 0 0-.7.3 1 1 0 0 0-.3.7l.3 4h1.4z" fill-rule="evenodd"/></svg>',
         'zoom-in': '<svg width="24" height="24"><path d="M16 17.3a8 8 0 1 1 1.4-1.4l4.3 4.4a1 1 0 0 1-1.4 1.4l-4.4-4.3zm-5-.3a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm-1-9a1 1 0 0 1 2 0v6a1 1 0 0 1-2 0V8zm-2 4a1 1 0 0 1 0-2h6a1 1 0 0 1 0 2H8z" fill-rule="nonzero"/></svg>',
         'zoom-out': '<svg width="24" height="24"><path d="M16 17.3a8 8 0 1 1 1.4-1.4l4.3 4.4a1 1 0 0 1-1.4 1.4l-4.4-4.3zm-5-.3a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm-3-5a1 1 0 0 1 0-2h6a1 1 0 0 1 0 2H8z" fill-rule="nonzero"/></svg>'
@@ -13790,14 +13817,6 @@
           }
           return;
         }
-        if (Env.ie && Env.ie < 11 && dom.isBlock(node) && dom.isEmpty(node)) {
-          if (start) {
-            rng.setStart(node, 0);
-          } else {
-            rng.setEnd(node, 0);
-          }
-          return;
-        }
       } while (node = start ? walker.next() : walker.prev());
       if (root.nodeName === 'BODY') {
         if (start) {
@@ -13900,268 +13919,68 @@
       return NodeChange;
     }();
 
-    var getAbsolutePosition = function (elm) {
-      var doc, docElem, win, clientRect;
-      clientRect = elm.getBoundingClientRect();
-      doc = elm.ownerDocument;
-      docElem = doc.documentElement;
-      win = doc.defaultView;
-      return {
-        top: clientRect.top + win.pageYOffset - docElem.clientTop,
-        left: clientRect.left + win.pageXOffset - docElem.clientLeft
-      };
-    };
-    var getBodyPosition = function (editor) {
-      return editor.inline ? getAbsolutePosition(editor.getBody()) : {
-        left: 0,
-        top: 0
-      };
-    };
-    var getScrollPosition = function (editor) {
-      var body = editor.getBody();
-      return editor.inline ? {
-        left: body.scrollLeft,
-        top: body.scrollTop
-      } : {
-        left: 0,
-        top: 0
-      };
-    };
-    var getBodyScroll = function (editor) {
-      var body = editor.getBody(), docElm = editor.getDoc().documentElement;
-      var inlineScroll = {
-        left: body.scrollLeft,
-        top: body.scrollTop
-      };
-      var iframeScroll = {
-        left: body.scrollLeft || docElm.scrollLeft,
-        top: body.scrollTop || docElm.scrollTop
-      };
-      return editor.inline ? inlineScroll : iframeScroll;
-    };
-    var getMousePosition = function (editor, event) {
-      if (event.target.ownerDocument !== editor.getDoc()) {
-        var iframePosition = getAbsolutePosition(editor.getContentAreaContainer());
-        var scrollPosition = getBodyScroll(editor);
-        return {
-          left: event.pageX - iframePosition.left + scrollPosition.left,
-          top: event.pageY - iframePosition.top + scrollPosition.top
-        };
+    var VK = {
+      BACKSPACE: 8,
+      DELETE: 46,
+      DOWN: 40,
+      ENTER: 13,
+      LEFT: 37,
+      RIGHT: 39,
+      SPACEBAR: 32,
+      TAB: 9,
+      UP: 38,
+      END: 35,
+      HOME: 36,
+      modifierPressed: function (e) {
+        return e.shiftKey || e.ctrlKey || e.altKey || this.metaKeyPressed(e);
+      },
+      metaKeyPressed: function (e) {
+        return Env.mac ? e.metaKey : e.ctrlKey && !e.altKey;
       }
-      return {
-        left: event.pageX,
-        top: event.pageY
-      };
     };
-    var calculatePosition = function (bodyPosition, scrollPosition, mousePosition) {
-      return {
-        pageX: mousePosition.left - bodyPosition.left + scrollPosition.left,
-        pageY: mousePosition.top - bodyPosition.top + scrollPosition.top
-      };
-    };
-    var calc = function (editor, event) {
-      return calculatePosition(getBodyPosition(editor), getScrollPosition(editor), getMousePosition(editor, event));
-    };
-    var MousePosition = { calc: calc };
 
-    var isContentEditableFalse$6 = NodeType.isContentEditableFalse, isContentEditableTrue$2 = NodeType.isContentEditableTrue;
-    var isDraggable = function (rootElm, elm) {
-      return isContentEditableFalse$6(elm) && elm !== rootElm;
-    };
-    var isValidDropTarget = function (editor, targetElement, dragElement) {
-      if (targetElement === dragElement || editor.dom.isChildOf(targetElement, dragElement)) {
-        return false;
-      }
-      return !isContentEditableFalse$6(targetElement);
-    };
-    var cloneElement = function (elm) {
-      var cloneElm = elm.cloneNode(true);
-      cloneElm.removeAttribute('data-mce-selected');
-      return cloneElm;
-    };
-    var createGhost = function (editor, elm, width, height) {
-      var clonedElm = elm.cloneNode(true);
-      editor.dom.setStyles(clonedElm, {
-        width: width,
-        height: height
-      });
-      editor.dom.setAttrib(clonedElm, 'data-mce-selected', null);
-      var ghostElm = editor.dom.create('div', {
-        'class': 'mce-drag-container',
-        'data-mce-bogus': 'all',
-        'unselectable': 'on',
-        'contenteditable': 'false'
-      });
-      editor.dom.setStyles(ghostElm, {
-        position: 'absolute',
-        opacity: 0.5,
-        overflow: 'hidden',
-        border: 0,
-        padding: 0,
-        margin: 0,
-        width: width,
-        height: height
-      });
-      editor.dom.setStyles(clonedElm, {
-        margin: 0,
-        boxSizing: 'border-box'
-      });
-      ghostElm.appendChild(clonedElm);
-      return ghostElm;
-    };
-    var appendGhostToBody = function (ghostElm, bodyElm) {
-      if (ghostElm.parentNode !== bodyElm) {
-        bodyElm.appendChild(ghostElm);
-      }
-    };
-    var moveGhost = function (ghostElm, position, width, height, maxX, maxY) {
-      var overflowX = 0, overflowY = 0;
-      ghostElm.style.left = position.pageX + 'px';
-      ghostElm.style.top = position.pageY + 'px';
-      if (position.pageX + width > maxX) {
-        overflowX = position.pageX + width - maxX;
-      }
-      if (position.pageY + height > maxY) {
-        overflowY = position.pageY + height - maxY;
-      }
-      ghostElm.style.width = width - overflowX + 'px';
-      ghostElm.style.height = height - overflowY + 'px';
-    };
-    var removeElement = function (elm) {
-      if (elm && elm.parentNode) {
-        elm.parentNode.removeChild(elm);
-      }
-    };
-    var isLeftMouseButtonPressed = function (e) {
-      return e.button === 0;
-    };
-    var hasDraggableElement = function (state) {
-      return state.element;
-    };
-    var applyRelPos = function (state, position) {
-      return {
-        pageX: position.pageX - state.relX,
-        pageY: position.pageY + 5
+    var is$2 = function (expected) {
+      return function (actual) {
+        return expected === actual;
       };
     };
-    var start = function (state, editor) {
-      return function (e) {
-        if (isLeftMouseButtonPressed(e)) {
-          var ceElm = find(editor.dom.getParents(e.target), Predicate.or(isContentEditableFalse$6, isContentEditableTrue$2)).getOr(null);
-          if (isDraggable(editor.getBody(), ceElm)) {
-            var elmPos = editor.dom.getPos(ceElm);
-            var bodyElm = editor.getBody();
-            var docElm = editor.getDoc().documentElement;
-            state.element = ceElm;
-            state.screenX = e.screenX;
-            state.screenY = e.screenY;
-            state.maxX = (editor.inline ? bodyElm.scrollWidth : docElm.offsetWidth) - 2;
-            state.maxY = (editor.inline ? bodyElm.scrollHeight : docElm.offsetHeight) - 2;
-            state.relX = e.pageX - elmPos.x;
-            state.relY = e.pageY - elmPos.y;
-            state.width = ceElm.offsetWidth;
-            state.height = ceElm.offsetHeight;
-            state.ghost = createGhost(editor, ceElm, state.width, state.height);
-          }
-        }
-      };
+    var isNbsp = is$2('\xA0');
+    var isWhiteSpace$1 = function (chr) {
+      return /^[\r\n\t ]$/.test(chr);
     };
-    var move = function (state, editor) {
-      var throttledPlaceCaretAt = Delay.throttle(function (clientX, clientY) {
-        editor._selectionOverrides.hideFakeCaret();
-        editor.selection.placeCaretAt(clientX, clientY);
-      }, 0);
-      return function (e) {
-        var movement = Math.max(Math.abs(e.screenX - state.screenX), Math.abs(e.screenY - state.screenY));
-        if (hasDraggableElement(state) && !state.dragging && movement > 10) {
-          var args = editor.fire('dragstart', { target: state.element });
-          if (args.isDefaultPrevented()) {
-            return;
-          }
-          state.dragging = true;
-          editor.focus();
-        }
-        if (state.dragging) {
-          var targetPos = applyRelPos(state, MousePosition.calc(editor, e));
-          appendGhostToBody(state.ghost, editor.getBody());
-          moveGhost(state.ghost, targetPos, state.width, state.height, state.maxX, state.maxY);
-          throttledPlaceCaretAt(e.clientX, e.clientY);
-        }
-      };
+    var isContent = function (chr) {
+      return !isWhiteSpace$1(chr) && !isNbsp(chr);
     };
-    var getRawTarget = function (selection) {
-      var rng = selection.getSel().getRangeAt(0);
-      var startContainer = rng.startContainer;
-      return startContainer.nodeType === 3 ? startContainer.parentNode : startContainer;
-    };
-    var drop = function (state, editor) {
-      return function (e) {
-        if (state.dragging) {
-          if (isValidDropTarget(editor, getRawTarget(editor.selection), state.element)) {
-            var targetClone_1 = cloneElement(state.element);
-            var args = editor.fire('drop', {
-              targetClone: targetClone_1,
-              clientX: e.clientX,
-              clientY: e.clientY
-            });
-            if (!args.isDefaultPrevented()) {
-              targetClone_1 = args.targetClone;
-              editor.undoManager.transact(function () {
-                removeElement(state.element);
-                editor.insertContent(editor.dom.getOuterHTML(targetClone_1));
-                editor._selectionOverrides.hideFakeCaret();
-              });
-            }
-          }
-        }
-        removeDragState(state);
-      };
-    };
-    var stop = function (state, editor) {
-      return function () {
-        if (state.dragging) {
-          editor.fire('dragend');
-        }
-        removeDragState(state);
-      };
-    };
-    var removeDragState = function (state) {
-      state.dragging = false;
-      state.element = null;
-      removeElement(state.ghost);
-    };
-    var bindFakeDragEvents = function (editor) {
-      var state = {};
-      var pageDom, dragStartHandler, dragHandler, dropHandler, dragEndHandler, rootDocument;
-      pageDom = DOMUtils$1.DOM;
-      rootDocument = domGlobals.document;
-      dragStartHandler = start(state, editor);
-      dragHandler = move(state, editor);
-      dropHandler = drop(state, editor);
-      dragEndHandler = stop(state, editor);
-      editor.on('mousedown', dragStartHandler);
-      editor.on('mousemove', dragHandler);
-      editor.on('mouseup', dropHandler);
-      pageDom.bind(rootDocument, 'mousemove', dragHandler);
-      pageDom.bind(rootDocument, 'mouseup', dragEndHandler);
-      editor.on('remove', function () {
-        pageDom.unbind(rootDocument, 'mousemove', dragHandler);
-        pageDom.unbind(rootDocument, 'mouseup', dragEndHandler);
+
+    var isChar = function (forward, predicate, pos) {
+      return Option.from(pos.container()).filter(NodeType.isText).exists(function (text) {
+        var delta = forward ? 0 : -1;
+        return predicate(text.data.charAt(pos.offset() + delta));
       });
     };
-    var blockIeDrop = function (editor) {
-      editor.on('drop', function (e) {
-        var realTarget = typeof e.clientX !== 'undefined' ? editor.getDoc().elementFromPoint(e.clientX, e.clientY) : null;
-        if (isContentEditableFalse$6(realTarget) || isContentEditableFalse$6(editor.dom.getContentEditableParent(realTarget))) {
-          e.preventDefault();
-        }
-      });
+    var isBeforeSpace = curry(isChar, true, isWhiteSpace$1);
+    var isAfterSpace = curry(isChar, false, isWhiteSpace$1);
+    var isEmptyText = function (pos) {
+      var container = pos.container();
+      return NodeType.isText(container) && container.data.length === 0;
     };
-    var init = function (editor) {
-      bindFakeDragEvents(editor);
-      blockIeDrop(editor);
+    var matchesElementPosition = function (before, predicate) {
+      return function (pos) {
+        return Option.from(getChildNodeAtRelativeOffset(before ? 0 : -1, pos)).filter(predicate).isSome();
+      };
     };
-    var DragDropOverrides = { init: init };
+    var isImageBlock = function (node) {
+      return node.nodeName === 'IMG' && get$2(Element.fromDom(node), 'display') === 'block';
+    };
+    var isCefNode = function (node) {
+      return NodeType.isContentEditableFalse(node) && !NodeType.isBogusAll(node);
+    };
+    var isBeforeImageBlock = matchesElementPosition(true, isImageBlock);
+    var isAfterImageBlock = matchesElementPosition(false, isImageBlock);
+    var isBeforeTable = matchesElementPosition(true, NodeType.isTable);
+    var isAfterTable = matchesElementPosition(false, NodeType.isTable);
+    var isBeforeContentEditableFalse = matchesElementPosition(true, isCefNode);
+    var isAfterContentEditableFalse = matchesElementPosition(false, isCefNode);
 
     var getNodeClientRects = function (node) {
       var toArrayWithNode = function (clientRects) {
@@ -14296,7 +14115,7 @@
       };
     };
 
-    var isContentEditableFalse$7 = NodeType.isContentEditableFalse;
+    var isContentEditableFalse$6 = NodeType.isContentEditableFalse;
     var findNode$1 = findNode;
     var distanceToRectLeft = function (clientRect, clientX) {
       return Math.abs(clientRect.left - clientX);
@@ -14318,7 +14137,7 @@
         if (isInside(clientX, oldClientRect)) {
           return oldClientRect;
         }
-        if (newDistance === oldDistance && isContentEditableFalse$7(clientRect.node)) {
+        if (newDistance === oldDistance && isContentEditableFalse$6(clientRect.node)) {
           return clientRect;
         }
         if (newDistance < oldDistance) {
@@ -14378,7 +14197,7 @@
       if (range.collapsed) {
         return false;
       }
-      if (Env.ie && Env.ie <= 11 && range.startOffset === range.endOffset - 1 && range.startContainer === range.endContainer) {
+      if (Env.browser.isIE() && range.startOffset === range.endOffset - 1 && range.startContainer === range.endContainer) {
         var elm = range.startContainer.childNodes[range.startOffset];
         if (NodeType.isElement(elm)) {
           return exists(elm.getClientRects(), function (rect) {
@@ -14391,6 +14210,269 @@
       });
     };
     var RangePoint = { isXYWithinRange: isXYWithinRange };
+
+    var getAbsolutePosition = function (elm) {
+      var doc, docElem, win, clientRect;
+      clientRect = elm.getBoundingClientRect();
+      doc = elm.ownerDocument;
+      docElem = doc.documentElement;
+      win = doc.defaultView;
+      return {
+        top: clientRect.top + win.pageYOffset - docElem.clientTop,
+        left: clientRect.left + win.pageXOffset - docElem.clientLeft
+      };
+    };
+    var getBodyPosition = function (editor) {
+      return editor.inline ? getAbsolutePosition(editor.getBody()) : {
+        left: 0,
+        top: 0
+      };
+    };
+    var getScrollPosition = function (editor) {
+      var body = editor.getBody();
+      return editor.inline ? {
+        left: body.scrollLeft,
+        top: body.scrollTop
+      } : {
+        left: 0,
+        top: 0
+      };
+    };
+    var getBodyScroll = function (editor) {
+      var body = editor.getBody(), docElm = editor.getDoc().documentElement;
+      var inlineScroll = {
+        left: body.scrollLeft,
+        top: body.scrollTop
+      };
+      var iframeScroll = {
+        left: body.scrollLeft || docElm.scrollLeft,
+        top: body.scrollTop || docElm.scrollTop
+      };
+      return editor.inline ? inlineScroll : iframeScroll;
+    };
+    var getMousePosition = function (editor, event) {
+      if (event.target.ownerDocument !== editor.getDoc()) {
+        var iframePosition = getAbsolutePosition(editor.getContentAreaContainer());
+        var scrollPosition = getBodyScroll(editor);
+        return {
+          left: event.pageX - iframePosition.left + scrollPosition.left,
+          top: event.pageY - iframePosition.top + scrollPosition.top
+        };
+      }
+      return {
+        left: event.pageX,
+        top: event.pageY
+      };
+    };
+    var calculatePosition = function (bodyPosition, scrollPosition, mousePosition) {
+      return {
+        pageX: mousePosition.left - bodyPosition.left + scrollPosition.left,
+        pageY: mousePosition.top - bodyPosition.top + scrollPosition.top
+      };
+    };
+    var calc = function (editor, event) {
+      return calculatePosition(getBodyPosition(editor), getScrollPosition(editor), getMousePosition(editor, event));
+    };
+    var MousePosition = { calc: calc };
+
+    var isContentEditableFalse$7 = NodeType.isContentEditableFalse, isContentEditableTrue$2 = NodeType.isContentEditableTrue;
+    var isDraggable = function (rootElm, elm) {
+      return isContentEditableFalse$7(elm) && elm !== rootElm;
+    };
+    var isValidDropTarget = function (editor, targetElement, dragElement) {
+      if (targetElement === dragElement || editor.dom.isChildOf(targetElement, dragElement)) {
+        return false;
+      }
+      return !isContentEditableFalse$7(targetElement);
+    };
+    var cloneElement = function (elm) {
+      var cloneElm = elm.cloneNode(true);
+      cloneElm.removeAttribute('data-mce-selected');
+      return cloneElm;
+    };
+    var createGhost = function (editor, elm, width, height) {
+      var clonedElm = elm.cloneNode(true);
+      editor.dom.setStyles(clonedElm, {
+        width: width,
+        height: height
+      });
+      editor.dom.setAttrib(clonedElm, 'data-mce-selected', null);
+      var ghostElm = editor.dom.create('div', {
+        'class': 'mce-drag-container',
+        'data-mce-bogus': 'all',
+        'unselectable': 'on',
+        'contenteditable': 'false'
+      });
+      editor.dom.setStyles(ghostElm, {
+        position: 'absolute',
+        opacity: 0.5,
+        overflow: 'hidden',
+        border: 0,
+        padding: 0,
+        margin: 0,
+        width: width,
+        height: height
+      });
+      editor.dom.setStyles(clonedElm, {
+        margin: 0,
+        boxSizing: 'border-box'
+      });
+      ghostElm.appendChild(clonedElm);
+      return ghostElm;
+    };
+    var appendGhostToBody = function (ghostElm, bodyElm) {
+      if (ghostElm.parentNode !== bodyElm) {
+        bodyElm.appendChild(ghostElm);
+      }
+    };
+    var moveGhost = function (ghostElm, position, width, height, maxX, maxY) {
+      var overflowX = 0, overflowY = 0;
+      ghostElm.style.left = position.pageX + 'px';
+      ghostElm.style.top = position.pageY + 'px';
+      if (position.pageX + width > maxX) {
+        overflowX = position.pageX + width - maxX;
+      }
+      if (position.pageY + height > maxY) {
+        overflowY = position.pageY + height - maxY;
+      }
+      ghostElm.style.width = width - overflowX + 'px';
+      ghostElm.style.height = height - overflowY + 'px';
+    };
+    var removeElement = function (elm) {
+      if (elm && elm.parentNode) {
+        elm.parentNode.removeChild(elm);
+      }
+    };
+    var isLeftMouseButtonPressed = function (e) {
+      return e.button === 0;
+    };
+    var hasDraggableElement = function (state) {
+      return state.element;
+    };
+    var applyRelPos = function (state, position) {
+      return {
+        pageX: position.pageX - state.relX,
+        pageY: position.pageY + 5
+      };
+    };
+    var start = function (state, editor) {
+      return function (e) {
+        if (isLeftMouseButtonPressed(e)) {
+          var ceElm = find(editor.dom.getParents(e.target), Predicate.or(isContentEditableFalse$7, isContentEditableTrue$2)).getOr(null);
+          if (isDraggable(editor.getBody(), ceElm)) {
+            var elmPos = editor.dom.getPos(ceElm);
+            var bodyElm = editor.getBody();
+            var docElm = editor.getDoc().documentElement;
+            state.element = ceElm;
+            state.screenX = e.screenX;
+            state.screenY = e.screenY;
+            state.maxX = (editor.inline ? bodyElm.scrollWidth : docElm.offsetWidth) - 2;
+            state.maxY = (editor.inline ? bodyElm.scrollHeight : docElm.offsetHeight) - 2;
+            state.relX = e.pageX - elmPos.x;
+            state.relY = e.pageY - elmPos.y;
+            state.width = ceElm.offsetWidth;
+            state.height = ceElm.offsetHeight;
+            state.ghost = createGhost(editor, ceElm, state.width, state.height);
+          }
+        }
+      };
+    };
+    var move = function (state, editor) {
+      var throttledPlaceCaretAt = Delay.throttle(function (clientX, clientY) {
+        editor._selectionOverrides.hideFakeCaret();
+        editor.selection.placeCaretAt(clientX, clientY);
+      }, 0);
+      return function (e) {
+        var movement = Math.max(Math.abs(e.screenX - state.screenX), Math.abs(e.screenY - state.screenY));
+        if (hasDraggableElement(state) && !state.dragging && movement > 10) {
+          var args = editor.fire('dragstart', { target: state.element });
+          if (args.isDefaultPrevented()) {
+            return;
+          }
+          state.dragging = true;
+          editor.focus();
+        }
+        if (state.dragging) {
+          var targetPos = applyRelPos(state, MousePosition.calc(editor, e));
+          appendGhostToBody(state.ghost, editor.getBody());
+          moveGhost(state.ghost, targetPos, state.width, state.height, state.maxX, state.maxY);
+          throttledPlaceCaretAt(e.clientX, e.clientY);
+        }
+      };
+    };
+    var getRawTarget = function (selection) {
+      var rng = selection.getSel().getRangeAt(0);
+      var startContainer = rng.startContainer;
+      return startContainer.nodeType === 3 ? startContainer.parentNode : startContainer;
+    };
+    var drop = function (state, editor) {
+      return function (e) {
+        if (state.dragging) {
+          if (isValidDropTarget(editor, getRawTarget(editor.selection), state.element)) {
+            var targetClone_1 = cloneElement(state.element);
+            var args = editor.fire('drop', {
+              targetClone: targetClone_1,
+              clientX: e.clientX,
+              clientY: e.clientY
+            });
+            if (!args.isDefaultPrevented()) {
+              targetClone_1 = args.targetClone;
+              editor.undoManager.transact(function () {
+                removeElement(state.element);
+                editor.insertContent(editor.dom.getOuterHTML(targetClone_1));
+                editor._selectionOverrides.hideFakeCaret();
+              });
+            }
+          }
+        }
+        removeDragState(state);
+      };
+    };
+    var stop = function (state, editor) {
+      return function () {
+        if (state.dragging) {
+          editor.fire('dragend');
+        }
+        removeDragState(state);
+      };
+    };
+    var removeDragState = function (state) {
+      state.dragging = false;
+      state.element = null;
+      removeElement(state.ghost);
+    };
+    var bindFakeDragEvents = function (editor) {
+      var state = {};
+      var pageDom, dragStartHandler, dragHandler, dropHandler, dragEndHandler, rootDocument;
+      pageDom = DOMUtils$1.DOM;
+      rootDocument = domGlobals.document;
+      dragStartHandler = start(state, editor);
+      dragHandler = move(state, editor);
+      dropHandler = drop(state, editor);
+      dragEndHandler = stop(state, editor);
+      editor.on('mousedown', dragStartHandler);
+      editor.on('mousemove', dragHandler);
+      editor.on('mouseup', dropHandler);
+      pageDom.bind(rootDocument, 'mousemove', dragHandler);
+      pageDom.bind(rootDocument, 'mouseup', dragEndHandler);
+      editor.on('remove', function () {
+        pageDom.unbind(rootDocument, 'mousemove', dragHandler);
+        pageDom.unbind(rootDocument, 'mouseup', dragEndHandler);
+      });
+    };
+    var blockIeDrop = function (editor) {
+      editor.on('drop', function (e) {
+        var realTarget = typeof e.clientX !== 'undefined' ? editor.getDoc().elementFromPoint(e.clientX, e.clientY) : null;
+        if (isContentEditableFalse$7(realTarget) || isContentEditableFalse$7(editor.dom.getContentEditableParent(realTarget))) {
+          e.preventDefault();
+        }
+      });
+    };
+    var init = function (editor) {
+      bindFakeDragEvents(editor);
+      blockIeDrop(editor);
+    };
+    var DragDropOverrides = { init: init };
 
     var isContentEditableTrue$3 = NodeType.isContentEditableTrue;
     var isContentEditableFalse$8 = NodeType.isContentEditableFalse;
@@ -14458,69 +14540,6 @@
     };
     var CefFocus = { setup: setup$4 };
 
-    var VK = {
-      BACKSPACE: 8,
-      DELETE: 46,
-      DOWN: 40,
-      ENTER: 13,
-      LEFT: 37,
-      RIGHT: 39,
-      SPACEBAR: 32,
-      TAB: 9,
-      UP: 38,
-      END: 35,
-      HOME: 36,
-      modifierPressed: function (e) {
-        return e.shiftKey || e.ctrlKey || e.altKey || this.metaKeyPressed(e);
-      },
-      metaKeyPressed: function (e) {
-        return Env.mac ? e.metaKey : e.ctrlKey && !e.altKey;
-      }
-    };
-
-    var is$2 = function (expected) {
-      return function (actual) {
-        return expected === actual;
-      };
-    };
-    var isNbsp = is$2('\xA0');
-    var isWhiteSpace$1 = function (chr) {
-      return /^[\r\n\t ]$/.test(chr);
-    };
-    var isContent = function (chr) {
-      return !isWhiteSpace$1(chr) && !isNbsp(chr);
-    };
-
-    var isChar = function (forward, predicate, pos) {
-      return Option.from(pos.container()).filter(NodeType.isText).exists(function (text) {
-        var delta = forward ? 0 : -1;
-        return predicate(text.data.charAt(pos.offset() + delta));
-      });
-    };
-    var isBeforeSpace = curry(isChar, true, isWhiteSpace$1);
-    var isAfterSpace = curry(isChar, false, isWhiteSpace$1);
-    var isEmptyText = function (pos) {
-      var container = pos.container();
-      return NodeType.isText(container) && container.data.length === 0;
-    };
-    var matchesElementPosition = function (before, predicate) {
-      return function (pos) {
-        return Option.from(getChildNodeAtRelativeOffset(before ? 0 : -1, pos)).filter(predicate).isSome();
-      };
-    };
-    var isImageBlock = function (node) {
-      return node.nodeName === 'IMG' && get$2(Element.fromDom(node), 'display') === 'block';
-    };
-    var isCefNode = function (node) {
-      return NodeType.isContentEditableFalse(node) && !NodeType.isBogusAll(node);
-    };
-    var isBeforeImageBlock = matchesElementPosition(true, isImageBlock);
-    var isAfterImageBlock = matchesElementPosition(false, isImageBlock);
-    var isBeforeTable = matchesElementPosition(true, NodeType.isTable);
-    var isAfterTable = matchesElementPosition(false, NodeType.isTable);
-    var isBeforeContentEditableFalse = matchesElementPosition(true, isCefNode);
-    var isAfterContentEditableFalse = matchesElementPosition(false, isCefNode);
-
     var isContentEditableTrue$4 = NodeType.isContentEditableTrue;
     var isContentEditableFalse$9 = NodeType.isContentEditableFalse;
     var getContentEditableRoot = function (editor, node) {
@@ -14576,13 +14595,6 @@
         }
         return fakeCaret.show(before, node);
       };
-      var getNormalizedRangeEndPoint = function (direction, range) {
-        range = normalizeRange(direction, rootNode, range);
-        if (direction === -1) {
-          return CaretPosition$1.fromRangeStart(range);
-        }
-        return CaretPosition$1.fromRangeEnd(range);
-      };
       var showBlockCaretContainer = function (blockCaretContainer) {
         if (blockCaretContainer.hasAttribute('data-mce-caret')) {
           showCaretContainerBlock(blockCaretContainer);
@@ -14627,14 +14639,14 @@
             moved = true;
           });
           editor.on('touchend', function (e) {
-            var contentEditableRoot = getContentEditableRoot(editor, e.target);
-            if (isContentEditableFalse$9(contentEditableRoot)) {
-              if (!moved) {
+            if (!moved) {
+              var contentEditableRoot = getContentEditableRoot(editor, e.target);
+              if (isContentEditableFalse$9(contentEditableRoot)) {
                 e.preventDefault();
                 setContentEditableSelection(selectNode(editor, contentEditableRoot));
               }
             }
-          });
+          }, true);
         };
         var hasNormalCaretPosition = function (elm) {
           var caretWalker = CaretWalker(elm);
@@ -14719,8 +14731,8 @@
           }
         });
         editor.on('SetSelectionRange', function (e) {
-          var rng;
-          rng = setContentEditableSelection(e.range, e.forward);
+          e.range = normalizeShortEndedElementSelection(e.range);
+          var rng = setContentEditableSelection(e.range, e.forward);
           if (rng) {
             e.range = rng;
           }
@@ -14758,6 +14770,33 @@
       var isRangeInCaretContainer = function (rng) {
         return isWithinCaretContainer(rng.startContainer) || isWithinCaretContainer(rng.endContainer);
       };
+      var normalizeShortEndedElementSelection = function (rng) {
+        var shortEndedElements = editor.schema.getShortEndedElements();
+        var newRng = editor.dom.createRng();
+        var startContainer = rng.startContainer;
+        var startOffset = rng.startOffset;
+        var endContainer = rng.endContainer;
+        var endOffset = rng.endOffset;
+        if (has(shortEndedElements, startContainer.nodeName.toLowerCase())) {
+          if (startOffset === 0) {
+            newRng.setStartBefore(startContainer);
+          } else {
+            newRng.setStartAfter(startContainer);
+          }
+        } else {
+          newRng.setStart(startContainer, startOffset);
+        }
+        if (has(shortEndedElements, endContainer.nodeName.toLowerCase())) {
+          if (endOffset === 0) {
+            newRng.setEndBefore(endContainer);
+          } else {
+            newRng.setEndAfter(endContainer);
+          }
+        } else {
+          newRng.setEnd(endContainer, endOffset);
+        }
+        return newRng;
+      };
       var setContentEditableSelection = function (range, forward) {
         var node;
         var $ = editor.$;
@@ -14769,7 +14808,7 @@
         if (range.collapsed) {
           if (!isRangeInCaretContainer(range)) {
             if (forward === false) {
-              caretPosition = getNormalizedRangeEndPoint(-1, range);
+              caretPosition = getNormalizedRangeEndPoint(-1, rootNode, range);
               if (isFakeCaretTarget(caretPosition.getNode(true))) {
                 return showCaret(-1, caretPosition.getNode(true), false, false);
               }
@@ -14777,7 +14816,7 @@
                 return showCaret(-1, caretPosition.getNode(), !caretPosition.isAtEnd(), false);
               }
             } else {
-              caretPosition = getNormalizedRangeEndPoint(1, range);
+              caretPosition = getNormalizedRangeEndPoint(1, rootNode, range);
               if (isFakeCaretTarget(caretPosition.getNode())) {
                 return showCaret(1, caretPosition.getNode(), !caretPosition.isAtEnd(), false);
               }
@@ -14838,10 +14877,15 @@
         sel = editor.selection.getSel();
         sel.removeAllRanges();
         sel.addRange(range);
+        var nodeElm = Element.fromDom(node);
         each(descendants$1(Element.fromDom(editor.getBody()), '*[data-mce-selected]'), function (elm) {
-          remove(elm, 'data-mce-selected');
+          if (!eq(nodeElm, elm)) {
+            remove(elm, 'data-mce-selected');
+          }
         });
-        node.setAttribute('data-mce-selected', '1');
+        if (!editor.dom.getAttrib(node, 'data-mce-selected')) {
+          node.setAttribute('data-mce-selected', '1');
+        }
         selectedContentEditableNode = node;
         hideFakeCaret();
         return range;
@@ -15115,7 +15159,7 @@
       var elm = Element.fromTag('body', lazyTempDocument());
       set$1(elm, getLevelContent(level));
       each(descendants$1(elm, '*[data-mce-bogus]'), unwrap);
-      return get$4(elm);
+      return get$5(elm);
     };
     var hasEqualContent = function (level1, level2) {
       return getLevelContent(level1) === getLevelContent(level2);
@@ -15140,37 +15184,166 @@
       isEq: isEq$2
     };
 
-    var UndoManager = function (editor) {
-      var self = this, index = 0, data = [], beforeBookmark, isFirstTypedCharacter, locks = 0;
-      var isUnlocked = function () {
-        return locks === 0;
-      };
-      var setTyping = function (typing) {
-        if (isUnlocked()) {
-          self.typing = typing;
+    var isUnlocked = function (locks) {
+      return locks.get() === 0;
+    };
+
+    var setTyping = function (undoManager, typing, locks) {
+      if (isUnlocked(locks)) {
+        undoManager.typing = typing;
+      }
+    };
+    var endTyping = function (undoManager, locks) {
+      if (undoManager.typing) {
+        setTyping(undoManager, false, locks);
+        undoManager.add();
+      }
+    };
+    var endTypingLevelIgnoreLocks = function (undoManager) {
+      if (undoManager.typing) {
+        undoManager.typing = false;
+        undoManager.add();
+      }
+    };
+
+    var beforeChange = function (editor, locks, beforeBookmark) {
+      if (isUnlocked(locks)) {
+        beforeBookmark.set(Option.some(GetBookmark.getUndoBookmark(editor.selection)));
+      }
+    };
+    var addUndoLevel = function (editor, undoManager, index, locks, beforeBookmark, level, event) {
+      var settings = editor.settings;
+      var currentLevel = Levels.createFromEditor(editor);
+      level = level || {};
+      level = Tools.extend(level, currentLevel);
+      if (isUnlocked(locks) === false || editor.removed) {
+        return null;
+      }
+      var lastLevel = undoManager.data[index.get()];
+      if (editor.fire('BeforeAddUndo', {
+          level: level,
+          lastLevel: lastLevel,
+          originalEvent: event
+        }).isDefaultPrevented()) {
+        return null;
+      }
+      if (lastLevel && Levels.isEq(lastLevel, level)) {
+        return null;
+      }
+      if (undoManager.data[index.get()]) {
+        beforeBookmark.get().each(function (bm) {
+          undoManager.data[index.get()].beforeBookmark = bm;
+        });
+      }
+      if (settings.custom_undo_redo_levels) {
+        if (undoManager.data.length > settings.custom_undo_redo_levels) {
+          for (var i = 0; i < undoManager.data.length - 1; i++) {
+            undoManager.data[i] = undoManager.data[i + 1];
+          }
+          undoManager.data.length--;
+          index.set(undoManager.data.length);
         }
+      }
+      level.bookmark = GetBookmark.getUndoBookmark(editor.selection);
+      if (index.get() < undoManager.data.length - 1) {
+        undoManager.data.length = index.get() + 1;
+      }
+      undoManager.data.push(level);
+      index.set(undoManager.data.length - 1);
+      var args = {
+        level: level,
+        lastLevel: lastLevel,
+        originalEvent: event
       };
-      var setDirty = function (state) {
-        editor.setDirty(state);
-      };
+      editor.fire('AddUndo', args);
+      if (index.get() > 0) {
+        editor.setDirty(true);
+        editor.fire('change', args);
+      }
+      return level;
+    };
+    var clear = function (editor, undoManager, index) {
+      undoManager.data = [];
+      index.set(0);
+      undoManager.typing = false;
+      editor.fire('ClearUndos');
+    };
+    var extra = function (editor, undoManager, index, callback1, callback2) {
+      if (undoManager.transact(callback1)) {
+        var bookmark = undoManager.data[index.get()].bookmark;
+        var lastLevel = undoManager.data[index.get() - 1];
+        Levels.applyToEditor(editor, lastLevel, true);
+        if (undoManager.transact(callback2)) {
+          undoManager.data[index.get() - 1].beforeBookmark = bookmark;
+        }
+      }
+    };
+    var redo = function (editor, index, data) {
+      var level;
+      if (index.get() < data.length - 1) {
+        index.set(index.get() + 1);
+        level = data[index.get()];
+        Levels.applyToEditor(editor, level, false);
+        editor.setDirty(true);
+        editor.fire('Redo', { level: level });
+      }
+      return level;
+    };
+    var undo = function (editor, undoManager, locks, index) {
+      var level;
+      if (undoManager.typing) {
+        undoManager.add();
+        undoManager.typing = false;
+        setTyping(undoManager, false, locks);
+      }
+      if (index.get() > 0) {
+        index.set(index.get() - 1);
+        level = undoManager.data[index.get()];
+        Levels.applyToEditor(editor, level, true);
+        editor.setDirty(true);
+        editor.fire('Undo', { level: level });
+      }
+      return level;
+    };
+    var reset = function (undoManager) {
+      undoManager.clear();
+      undoManager.add();
+    };
+    var hasUndo = function (editor, undoManager, index) {
+      return index.get() > 0 || undoManager.typing && undoManager.data[0] && !Levels.isEq(Levels.createFromEditor(editor), undoManager.data[0]);
+    };
+    var hasRedo = function (undoManager, index) {
+      return index.get() < undoManager.data.length - 1 && !undoManager.typing;
+    };
+    var transact = function (undoManager, locks, callback) {
+      endTyping(undoManager, locks);
+      undoManager.beforeChange();
+      undoManager.ignore(callback);
+      return undoManager.add();
+    };
+    var ignore = function (locks, callback) {
+      try {
+        locks.set(locks.get() + 1);
+        callback();
+      } finally {
+        locks.set(locks.get() - 1);
+      }
+    };
+
+    var registerEvents$1 = function (editor, undoManager, locks) {
+      var isFirstTypedCharacter = Cell(false);
       var addNonTypingUndoLevel = function (e) {
-        setTyping(false);
-        self.add({}, e);
-      };
-      var endTyping = function () {
-        if (self.typing) {
-          setTyping(false);
-          self.add();
-        }
+        setTyping(undoManager, false, locks);
+        undoManager.add({}, e);
       };
       editor.on('init', function () {
-        self.add();
+        undoManager.add();
       });
       editor.on('BeforeExecCommand', function (e) {
         var cmd = e.command;
         if (cmd !== 'Undo' && cmd !== 'Redo' && cmd !== 'mceRepaint') {
-          endTyping();
-          self.beforeChange();
+          endTyping(undoManager, locks);
+          undoManager.beforeChange();
         }
       });
       editor.on('ExecCommand', function (e) {
@@ -15180,7 +15353,7 @@
         }
       });
       editor.on('ObjectResizeStart cut', function () {
-        self.beforeChange();
+        undoManager.beforeChange();
       });
       editor.on('SaveContent ObjectResized blur', addNonTypingUndoLevel);
       editor.on('dragend', addNonTypingUndoLevel);
@@ -15196,16 +15369,16 @@
         if (keyCode === 46 || keyCode === 8) {
           editor.nodeChanged();
         }
-        if (isFirstTypedCharacter && self.typing && Levels.isEq(Levels.createFromEditor(editor), data[0]) === false) {
+        if (isFirstTypedCharacter.get() && undoManager.typing && Levels.isEq(Levels.createFromEditor(editor), undoManager.data[0]) === false) {
           if (editor.isDirty() === false) {
-            setDirty(true);
+            editor.setDirty(true);
             editor.fire('change', {
-              level: data[0],
+              level: undoManager.data[0],
               lastLevel: null
             });
           }
           editor.fire('TypingUndo');
-          isFirstTypedCharacter = false;
+          isFirstTypedCharacter.set(false);
           editor.nodeChanged();
         }
       });
@@ -15215,21 +15388,21 @@
           return;
         }
         if (keyCode >= 33 && keyCode <= 36 || keyCode >= 37 && keyCode <= 40 || keyCode === 45) {
-          if (self.typing) {
+          if (undoManager.typing) {
             addNonTypingUndoLevel(e);
           }
           return;
         }
         var modKey = e.ctrlKey && !e.altKey || e.metaKey;
-        if ((keyCode < 16 || keyCode > 20) && keyCode !== 224 && keyCode !== 91 && !self.typing && !modKey) {
-          self.beforeChange();
-          setTyping(true);
-          self.add({}, e);
-          isFirstTypedCharacter = true;
+        if ((keyCode < 16 || keyCode > 20) && keyCode !== 224 && keyCode !== 91 && !undoManager.typing && !modKey) {
+          undoManager.beforeChange();
+          setTyping(undoManager, true, locks);
+          undoManager.add({}, e);
+          isFirstTypedCharacter.set(true);
         }
       });
       editor.on('mousedown', function (e) {
-        if (self.typing) {
+        if (undoManager.typing) {
           addNonTypingUndoLevel(e);
         }
       });
@@ -15244,141 +15417,61 @@
           addNonTypingUndoLevel(e);
         }
       });
-      editor.addShortcut('meta+z', '', 'Undo');
-      editor.addShortcut('meta+y,meta+shift+z', '', 'Redo');
       editor.on('AddUndo Undo Redo ClearUndos', function (e) {
         if (!e.isDefaultPrevented()) {
           editor.nodeChanged();
         }
       });
-      self = {
-        data: data,
+    };
+    var addKeyboardShortcuts = function (editor) {
+      editor.addShortcut('meta+z', '', 'Undo');
+      editor.addShortcut('meta+y,meta+shift+z', '', 'Redo');
+    };
+
+    var UndoManager = function (editor) {
+      var beforeBookmark = Cell(Option.none());
+      var locks = Cell(0);
+      var index = Cell(0);
+      var undoManager = {
+        data: [],
         typing: false,
         beforeChange: function () {
-          if (isUnlocked()) {
-            beforeBookmark = GetBookmark.getUndoBookmark(editor.selection);
-          }
+          beforeChange(editor, locks, beforeBookmark);
         },
         add: function (level, event) {
-          var i;
-          var settings = editor.settings;
-          var lastLevel, currentLevel;
-          currentLevel = Levels.createFromEditor(editor);
-          level = level || {};
-          level = Tools.extend(level, currentLevel);
-          if (isUnlocked() === false || editor.removed) {
-            return null;
-          }
-          lastLevel = data[index];
-          if (editor.fire('BeforeAddUndo', {
-              level: level,
-              lastLevel: lastLevel,
-              originalEvent: event
-            }).isDefaultPrevented()) {
-            return null;
-          }
-          if (lastLevel && Levels.isEq(lastLevel, level)) {
-            return null;
-          }
-          if (data[index]) {
-            data[index].beforeBookmark = beforeBookmark;
-          }
-          if (settings.custom_undo_redo_levels) {
-            if (data.length > settings.custom_undo_redo_levels) {
-              for (i = 0; i < data.length - 1; i++) {
-                data[i] = data[i + 1];
-              }
-              data.length--;
-              index = data.length;
-            }
-          }
-          level.bookmark = GetBookmark.getUndoBookmark(editor.selection);
-          if (index < data.length - 1) {
-            data.length = index + 1;
-          }
-          data.push(level);
-          index = data.length - 1;
-          var args = {
-            level: level,
-            lastLevel: lastLevel,
-            originalEvent: event
-          };
-          editor.fire('AddUndo', args);
-          if (index > 0) {
-            setDirty(true);
-            editor.fire('change', args);
-          }
-          return level;
+          return addUndoLevel(editor, undoManager, index, locks, beforeBookmark, level, event);
         },
         undo: function () {
-          var level;
-          if (self.typing) {
-            self.add();
-            self.typing = false;
-            setTyping(false);
-          }
-          if (index > 0) {
-            level = data[--index];
-            Levels.applyToEditor(editor, level, true);
-            setDirty(true);
-            editor.fire('Undo', { level: level });
-          }
-          return level;
+          return undo(editor, undoManager, locks, index);
         },
         redo: function () {
-          var level;
-          if (index < data.length - 1) {
-            level = data[++index];
-            Levels.applyToEditor(editor, level, false);
-            setDirty(true);
-            editor.fire('Redo', { level: level });
-          }
-          return level;
+          return redo(editor, index, undoManager.data);
         },
         clear: function () {
-          data = [];
-          index = 0;
-          self.typing = false;
-          self.data = data;
-          editor.fire('ClearUndos');
+          clear(editor, undoManager, index);
         },
         reset: function () {
-          self.clear();
-          self.add();
+          reset(undoManager);
         },
         hasUndo: function () {
-          return index > 0 || self.typing && data[0] && !Levels.isEq(Levels.createFromEditor(editor), data[0]);
+          return hasUndo(editor, undoManager, index);
         },
         hasRedo: function () {
-          return index < data.length - 1 && !self.typing;
+          return hasRedo(undoManager, index);
         },
         transact: function (callback) {
-          endTyping();
-          self.beforeChange();
-          self.ignore(callback);
-          return self.add();
+          return transact(undoManager, locks, callback);
         },
         ignore: function (callback) {
-          try {
-            locks++;
-            callback();
-          } finally {
-            locks--;
-          }
+          ignore(locks, callback);
         },
         extra: function (callback1, callback2) {
-          var lastLevel, bookmark;
-          if (self.transact(callback1)) {
-            bookmark = data[index].bookmark;
-            lastLevel = data[index - 1];
-            Levels.applyToEditor(editor, lastLevel, true);
-            if (self.transact(callback2)) {
-              data[index - 1].beforeBookmark = bookmark;
-            }
-          }
+          extra(editor, undoManager, index, callback1, callback2);
         }
       };
-      return self;
+      registerEvents$1(editor, undoManager, locks);
+      addKeyboardShortcuts(editor);
+      return undoManager;
     };
 
     var getLastChildren$1 = function (elm) {
@@ -15402,7 +15495,7 @@
       append(elm, Element.fromHtml('<br data-mce-bogus="1">'));
     };
     var isPaddingContents = function (elm) {
-      return isText$1(elm) ? get$5(elm) === '\xA0' : isBr$1(elm);
+      return isText$1(elm) ? get$6(elm) === '\xA0' : isBr$1(elm);
     };
     var isPaddedElement = function (elm) {
       return filter(children(elm), isPaddingContents).length === 1;
@@ -17034,7 +17127,7 @@
       };
     };
 
-    var get$6 = function (dom) {
+    var get$7 = function (dom) {
       var formats = {
         valigntop: [{
             selector: 'td,th',
@@ -17277,7 +17370,7 @@
       });
       return formats;
     };
-    var DefaultFormats = { get: get$6 };
+    var DefaultFormats = { get: get$7 };
 
     function FormatRegistry(editor) {
       var formats = {};
@@ -18677,7 +18770,12 @@
         return elm && (elm.nodeName === 'IMG' || editor.dom.is(elm, 'figure.image'));
       };
       var isEventOnImageOutsideRange = function (evt, range) {
-        return isImage(evt.target) && !RangePoint.isXYWithinRange(evt.clientX, evt.clientY, range);
+        if (evt.type === 'longpress' || evt.type.indexOf('touch') === 0) {
+          var touch = evt.touches[0];
+          return isImage(evt.target) && !RangePoint.isXYWithinRange(touch.clientX, touch.clientY, range);
+        } else {
+          return isImage(evt.target) && !RangePoint.isXYWithinRange(evt.clientX, evt.clientY, range);
+        }
       };
       var contextMenuSelectImage = function (evt) {
         var target = evt.target;
@@ -18933,7 +19031,7 @@
       };
       editor.on('init', function () {
         disableGeckoResize();
-        if (Env.ie && Env.ie >= 11) {
+        if (Env.browser.isIE() || Env.browser.isEdge()) {
           editor.on('mousedown click', function (e) {
             var target = e.target, nodeName = target.nodeName;
             if (!resizeStarted && /^(TABLE|IMG|HR)$/.test(nodeName) && !isWithinContentEditableFalse(target)) {
@@ -18976,7 +19074,7 @@
           }
         });
         editor.on('hide blur', hideResizeRect);
-        editor.on('contextmenu', contextMenuSelectImage, true);
+        editor.on('contextmenu longpress', contextMenuSelectImage, true);
       });
       editor.on('remove', unbindResizeHandleEvents);
       var destroy = function () {
@@ -19035,71 +19133,8 @@
       var dom = element.dom();
       return inBody(element) ? dom.getBoundingClientRect().height : dom.offsetHeight;
     });
-    var get$7 = function (element) {
+    var get$8 = function (element) {
       return api$1.get(element);
-    };
-
-    var r = function (left, top) {
-      var translate = function (x, y) {
-        return r(left + x, top + y);
-      };
-      return {
-        left: constant(left),
-        top: constant(top),
-        translate: translate
-      };
-    };
-    var Position$1 = r;
-
-    var boxPosition = function (dom) {
-      var box = dom.getBoundingClientRect();
-      return Position$1(box.left, box.top);
-    };
-    var firstDefinedOrZero = function (a, b) {
-      return a !== undefined ? a : b !== undefined ? b : 0;
-    };
-    var absolute = function (element) {
-      var doc = element.dom().ownerDocument;
-      var body = doc.body;
-      var win = doc.defaultView;
-      var html = doc.documentElement;
-      var scrollTop = firstDefinedOrZero(win.pageYOffset, html.scrollTop);
-      var scrollLeft = firstDefinedOrZero(win.pageXOffset, html.scrollLeft);
-      var clientTop = firstDefinedOrZero(html.clientTop, body.clientTop);
-      var clientLeft = firstDefinedOrZero(html.clientLeft, body.clientLeft);
-      return viewport(element).translate(scrollLeft - clientLeft, scrollTop - clientTop);
-    };
-    var viewport = function (element) {
-      var dom = element.dom();
-      var doc = dom.ownerDocument;
-      var body = doc.body;
-      if (body === dom) {
-        return Position$1(body.offsetLeft, body.offsetTop);
-      }
-      if (!inBody(element)) {
-        return Position$1(0, 0);
-      }
-      return boxPosition(dom);
-    };
-
-    var isSafari = PlatformDetection$1.detect().browser.isSafari();
-    var get$8 = function (_DOC) {
-      var doc = _DOC !== undefined ? _DOC.dom() : domGlobals.document;
-      var x = doc.body.scrollLeft || doc.documentElement.scrollLeft;
-      var y = doc.body.scrollTop || doc.documentElement.scrollTop;
-      return Position$1(x, y);
-    };
-    var to = function (x, y, _DOC) {
-      var doc = _DOC !== undefined ? _DOC.dom() : domGlobals.document;
-      var win = doc.defaultView;
-      win.scrollTo(x, y);
-    };
-    var intoView = function (element, alignToTop) {
-      if (isSafari && isFunction(element.dom().scrollIntoViewIfNeeded)) {
-        element.dom().scrollIntoViewIfNeeded(false);
-      } else {
-        element.dom().scrollIntoView(alignToTop);
-      }
     };
 
     var walkUp = function (navigation, doc) {
@@ -19130,7 +19165,7 @@
 
     var find$4 = function (element) {
       var doc = Element.fromDom(domGlobals.document);
-      var scroll = get$8(doc);
+      var scroll = get$3(doc);
       var frames = pathTo(element, Navigation);
       var offset = viewport(element);
       var r = foldr(frames, function (b, a) {
@@ -19177,7 +19212,7 @@
           } else if (isText$1(last)) {
             return {
               element: last,
-              offset: get$5(last).length
+              offset: get$6(last).length
             };
           } else {
             return {
@@ -19190,7 +19225,7 @@
     };
     var markerInfo = function (element, cleanupFun) {
       var pos = absolute(element);
-      var height = get$7(element);
+      var height = get$8(element);
       return {
         element: element,
         bottom: pos.top() + height,
@@ -19218,14 +19253,14 @@
       var body = Element.fromDom(editor.getBody());
       var doc = Element.fromDom(editor.getDoc());
       reflow(body);
-      var scrollTop = get$8(doc).top();
+      var scrollTop = get$3(doc).top();
       var marker = createMarker(Element.fromDom(rng.startContainer), rng.startOffset);
       f(doc, scrollTop, marker, alignToTop);
       marker.cleanup();
     };
     var withElement = function (editor, element, f, alignToTop) {
       var doc = Element.fromDom(editor.getDoc());
-      var scrollTop = get$8(doc).top();
+      var scrollTop = get$3(doc).top();
       f(doc, scrollTop, element, alignToTop);
     };
     var preserveWith = function (editor, f, rng) {
@@ -19270,11 +19305,10 @@
       var frameViewHeight = doc.dom().defaultView.innerHeight;
       intoWindowIfNeeded(doc, scrollTop, frameViewHeight, marker, alignToTop);
       var op = find$4(marker.element);
-      var viewTop = get$8().top();
-      var viewBot = domGlobals.window.innerHeight + viewTop;
-      if (op.top() < viewTop) {
+      var viewportBounds = getBounds(domGlobals.window);
+      if (op.top() < viewportBounds.y()) {
         intoView(marker.element, alignToTop !== false);
-      } else if (op.top() > viewBot) {
+      } else if (op.top() > viewportBounds.bottom()) {
         intoView(marker.element, alignToTop === true);
       }
     };
@@ -21417,7 +21451,7 @@
     };
 
     var executeKeydownOverride = function (editor, caret, evt) {
-      var os = PlatformDetection$1.detect().os;
+      var os = detect$3().os;
       MatchKeys.execute([
         {
           keyCode: VK.RIGHT,
@@ -22445,8 +22479,8 @@
         var dom = editor.dom;
         var rng = editor.selection.getRng();
         var pos = CaretPosition$1.fromRangeStart(rng);
-        var block = Element.fromDom(dom.getParent(rng.startContainer, dom.isBlock));
-        if (isAtStartOfBlock(block, pos)) {
+        var block = dom.getParent(rng.startContainer, dom.isBlock);
+        if (block !== null && isAtStartOfBlock(Element.fromDom(block), pos)) {
           handle(editor, 'outdent');
           return true;
         }
@@ -23286,18 +23320,12 @@
     };
     var InsertNewLine = { insert: insert$3 };
 
-    var endTypingLevel = function (undoManager) {
-      if (undoManager.typing) {
-        undoManager.typing = false;
-        undoManager.add();
-      }
-    };
     var handleEnterKeyEvent = function (editor, event) {
       if (event.isDefaultPrevented()) {
         return;
       }
       event.preventDefault();
-      endTypingLevel(editor.undoManager);
+      endTypingLevelIgnoreLocks(editor.undoManager);
       editor.undoManager.transact(function () {
         if (editor.selection.isCollapsed() === false) {
           editor.execCommand('Delete');
@@ -23566,14 +23594,14 @@
     };
     var CaretContainerInput = { setup: setup$c };
 
-    var browser$4 = PlatformDetection$1.detect().browser;
+    var browser$5 = detect$3().browser;
     var setupIeInput = function (editor) {
       var keypressThrotter = first(function () {
         if (!editor.composing) {
           normalizeNbspsInEditor(editor);
         }
       }, 0);
-      if (browser$4.isIE()) {
+      if (browser$5.isIE()) {
         editor.on('keypress', function (e) {
           keypressThrotter.throttle();
         });
@@ -24328,7 +24356,7 @@
 
     var DOM$4 = DOMUtils$1.DOM;
     var relaxDomain = function (editor, ifr) {
-      if (domGlobals.document.domain !== domGlobals.window.location.hostname && Env.ie && Env.ie < 12) {
+      if (domGlobals.document.domain !== domGlobals.window.location.hostname && Env.browser.isIE()) {
         var bodyUuid = Uuid.uuid('mce');
         editor[bodyUuid] = function () {
           InitContentBody.initContentBody(editor);
@@ -24821,9 +24849,12 @@
         });
       }
     };
+    var isClickEvent = function (e) {
+      return e.type === 'click';
+    };
     var preventReadOnlyEvents = function (e) {
       var target = e.target;
-      if (e.type === 'click' && target.tagName === 'A') {
+      if (isClickEvent(e) && target.tagName === 'A' && !VK.metaKeyPressed(e)) {
         e.preventDefault();
       }
     };
@@ -25492,7 +25523,7 @@
       var fonts = font.split(/\s*,\s*/);
       return map(fonts, function (font) {
         if (font.indexOf(' ') !== -1 && !(startsWith(font, '"') || startsWith(font, '\''))) {
-          return '"' + font + '"';
+          return '\'' + font + '\'';
         } else {
           return font;
         }
@@ -25928,7 +25959,7 @@
       return EditorCommands;
     }();
 
-    var nativeEvents = Tools.makeMap('focus blur focusin focusout click dblclick mousedown mouseup mousemove mouseover beforepaste paste cut copy selectionchange ' + 'mouseout mouseenter mouseleave wheel keydown keypress keyup input beforeinput contextmenu dragstart dragend dragover ' + 'draggesture dragdrop drop drag submit ' + 'compositionstart compositionend compositionupdate touchstart touchmove touchend', ' ');
+    var nativeEvents = Tools.makeMap('focus blur focusin focusout click dblclick mousedown mouseup mousemove mouseover beforepaste paste cut copy selectionchange ' + 'mouseout mouseenter mouseleave wheel keydown keypress keyup input beforeinput contextmenu dragstart dragend dragover ' + 'draggesture dragdrop drop drag submit ' + 'compositionstart compositionend compositionupdate touchstart touchmove touchend touchcancel', ' ');
     var EventDispatcher = function () {
       function EventDispatcher(settings) {
         this.bindings = {};
@@ -26695,7 +26726,7 @@
     var DOM$8 = DOMUtils$1.DOM;
     var extend$3 = Tools.extend, each$j = Tools.each;
     var resolve$3 = Tools.resolve;
-    var ie$2 = Env.ie;
+    var ie$1 = Env.ie;
     var Editor = function () {
       function Editor(id, settings, editorManager) {
         var _this = this;
@@ -26726,7 +26757,7 @@
         this.setDirty(false);
         this.documentBaseURI = new URI(this.settings.document_base_url, { base_uri: this.baseUri });
         this.baseURI = this.baseUri;
-        this.inline = this.settings.inline;
+        this.inline = !!this.settings.inline;
         this.shortcuts = new Shortcuts(this);
         this.editorCommands = new EditorCommands(this);
         if (this.settings.cache_suffix) {
@@ -26831,7 +26862,7 @@
       Editor.prototype.hide = function () {
         var self = this, doc = self.getDoc();
         if (!self.hidden) {
-          if (ie$2 && doc && !self.inline) {
+          if (ie$1 && doc && !self.inline) {
             doc.execCommand('SelectAll');
           }
           self.save();
@@ -27139,8 +27170,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '0.16',
-      releaseDate: '2019-09-24',
+      minorVersion: '1.1',
+      releaseDate: '2019-10-28',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
@@ -27238,7 +27269,7 @@
         };
         var findTargets = function (settings) {
           var l, targets = [];
-          if (Env.ie && Env.ie < 11) {
+          if (Env.browser.isIE() && Env.browser.version.major < 11) {
             ErrorReporter.initError('TinyMCE does not support the browser you are using. For a list of supported' + ' browsers please see: https://www.tinymce.com/docs/get-started/system-requirements/');
             return [];
           } else if (isQuirksMode) {
