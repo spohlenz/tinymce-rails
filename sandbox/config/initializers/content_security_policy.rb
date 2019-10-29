@@ -10,7 +10,7 @@ if Rails.application.config.respond_to?(:content_security_policy)
     policy.img_src     :self, :https, :data
     policy.object_src  :none
     policy.script_src  :self, :https
-    policy.style_src   :self, :https
+    policy.style_src   :self, :https, :unsafe_inline
 
     # Specify URI for violation reports
     # policy.report_uri "/csp-violation-report-endpoint"
@@ -25,6 +25,9 @@ if Rails.application.config.respond_to?(:content_security_policy)
       SecureRandom.base64(16)
     end
   end
+
+  # Set the nonce only to specific directives
+  Rails.application.config.content_security_policy_nonce_directives = %w(script-src)
 
   # Report CSP violations to a specified URI
   # For further information see the following documentation:
