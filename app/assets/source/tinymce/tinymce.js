@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.1.1 (2019-10-28)
+ * Version: 5.1.2 (2019-11-19)
  */
 (function (domGlobals) {
     'use strict';
@@ -12320,6 +12320,7 @@
     var deviceDetection = detect$3().deviceType;
     var isTouch = deviceDetection.isTouch();
     var isPhone = deviceDetection.isPhone();
+    var isTablet = deviceDetection.isTablet();
     var legacyMobilePlugins = [
       'lists',
       'autolink',
@@ -12397,7 +12398,7 @@
     var getDefaultMobileSettings = function (isPhone) {
       var defaultMobileSettings = {
         resize: false,
-        toolbar_drawer: false,
+        toolbar_drawer: 'scrolling',
         toolbar_sticky: false
       };
       var defaultPhoneSettings = { menubar: false };
@@ -12414,30 +12415,30 @@
     var combinePlugins = function (forcedPlugins, plugins) {
       return [].concat(normalizePlugins(forcedPlugins)).concat(normalizePlugins(plugins));
     };
-    var processPlugins = function (isTouchDevice, sectionResult, defaultOverrideSettings, settings) {
+    var processPlugins = function (isMobileDevice, sectionResult, defaultOverrideSettings, settings) {
       var forcedPlugins = normalizePlugins(defaultOverrideSettings.forced_plugins);
       var desktopPlugins = normalizePlugins(settings.plugins);
       var mobileConfig = getSectionConfig(sectionResult, 'mobile');
       var mobilePlugins = mobileConfig.plugins ? normalizePlugins(mobileConfig.plugins) : desktopPlugins;
-      var platformPlugins = isTouchDevice && isSectionTheme(sectionResult, 'mobile', 'mobile') ? filterLegacyMobilePlugins(mobilePlugins) : isTouchDevice && hasSection(sectionResult, 'mobile') ? mobilePlugins : desktopPlugins;
+      var platformPlugins = isMobileDevice && isSectionTheme(sectionResult, 'mobile', 'mobile') ? filterLegacyMobilePlugins(mobilePlugins) : isMobileDevice && hasSection(sectionResult, 'mobile') ? mobilePlugins : desktopPlugins;
       var combinedPlugins = combinePlugins(forcedPlugins, platformPlugins);
       return Tools.extend(settings, { plugins: combinedPlugins.join(' ') });
     };
-    var isOnMobile = function (isTouchDevice, sectionResult) {
-      return isTouchDevice && hasSection(sectionResult, 'mobile');
+    var isOnMobile = function (isMobileDevice, sectionResult) {
+      return isMobileDevice && hasSection(sectionResult, 'mobile');
     };
-    var combineSettings = function (isTouchDevice, isPhone, defaultSettings, defaultOverrideSettings, settings) {
-      var defaultDeviceSettings = isTouchDevice ? { mobile: getDefaultMobileSettings(isPhone) } : {};
+    var combineSettings = function (isMobileDevice, isPhone, defaultSettings, defaultOverrideSettings, settings) {
+      var defaultDeviceSettings = isMobileDevice ? { mobile: getDefaultMobileSettings(isPhone) } : {};
       var sectionResult = extractSections(['mobile'], deepMerge(defaultDeviceSettings, settings));
-      var extendedSettings = Tools.extend(defaultSettings, defaultOverrideSettings, sectionResult.settings(), isOnMobile(isTouchDevice, sectionResult) ? getSection(sectionResult, 'mobile') : {}, {
+      var extendedSettings = Tools.extend(defaultSettings, defaultOverrideSettings, sectionResult.settings(), isOnMobile(isMobileDevice, sectionResult) ? getSection(sectionResult, 'mobile') : {}, {
         validate: true,
         external_plugins: getExternalPlugins(defaultOverrideSettings, sectionResult.settings())
       });
-      return processPlugins(isTouchDevice, sectionResult, defaultOverrideSettings, extendedSettings);
+      return processPlugins(isMobileDevice, sectionResult, defaultOverrideSettings, extendedSettings);
     };
     var getEditorSettings = function (editor, id, documentBaseUrl, defaultOverrideSettings, settings) {
       var defaultSettings = getDefaultSettings(id, documentBaseUrl, isTouch, editor);
-      return combineSettings(isTouch, isPhone, defaultSettings, defaultOverrideSettings, settings);
+      return combineSettings(isPhone || isTablet, isPhone, defaultSettings, defaultOverrideSettings, settings);
     };
     var getFiltered = function (predicate, editor, name) {
       return Option.from(editor.settings[name]).filter(predicate);
@@ -22000,7 +22001,7 @@
       var isBeforeContentEditableFalseFn = forward ? isBeforeContentEditableFalse : isAfterContentEditableFalse;
       var caretPosition = getNormalizedRangeEndPoint(direction, editor.getBody(), range);
       var nextCaretPosition = InlineUtils.normalizePosition(forward, getNextPosFn(caretPosition));
-      if (!nextCaretPosition) {
+      if (!nextCaretPosition || !isMoveInsideSameBlock(caretPosition, nextCaretPosition)) {
         return false;
       } else if (isBeforeContentEditableFalseFn(nextCaretPosition)) {
         return deleteContentAndShowCaret(editor, range, caretPosition.getNode(), direction, forward, nextCaretPosition);
@@ -27170,8 +27171,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '1.1',
-      releaseDate: '2019-10-28',
+      minorVersion: '1.2',
+      releaseDate: '2019-11-19',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
