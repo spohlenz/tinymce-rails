@@ -14,7 +14,11 @@ module TinyMCE::Rails
     config.tinymce.install = :compile
 
     initializer "precompile", :group => :all do |app|
-      app.config.assets.precompile << "tinymce/*" if config.tinymce.install == :compile
+      if config.tinymce.install == :compile
+        app.config.assets.precompile << "tinymce-rails.manifest.js" # Sprockets 4 manifest
+        app.config.assets.precompile << "tinymce/*"                 # Sprockets 3
+      end
+
       app.config.assets.precompile << "tinymce.js"
     end
 
