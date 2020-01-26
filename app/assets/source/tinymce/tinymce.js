@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.1.4 (2019-12-11)
+ * Version: 5.1.5 (2019-12-19)
  */
 (function (domGlobals) {
     'use strict';
@@ -14600,7 +14600,7 @@
         if (blockCaretContainer.hasAttribute('data-mce-caret')) {
           showCaretContainerBlock(blockCaretContainer);
           setRange(getRange());
-          editor.selection.scrollIntoView(blockCaretContainer[0]);
+          editor.selection.scrollIntoView(blockCaretContainer);
         }
       };
       var registerEvents = function () {
@@ -27171,8 +27171,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '1.4',
-      releaseDate: '2019-12-11',
+      minorVersion: '1.5',
+      releaseDate: '2019-12-19',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
