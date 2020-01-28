@@ -1,4 +1,4 @@
-// 4.9.7 (2019-12-19)
+// 4.9.8 (2020-01-28)
 (function () {
 (function (domGlobals) {
     'use strict';
@@ -17466,7 +17466,7 @@
       return name.indexOf('data-') === 0 || name.indexOf('aria-') === 0;
     };
     var trimComments = function (text) {
-      return text.replace(/<!--|-->/g, '');
+      return text.replace(/<!--|--!?>/g, '');
     };
     var isInvalidUri = function (settings, uri) {
       if (settings.allow_html_data_urls) {
@@ -26267,8 +26267,8 @@
       defaultSettings: {},
       $: DomQuery,
       majorVersion: '4',
-      minorVersion: '9.7',
-      releaseDate: '2019-12-19',
+      minorVersion: '9.8',
+      releaseDate: '2020-01-28',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
