@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.1.5 (2019-12-19)
+ * Version: 5.1.6 (2020-01-28)
  */
 (function (domGlobals) {
     'use strict';
@@ -588,6 +588,7 @@
     var osx = 'OSX';
     var solaris = 'Solaris';
     var freebsd = 'FreeBSD';
+    var chromeos = 'ChromeOS';
     var isOS = function (name, current) {
       return function () {
         return current === name;
@@ -611,7 +612,8 @@
         isOSX: isOS(osx, current),
         isLinux: isOS(linux, current),
         isSolaris: isOS(solaris, current),
-        isFreeBSD: isOS(freebsd, current)
+        isFreeBSD: isOS(freebsd, current),
+        isChromeOS: isOS(chromeos, current)
       };
     };
     var OperatingSystem = {
@@ -623,7 +625,8 @@
       linux: constant(linux),
       osx: constant(osx),
       solaris: constant(solaris),
-      freebsd: constant(freebsd)
+      freebsd: constant(freebsd),
+      chromeos: constant(chromeos)
     };
 
     var DeviceType = function (os, browser, userAgent, mediaMatch) {
@@ -785,8 +788,8 @@
       },
       {
         name: 'OSX',
-        search: checkContains('os x'),
-        versionRegexes: [/.*?os\ x\ ?([0-9]+)_([0-9]+).*/]
+        search: checkContains('mac os x'),
+        versionRegexes: [/.*?mac\ os\ x\ ?([0-9]+)_([0-9]+).*/]
       },
       {
         name: 'Linux',
@@ -802,6 +805,11 @@
         name: 'FreeBSD',
         search: checkContains('freebsd'),
         versionRegexes: []
+      },
+      {
+        name: 'ChromeOS',
+        search: checkContains('cros'),
+        versionRegexes: [/.*?chrome\/([0-9]+)\.([0-9]+).*/]
       }
     ];
     var PlatformInfo = {
@@ -973,6 +981,9 @@
     var get$1 = function (element, key) {
       var v = element.dom().getAttribute(key);
       return v === null ? undefined : v;
+    };
+    var getOpt = function (element, key) {
+      return Option.from(get$1(element, key));
     };
     var has$1 = function (element, key) {
       var dom = element.dom();
@@ -2272,6 +2283,7 @@
         current: os.current,
         version: os.version,
         isAndroid: os.isAndroid,
+        isChromeOS: os.isChromeOS,
         isFreeBSD: os.isFreeBSD,
         isiOS: os.isiOS,
         isLinux: os.isLinux,
@@ -10793,7 +10805,7 @@
       return name.indexOf('data-') === 0 || name.indexOf('aria-') === 0;
     };
     var trimComments = function (text) {
-      return text.replace(/<!--|-->/g, '');
+      return text.replace(/<!--|--!?>/g, '');
     };
     var isInvalidUri = function (settings, uri) {
       if (settings.allow_html_data_urls) {
@@ -12977,135 +12989,6 @@
 
     var ThemeManager = AddOnManager$1.ThemeManager;
 
-    function Uploader(uploadStatus, settings) {
-      var pendingPromises = {};
-      var pathJoin = function (path1, path2) {
-        if (path1) {
-          return path1.replace(/\/$/, '') + '/' + path2.replace(/^\//, '');
-        }
-        return path2;
-      };
-      var defaultHandler = function (blobInfo, success, failure, progress) {
-        var xhr, formData;
-        xhr = new domGlobals.XMLHttpRequest();
-        xhr.open('POST', settings.url);
-        xhr.withCredentials = settings.credentials;
-        xhr.upload.onprogress = function (e) {
-          progress(e.loaded / e.total * 100);
-        };
-        xhr.onerror = function () {
-          failure('Image upload failed due to a XHR Transport error. Code: ' + xhr.status);
-        };
-        xhr.onload = function () {
-          var json;
-          if (xhr.status < 200 || xhr.status >= 300) {
-            failure('HTTP Error: ' + xhr.status);
-            return;
-          }
-          json = JSON.parse(xhr.responseText);
-          if (!json || typeof json.location !== 'string') {
-            failure('Invalid JSON: ' + xhr.responseText);
-            return;
-          }
-          success(pathJoin(settings.basePath, json.location));
-        };
-        formData = new domGlobals.FormData();
-        formData.append('file', blobInfo.blob(), blobInfo.filename());
-        xhr.send(formData);
-      };
-      var noUpload = function () {
-        return new promiseObj(function (resolve) {
-          resolve([]);
-        });
-      };
-      var handlerSuccess = function (blobInfo, url) {
-        return {
-          url: url,
-          blobInfo: blobInfo,
-          status: true
-        };
-      };
-      var handlerFailure = function (blobInfo, error) {
-        return {
-          url: '',
-          blobInfo: blobInfo,
-          status: false,
-          error: error
-        };
-      };
-      var resolvePending = function (blobUri, result) {
-        Tools.each(pendingPromises[blobUri], function (resolve) {
-          resolve(result);
-        });
-        delete pendingPromises[blobUri];
-      };
-      var uploadBlobInfo = function (blobInfo, handler, openNotification) {
-        uploadStatus.markPending(blobInfo.blobUri());
-        return new promiseObj(function (resolve) {
-          var notification, progress;
-          var noop = function () {
-          };
-          try {
-            var closeNotification_1 = function () {
-              if (notification) {
-                notification.close();
-                progress = noop;
-              }
-            };
-            var success = function (url) {
-              closeNotification_1();
-              uploadStatus.markUploaded(blobInfo.blobUri(), url);
-              resolvePending(blobInfo.blobUri(), handlerSuccess(blobInfo, url));
-              resolve(handlerSuccess(blobInfo, url));
-            };
-            var failure = function (error) {
-              closeNotification_1();
-              uploadStatus.removeFailed(blobInfo.blobUri());
-              resolvePending(blobInfo.blobUri(), handlerFailure(blobInfo, error));
-              resolve(handlerFailure(blobInfo, error));
-            };
-            progress = function (percent) {
-              if (percent < 0 || percent > 100) {
-                return;
-              }
-              if (!notification) {
-                notification = openNotification();
-              }
-              notification.progressBar.value(percent);
-            };
-            handler(blobInfo, success, failure, progress);
-          } catch (ex) {
-            resolve(handlerFailure(blobInfo, ex.message));
-          }
-        });
-      };
-      var isDefaultHandler = function (handler) {
-        return handler === defaultHandler;
-      };
-      var pendingUploadBlobInfo = function (blobInfo) {
-        var blobUri = blobInfo.blobUri();
-        return new promiseObj(function (resolve) {
-          pendingPromises[blobUri] = pendingPromises[blobUri] || [];
-          pendingPromises[blobUri].push(resolve);
-        });
-      };
-      var uploadBlobs = function (blobInfos, openNotification) {
-        blobInfos = Tools.grep(blobInfos, function (blobInfo) {
-          return !uploadStatus.isUploaded(blobInfo.blobUri());
-        });
-        return promiseObj.all(Tools.map(blobInfos, function (blobInfo) {
-          return uploadStatus.isPending(blobInfo.blobUri()) ? pendingUploadBlobInfo(blobInfo) : uploadBlobInfo(blobInfo, settings.handler, openNotification);
-        }));
-      };
-      var upload = function (blobInfos, openNotification) {
-        return !settings.url && isDefaultHandler(settings.handler) ? noUpload() : uploadBlobs(blobInfos, openNotification);
-      };
-      if (isFunction(settings.handler) === false) {
-        settings.handler = defaultHandler;
-      }
-      return { upload: upload };
-    }
-
     var blobUriToBlob = function (url) {
       return new promiseObj(function (resolve, reject) {
         var rejectWithError = function () {
@@ -13297,6 +13180,181 @@
       return { findAll: findAll };
     }
 
+    function Uploader(uploadStatus, settings) {
+      var pendingPromises = {};
+      var pathJoin = function (path1, path2) {
+        if (path1) {
+          return path1.replace(/\/$/, '') + '/' + path2.replace(/^\//, '');
+        }
+        return path2;
+      };
+      var defaultHandler = function (blobInfo, success, failure, progress) {
+        var xhr, formData;
+        xhr = new domGlobals.XMLHttpRequest();
+        xhr.open('POST', settings.url);
+        xhr.withCredentials = settings.credentials;
+        xhr.upload.onprogress = function (e) {
+          progress(e.loaded / e.total * 100);
+        };
+        xhr.onerror = function () {
+          failure('Image upload failed due to a XHR Transport error. Code: ' + xhr.status);
+        };
+        xhr.onload = function () {
+          var json;
+          if (xhr.status < 200 || xhr.status >= 300) {
+            failure('HTTP Error: ' + xhr.status);
+            return;
+          }
+          json = JSON.parse(xhr.responseText);
+          if (!json || typeof json.location !== 'string') {
+            failure('Invalid JSON: ' + xhr.responseText);
+            return;
+          }
+          success(pathJoin(settings.basePath, json.location));
+        };
+        formData = new domGlobals.FormData();
+        formData.append('file', blobInfo.blob(), blobInfo.filename());
+        xhr.send(formData);
+      };
+      var noUpload = function () {
+        return new promiseObj(function (resolve) {
+          resolve([]);
+        });
+      };
+      var handlerSuccess = function (blobInfo, url) {
+        return {
+          url: url,
+          blobInfo: blobInfo,
+          status: true
+        };
+      };
+      var handlerFailure = function (blobInfo, error) {
+        return {
+          url: '',
+          blobInfo: blobInfo,
+          status: false,
+          error: error
+        };
+      };
+      var resolvePending = function (blobUri, result) {
+        Tools.each(pendingPromises[blobUri], function (resolve) {
+          resolve(result);
+        });
+        delete pendingPromises[blobUri];
+      };
+      var uploadBlobInfo = function (blobInfo, handler, openNotification) {
+        uploadStatus.markPending(blobInfo.blobUri());
+        return new promiseObj(function (resolve) {
+          var notification, progress;
+          var noop = function () {
+          };
+          try {
+            var closeNotification_1 = function () {
+              if (notification) {
+                notification.close();
+                progress = noop;
+              }
+            };
+            var success = function (url) {
+              closeNotification_1();
+              uploadStatus.markUploaded(blobInfo.blobUri(), url);
+              resolvePending(blobInfo.blobUri(), handlerSuccess(blobInfo, url));
+              resolve(handlerSuccess(blobInfo, url));
+            };
+            var failure = function (error) {
+              closeNotification_1();
+              uploadStatus.removeFailed(blobInfo.blobUri());
+              resolvePending(blobInfo.blobUri(), handlerFailure(blobInfo, error));
+              resolve(handlerFailure(blobInfo, error));
+            };
+            progress = function (percent) {
+              if (percent < 0 || percent > 100) {
+                return;
+              }
+              if (!notification) {
+                notification = openNotification();
+              }
+              notification.progressBar.value(percent);
+            };
+            handler(blobInfo, success, failure, progress);
+          } catch (ex) {
+            resolve(handlerFailure(blobInfo, ex.message));
+          }
+        });
+      };
+      var isDefaultHandler = function (handler) {
+        return handler === defaultHandler;
+      };
+      var pendingUploadBlobInfo = function (blobInfo) {
+        var blobUri = blobInfo.blobUri();
+        return new promiseObj(function (resolve) {
+          pendingPromises[blobUri] = pendingPromises[blobUri] || [];
+          pendingPromises[blobUri].push(resolve);
+        });
+      };
+      var uploadBlobs = function (blobInfos, openNotification) {
+        blobInfos = Tools.grep(blobInfos, function (blobInfo) {
+          return !uploadStatus.isUploaded(blobInfo.blobUri());
+        });
+        return promiseObj.all(Tools.map(blobInfos, function (blobInfo) {
+          return uploadStatus.isPending(blobInfo.blobUri()) ? pendingUploadBlobInfo(blobInfo) : uploadBlobInfo(blobInfo, settings.handler, openNotification);
+        }));
+      };
+      var upload = function (blobInfos, openNotification) {
+        return !settings.url && isDefaultHandler(settings.handler) ? noUpload() : uploadBlobs(blobInfos, openNotification);
+      };
+      if (isFunction(settings.handler) === false) {
+        settings.handler = defaultHandler;
+      }
+      return { upload: upload };
+    }
+
+    function UploadStatus () {
+      var PENDING = 1, UPLOADED = 2;
+      var blobUriStatuses = {};
+      var createStatus = function (status, resultUri) {
+        return {
+          status: status,
+          resultUri: resultUri
+        };
+      };
+      var hasBlobUri = function (blobUri) {
+        return blobUri in blobUriStatuses;
+      };
+      var getResultUri = function (blobUri) {
+        var result = blobUriStatuses[blobUri];
+        return result ? result.resultUri : null;
+      };
+      var isPending = function (blobUri) {
+        return hasBlobUri(blobUri) ? blobUriStatuses[blobUri].status === PENDING : false;
+      };
+      var isUploaded = function (blobUri) {
+        return hasBlobUri(blobUri) ? blobUriStatuses[blobUri].status === UPLOADED : false;
+      };
+      var markPending = function (blobUri) {
+        blobUriStatuses[blobUri] = createStatus(PENDING, null);
+      };
+      var markUploaded = function (blobUri, resultUri) {
+        blobUriStatuses[blobUri] = createStatus(UPLOADED, resultUri);
+      };
+      var removeFailed = function (blobUri) {
+        delete blobUriStatuses[blobUri];
+      };
+      var destroy = function () {
+        blobUriStatuses = {};
+      };
+      return {
+        hasBlobUri: hasBlobUri,
+        getResultUri: getResultUri,
+        isPending: isPending,
+        isUploaded: isUploaded,
+        markPending: markPending,
+        markUploaded: markUploaded,
+        removeFailed: removeFailed,
+        destroy: destroy
+      };
+    }
+
     var count$1 = 0;
     var seed = function () {
       var rnd = function () {
@@ -13397,52 +13455,6 @@
       };
     };
 
-    function UploadStatus () {
-      var PENDING = 1, UPLOADED = 2;
-      var blobUriStatuses = {};
-      var createStatus = function (status, resultUri) {
-        return {
-          status: status,
-          resultUri: resultUri
-        };
-      };
-      var hasBlobUri = function (blobUri) {
-        return blobUri in blobUriStatuses;
-      };
-      var getResultUri = function (blobUri) {
-        var result = blobUriStatuses[blobUri];
-        return result ? result.resultUri : null;
-      };
-      var isPending = function (blobUri) {
-        return hasBlobUri(blobUri) ? blobUriStatuses[blobUri].status === PENDING : false;
-      };
-      var isUploaded = function (blobUri) {
-        return hasBlobUri(blobUri) ? blobUriStatuses[blobUri].status === UPLOADED : false;
-      };
-      var markPending = function (blobUri) {
-        blobUriStatuses[blobUri] = createStatus(PENDING, null);
-      };
-      var markUploaded = function (blobUri, resultUri) {
-        blobUriStatuses[blobUri] = createStatus(UPLOADED, resultUri);
-      };
-      var removeFailed = function (blobUri) {
-        delete blobUriStatuses[blobUri];
-      };
-      var destroy = function () {
-        blobUriStatuses = {};
-      };
-      return {
-        hasBlobUri: hasBlobUri,
-        getResultUri: getResultUri,
-        isPending: isPending,
-        isUploaded: isUploaded,
-        markPending: markPending,
-        markUploaded: markUploaded,
-        removeFailed: removeFailed,
-        destroy: destroy
-      };
-    }
-
     var EditorUpload = function (editor) {
       var blobCache = BlobCache();
       var uploader, imageScanner;
@@ -13512,8 +13524,7 @@
           });
         }
         return scanForImages().then(aliveGuard(function (imageInfos) {
-          var blobInfos;
-          blobInfos = map(imageInfos, function (imageInfo) {
+          var blobInfos = map(imageInfos, function (imageInfo) {
             return imageInfo.blobInfo;
           });
           return uploader.upload(blobInfos, openNotification).then(aliveGuard(function (result) {
@@ -24759,201 +24770,6 @@
     };
     var Render = { render: render };
 
-    var internalContentEditableAttr = 'data-mce-contenteditable';
-    var toggleClass = function (elm, cls, state) {
-      if (has$2(elm, cls) && state === false) {
-        remove$4(elm, cls);
-      } else if (state) {
-        add$3(elm, cls);
-      }
-    };
-    var setEditorCommandState = function (editor, cmd, state) {
-      try {
-        editor.getDoc().execCommand(cmd, false, state);
-      } catch (ex) {
-      }
-    };
-    var setContentEditable = function (elm, state) {
-      elm.dom().contentEditable = state ? 'true' : 'false';
-    };
-    var switchOffContentEditableTrue = function (elm) {
-      each(descendants$1(elm, '*[contenteditable="true"]'), function (elm) {
-        set(elm, internalContentEditableAttr, 'true');
-        setContentEditable(elm, false);
-      });
-    };
-    var switchOnContentEditableTrue = function (elm) {
-      each(descendants$1(elm, '*[' + internalContentEditableAttr + '="true"]'), function (elm) {
-        remove(elm, internalContentEditableAttr);
-        setContentEditable(elm, true);
-      });
-    };
-    var removeFakeSelection = function (editor) {
-      Option.from(editor.selection.getNode()).each(function (elm) {
-        elm.removeAttribute('data-mce-selected');
-      });
-    };
-    var restoreFakeSelection = function (editor) {
-      editor.selection.setRng(editor.selection.getRng());
-    };
-    var toggleReadOnly = function (editor, state) {
-      var body = Element.fromDom(editor.getBody());
-      toggleClass(body, 'mce-content-readonly', state);
-      if (state) {
-        editor.selection.controlSelection.hideResizeRect();
-        editor._selectionOverrides.hideFakeCaret();
-        removeFakeSelection(editor);
-        editor.readonly = true;
-        setContentEditable(body, false);
-        switchOffContentEditableTrue(body);
-      } else {
-        editor.readonly = false;
-        setContentEditable(body, true);
-        switchOnContentEditableTrue(body);
-        setEditorCommandState(editor, 'StyleWithCSS', false);
-        setEditorCommandState(editor, 'enableInlineTableEditing', false);
-        setEditorCommandState(editor, 'enableObjectResizing', false);
-        if (EditorFocus.hasEditorOrUiFocus(editor)) {
-          editor.focus();
-        }
-        restoreFakeSelection(editor);
-        editor.nodeChanged();
-      }
-    };
-    var isReadOnly = function (editor) {
-      return editor.readonly === true;
-    };
-    var registerFilters = function (editor) {
-      editor.parser.addAttributeFilter('contenteditable', function (nodes) {
-        if (isReadOnly(editor)) {
-          each(nodes, function (node) {
-            node.attr(internalContentEditableAttr, node.attr('contenteditable'));
-            node.attr('contenteditable', 'false');
-          });
-        }
-      });
-      editor.serializer.addAttributeFilter(internalContentEditableAttr, function (nodes) {
-        if (isReadOnly(editor)) {
-          each(nodes, function (node) {
-            node.attr('contenteditable', node.attr(internalContentEditableAttr));
-          });
-        }
-      });
-      editor.serializer.addTempAttr(internalContentEditableAttr);
-    };
-    var registerReadOnlyContentFilters = function (editor) {
-      if (editor.serializer) {
-        registerFilters(editor);
-      } else {
-        editor.on('PreInit', function () {
-          registerFilters(editor);
-        });
-      }
-    };
-    var isClickEvent = function (e) {
-      return e.type === 'click';
-    };
-    var preventReadOnlyEvents = function (e) {
-      var target = e.target;
-      if (isClickEvent(e) && target.tagName === 'A' && !VK.metaKeyPressed(e)) {
-        e.preventDefault();
-      }
-    };
-    var registerReadOnlySelectionBlockers = function (editor) {
-      editor.on('ShowCaret', function (e) {
-        if (isReadOnly(editor)) {
-          e.preventDefault();
-        }
-      });
-      editor.on('ObjectSelected', function (e) {
-        if (isReadOnly(editor)) {
-          e.preventDefault();
-        }
-      });
-    };
-
-    var defaultModes = [
-      'design',
-      'readonly'
-    ];
-    var switchToMode = function (editor, activeMode, availableModes, mode) {
-      var oldMode = availableModes[activeMode.get()];
-      var newMode = availableModes[mode];
-      try {
-        newMode.activate();
-      } catch (e) {
-        domGlobals.console.error('problem while activating editor mode ' + mode + ':', e);
-        return;
-      }
-      oldMode.deactivate();
-      if (oldMode.editorReadOnly !== newMode.editorReadOnly) {
-        toggleReadOnly(editor, newMode.editorReadOnly);
-      }
-      activeMode.set(mode);
-      Events.fireSwitchMode(editor, mode);
-    };
-    var setMode = function (editor, availableModes, activeMode, mode) {
-      if (mode === activeMode.get()) {
-        return;
-      } else if (!has(availableModes, mode)) {
-        throw new Error('Editor mode \'' + mode + '\' is invalid');
-      }
-      if (editor.initialized) {
-        switchToMode(editor, activeMode, availableModes, mode);
-      } else {
-        editor.on('init', function () {
-          return switchToMode(editor, activeMode, availableModes, mode);
-        });
-      }
-    };
-    var registerMode = function (availableModes, mode, api) {
-      var _a;
-      if (contains(defaultModes, mode)) {
-        throw new Error('Cannot override default mode ' + mode);
-      }
-      return __assign(__assign({}, availableModes), (_a = {}, _a[mode] = __assign(__assign({}, api), {
-        deactivate: function () {
-          try {
-            api.deactivate();
-          } catch (e) {
-            domGlobals.console.error('problem while deactivating editor mode ' + mode + ':', e);
-          }
-        }
-      }), _a));
-    };
-
-    var create$4 = function (editor) {
-      var activeMode = Cell('design');
-      var availableModes = Cell({
-        design: {
-          activate: noop,
-          deactivate: noop,
-          editorReadOnly: false
-        },
-        readonly: {
-          activate: noop,
-          deactivate: noop,
-          editorReadOnly: true
-        }
-      });
-      registerReadOnlyContentFilters(editor);
-      registerReadOnlySelectionBlockers(editor);
-      return {
-        isReadOnly: function () {
-          return isReadOnly(editor);
-        },
-        set: function (mode) {
-          return setMode(editor, availableModes.get(), activeMode, mode);
-        },
-        get: function () {
-          return activeMode.get();
-        },
-        register: function (mode, api) {
-          availableModes.set(registerMode(availableModes.get(), mode, api));
-        }
-      };
-    };
-
     var hasOnlyOneChild$1 = function (node) {
       return node.firstChild && node.firstChild === node.lastChild;
     };
@@ -25447,16 +25263,50 @@
       forwardDeleteCommand: forwardDeleteCommand
     };
 
+    var ancestor$3 = function (scope, transform, isRoot) {
+      var element = scope.dom();
+      var stop = isFunction(isRoot) ? isRoot : constant(false);
+      while (element.parentNode) {
+        element = element.parentNode;
+        var el = Element.fromDom(element);
+        var transformed = transform(el);
+        if (transformed.isSome()) {
+          return transformed;
+        } else if (stop(el)) {
+          break;
+        }
+      }
+      return Option.none();
+    };
+    var closest$2 = function (scope, transform, isRoot) {
+      var current = transform(scope);
+      return current.orThunk(function () {
+        return isRoot(scope) ? Option.none() : ancestor$3(scope, transform, isRoot);
+      });
+    };
+
+    var legacyPropNames = {
+      'font-size': 'size',
+      'font-family': 'face'
+    };
     var getSpecifiedFontProp = function (propName, rootElm, elm) {
       var getProperty = function (elm) {
-        return getRaw(elm, propName);
+        return getRaw(elm, propName).orThunk(function () {
+          if (name(elm) === 'font') {
+            return get(legacyPropNames, propName).bind(function (legacyPropName) {
+              return getOpt(elm, legacyPropName);
+            });
+          } else {
+            return Option.none();
+          }
+        });
       };
       var isRoot = function (elm) {
         return eq(Element.fromDom(rootElm), elm);
       };
-      return closest(Element.fromDom(elm), function (elm) {
-        return getProperty(elm).isSome();
-      }, isRoot).bind(getProperty);
+      return closest$2(Element.fromDom(elm), function (elm) {
+        return getProperty(elm);
+      }, isRoot);
     };
     var round$1 = function (number, precision) {
       var factor = Math.pow(10, precision);
@@ -26137,6 +25987,122 @@
       }
     };
 
+    var internalContentEditableAttr = 'data-mce-contenteditable';
+    var toggleClass = function (elm, cls, state) {
+      if (has$2(elm, cls) && state === false) {
+        remove$4(elm, cls);
+      } else if (state) {
+        add$3(elm, cls);
+      }
+    };
+    var setEditorCommandState = function (editor, cmd, state) {
+      try {
+        editor.getDoc().execCommand(cmd, false, state);
+      } catch (ex) {
+      }
+    };
+    var setContentEditable = function (elm, state) {
+      elm.dom().contentEditable = state ? 'true' : 'false';
+    };
+    var switchOffContentEditableTrue = function (elm) {
+      each(descendants$1(elm, '*[contenteditable="true"]'), function (elm) {
+        set(elm, internalContentEditableAttr, 'true');
+        setContentEditable(elm, false);
+      });
+    };
+    var switchOnContentEditableTrue = function (elm) {
+      each(descendants$1(elm, '*[' + internalContentEditableAttr + '="true"]'), function (elm) {
+        remove(elm, internalContentEditableAttr);
+        setContentEditable(elm, true);
+      });
+    };
+    var removeFakeSelection = function (editor) {
+      Option.from(editor.selection.getNode()).each(function (elm) {
+        elm.removeAttribute('data-mce-selected');
+      });
+    };
+    var restoreFakeSelection = function (editor) {
+      editor.selection.setRng(editor.selection.getRng());
+    };
+    var toggleReadOnly = function (editor, state) {
+      var body = Element.fromDom(editor.getBody());
+      toggleClass(body, 'mce-content-readonly', state);
+      if (state) {
+        editor.selection.controlSelection.hideResizeRect();
+        editor._selectionOverrides.hideFakeCaret();
+        removeFakeSelection(editor);
+        editor.readonly = true;
+        setContentEditable(body, false);
+        switchOffContentEditableTrue(body);
+      } else {
+        editor.readonly = false;
+        setContentEditable(body, true);
+        switchOnContentEditableTrue(body);
+        setEditorCommandState(editor, 'StyleWithCSS', false);
+        setEditorCommandState(editor, 'enableInlineTableEditing', false);
+        setEditorCommandState(editor, 'enableObjectResizing', false);
+        if (EditorFocus.hasEditorOrUiFocus(editor)) {
+          editor.focus();
+        }
+        restoreFakeSelection(editor);
+        editor.nodeChanged();
+      }
+    };
+    var isReadOnly = function (editor) {
+      return editor.readonly === true;
+    };
+    var registerFilters = function (editor) {
+      editor.parser.addAttributeFilter('contenteditable', function (nodes) {
+        if (isReadOnly(editor)) {
+          each(nodes, function (node) {
+            node.attr(internalContentEditableAttr, node.attr('contenteditable'));
+            node.attr('contenteditable', 'false');
+          });
+        }
+      });
+      editor.serializer.addAttributeFilter(internalContentEditableAttr, function (nodes) {
+        if (isReadOnly(editor)) {
+          each(nodes, function (node) {
+            node.attr('contenteditable', node.attr(internalContentEditableAttr));
+          });
+        }
+      });
+      editor.serializer.addTempAttr(internalContentEditableAttr);
+    };
+    var registerReadOnlyContentFilters = function (editor) {
+      if (editor.serializer) {
+        registerFilters(editor);
+      } else {
+        editor.on('PreInit', function () {
+          registerFilters(editor);
+        });
+      }
+    };
+    var isClickEvent = function (e) {
+      return e.type === 'click';
+    };
+    var isInAnchor = function (editor, target) {
+      return editor.dom.getParent(target, 'a') !== null;
+    };
+    var preventReadOnlyEvents = function (editor, e) {
+      var target = e.target;
+      if (isClickEvent(e) && !VK.metaKeyPressed(e) && isInAnchor(editor, target)) {
+        e.preventDefault();
+      }
+    };
+    var registerReadOnlySelectionBlockers = function (editor) {
+      editor.on('ShowCaret', function (e) {
+        if (isReadOnly(editor)) {
+          e.preventDefault();
+        }
+      });
+      editor.on('ObjectSelected', function (e) {
+        if (isReadOnly(editor)) {
+          e.preventDefault();
+        }
+      });
+    };
+
     var DOM$7 = DOMUtils$1.DOM;
     var customEventRootDelegates;
     var getEventTarget = function (editor, eventName) {
@@ -26161,7 +26127,7 @@
       if (isListening(editor)) {
         editor.fire(eventName, e);
       } else if (isReadOnly(editor)) {
-        preventReadOnlyEvents(e);
+        preventReadOnlyEvents(editor, e);
       }
     };
     var bindEventDelegate = function (editor, eventName) {
@@ -26261,6 +26227,88 @@
         }
       }
     });
+
+    var defaultModes = [
+      'design',
+      'readonly'
+    ];
+    var switchToMode = function (editor, activeMode, availableModes, mode) {
+      var oldMode = availableModes[activeMode.get()];
+      var newMode = availableModes[mode];
+      try {
+        newMode.activate();
+      } catch (e) {
+        domGlobals.console.error('problem while activating editor mode ' + mode + ':', e);
+        return;
+      }
+      oldMode.deactivate();
+      if (oldMode.editorReadOnly !== newMode.editorReadOnly) {
+        toggleReadOnly(editor, newMode.editorReadOnly);
+      }
+      activeMode.set(mode);
+      Events.fireSwitchMode(editor, mode);
+    };
+    var setMode = function (editor, availableModes, activeMode, mode) {
+      if (mode === activeMode.get()) {
+        return;
+      } else if (!has(availableModes, mode)) {
+        throw new Error('Editor mode \'' + mode + '\' is invalid');
+      }
+      if (editor.initialized) {
+        switchToMode(editor, activeMode, availableModes, mode);
+      } else {
+        editor.on('init', function () {
+          return switchToMode(editor, activeMode, availableModes, mode);
+        });
+      }
+    };
+    var registerMode = function (availableModes, mode, api) {
+      var _a;
+      if (contains(defaultModes, mode)) {
+        throw new Error('Cannot override default mode ' + mode);
+      }
+      return __assign(__assign({}, availableModes), (_a = {}, _a[mode] = __assign(__assign({}, api), {
+        deactivate: function () {
+          try {
+            api.deactivate();
+          } catch (e) {
+            domGlobals.console.error('problem while deactivating editor mode ' + mode + ':', e);
+          }
+        }
+      }), _a));
+    };
+
+    var create$4 = function (editor) {
+      var activeMode = Cell('design');
+      var availableModes = Cell({
+        design: {
+          activate: noop,
+          deactivate: noop,
+          editorReadOnly: false
+        },
+        readonly: {
+          activate: noop,
+          deactivate: noop,
+          editorReadOnly: true
+        }
+      });
+      registerReadOnlyContentFilters(editor);
+      registerReadOnlySelectionBlockers(editor);
+      return {
+        isReadOnly: function () {
+          return isReadOnly(editor);
+        },
+        set: function (mode) {
+          return setMode(editor, availableModes.get(), activeMode, mode);
+        },
+        get: function () {
+          return activeMode.get();
+        },
+        register: function (mode, api) {
+          availableModes.set(registerMode(availableModes.get(), mode, api));
+        }
+      };
+    };
 
     var each$h = Tools.each, explode$3 = Tools.explode;
     var keyCodeLookup = {
@@ -26414,6 +26462,70 @@
       };
       return Shortcuts;
     }();
+
+    var create$5 = function () {
+      var buttons = {};
+      var menuItems = {};
+      var popups = {};
+      var icons = {};
+      var contextMenus = {};
+      var contextToolbars = {};
+      var sidebars = {};
+      var add = function (collection, type) {
+        return function (name, spec) {
+          return collection[name.toLowerCase()] = __assign(__assign({}, spec), { type: type });
+        };
+      };
+      var addIcon = function (name, svgData) {
+        return icons[name.toLowerCase()] = svgData;
+      };
+      return {
+        addButton: add(buttons, 'button'),
+        addToggleButton: add(buttons, 'togglebutton'),
+        addMenuButton: add(buttons, 'menubutton'),
+        addSplitButton: add(buttons, 'splitbutton'),
+        addMenuItem: add(menuItems, 'menuitem'),
+        addNestedMenuItem: add(menuItems, 'nestedmenuitem'),
+        addToggleMenuItem: add(menuItems, 'togglemenuitem'),
+        addAutocompleter: add(popups, 'autocompleter'),
+        addContextMenu: add(contextMenus, 'contextmenu'),
+        addContextToolbar: add(contextToolbars, 'contexttoolbar'),
+        addContextForm: add(contextToolbars, 'contextform'),
+        addSidebar: add(sidebars, 'sidebar'),
+        addIcon: addIcon,
+        getAll: function () {
+          return {
+            buttons: buttons,
+            menuItems: menuItems,
+            icons: icons,
+            popups: popups,
+            contextMenus: contextMenus,
+            contextToolbars: contextToolbars,
+            sidebars: sidebars
+          };
+        }
+      };
+    };
+
+    var registry = function () {
+      var bridge = create$5();
+      return {
+        addAutocompleter: bridge.addAutocompleter,
+        addButton: bridge.addButton,
+        addContextForm: bridge.addContextForm,
+        addContextMenu: bridge.addContextMenu,
+        addContextToolbar: bridge.addContextToolbar,
+        addIcon: bridge.addIcon,
+        addMenuButton: bridge.addMenuButton,
+        addMenuItem: bridge.addMenuItem,
+        addNestedMenuItem: bridge.addNestedMenuItem,
+        addSidebar: bridge.addSidebar,
+        addSplitButton: bridge.addSplitButton,
+        addToggleButton: bridge.addToggleButton,
+        addToggleMenuItem: bridge.addToggleMenuItem,
+        getAll: bridge.getAll
+      };
+    };
 
     var each$i = Tools.each, trim$4 = Tools.trim;
     var queryParts = 'source protocol authority userInfo user password host port relative path directory file query anchor'.split(' ');
@@ -26659,70 +26771,6 @@
       };
       return URI;
     }();
-
-    var create$5 = function () {
-      var buttons = {};
-      var menuItems = {};
-      var popups = {};
-      var icons = {};
-      var contextMenus = {};
-      var contextToolbars = {};
-      var sidebars = {};
-      var add = function (collection, type) {
-        return function (name, spec) {
-          return collection[name.toLowerCase()] = __assign(__assign({}, spec), { type: type });
-        };
-      };
-      var addIcon = function (name, svgData) {
-        return icons[name.toLowerCase()] = svgData;
-      };
-      return {
-        addButton: add(buttons, 'button'),
-        addToggleButton: add(buttons, 'togglebutton'),
-        addMenuButton: add(buttons, 'menubutton'),
-        addSplitButton: add(buttons, 'splitbutton'),
-        addMenuItem: add(menuItems, 'menuitem'),
-        addNestedMenuItem: add(menuItems, 'nestedmenuitem'),
-        addToggleMenuItem: add(menuItems, 'togglemenuitem'),
-        addAutocompleter: add(popups, 'autocompleter'),
-        addContextMenu: add(contextMenus, 'contextmenu'),
-        addContextToolbar: add(contextToolbars, 'contexttoolbar'),
-        addContextForm: add(contextToolbars, 'contextform'),
-        addSidebar: add(sidebars, 'sidebar'),
-        addIcon: addIcon,
-        getAll: function () {
-          return {
-            buttons: buttons,
-            menuItems: menuItems,
-            icons: icons,
-            popups: popups,
-            contextMenus: contextMenus,
-            contextToolbars: contextToolbars,
-            sidebars: sidebars
-          };
-        }
-      };
-    };
-
-    var registry = function () {
-      var bridge = create$5();
-      return {
-        addAutocompleter: bridge.addAutocompleter,
-        addButton: bridge.addButton,
-        addContextForm: bridge.addContextForm,
-        addContextMenu: bridge.addContextMenu,
-        addContextToolbar: bridge.addContextToolbar,
-        addIcon: bridge.addIcon,
-        addMenuButton: bridge.addMenuButton,
-        addMenuItem: bridge.addMenuItem,
-        addNestedMenuItem: bridge.addNestedMenuItem,
-        addSidebar: bridge.addSidebar,
-        addSplitButton: bridge.addSplitButton,
-        addToggleButton: bridge.addToggleButton,
-        addToggleMenuItem: bridge.addToggleMenuItem,
-        getAll: bridge.getAll
-      };
-    };
 
     var DOM$8 = DOMUtils$1.DOM;
     var extend$3 = Tools.extend, each$j = Tools.each;
@@ -27171,8 +27219,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '1.5',
-      releaseDate: '2019-12-19',
+      minorVersion: '1.6',
+      releaseDate: '2020-01-28',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
