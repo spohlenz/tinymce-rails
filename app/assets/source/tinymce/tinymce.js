@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.2.0 (2020-02-13)
+ * Version: 5.2.1 (2020-03-25)
  */
 (function (domGlobals) {
     'use strict';
@@ -392,6 +392,11 @@
         f: f
       };
     };
+    var filter$1 = function (obj, pred) {
+      var t = {};
+      internalFilter(obj, pred, objAcc(t), noop);
+      return t;
+    };
     var get = function (obj, key) {
       return has(obj, key) ? Option.from(obj[key]) : Option.none();
     };
@@ -422,6 +427,14 @@
             t[p[i]] = s[p[i]];
         }
       return t;
+    }
+    function __spreadArrays() {
+      for (var s = 0, i = 0, il = arguments.length; i < il; i++)
+        s += arguments[i].length;
+      for (var r = Array(s), k = 0, i = 0; i < il; i++)
+        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
+          r[k] = a[j];
+      return r;
     }
 
     var fromHtml = function (html, scope) {
@@ -1329,6 +1342,17 @@
       return Option.from(raw).filter(function (r) {
         return r.length > 0;
       });
+    };
+    var getAllRaw = function (element) {
+      var css = {};
+      var dom = element.dom();
+      if (isSupported(dom)) {
+        for (var i = 0; i < dom.style.length; i++) {
+          var ruleName = dom.style.item(i);
+          css[ruleName] = dom.style[ruleName];
+        }
+      }
+      return css;
     };
     var reflow = function (e) {
       return e.dom().offsetWidth;
@@ -2509,7 +2533,7 @@
       });
       return out;
     };
-    var filter$1 = function (a, f) {
+    var filter$2 = function (a, f) {
       var o = [];
       each$2(a, function (v, index) {
         if (!f || f(v, index, a)) {
@@ -2563,7 +2587,7 @@
       toArray: toArray$1,
       each: each$2,
       map: map$2,
-      filter: filter$1,
+      filter: filter$2,
       indexOf: indexOf$1,
       reduce: reduce,
       findIndex: findIndex$1,
@@ -10491,15 +10515,17 @@
     };
 
     var each$7 = Tools.each;
-    var getEndChild = function (container, index) {
+    var clampToExistingChildren = function (container, index) {
       var childNodes = container.childNodes;
-      index--;
-      if (index > childNodes.length - 1) {
+      if (index >= childNodes.length) {
         index = childNodes.length - 1;
       } else if (index < 0) {
         index = 0;
       }
       return childNodes[index] || container;
+    };
+    var getEndChild = function (container, index) {
+      return clampToExistingChildren(container, index - 1);
     };
     var walk$1 = function (dom, rng, callback) {
       var startContainer = rng.startContainer;
@@ -10554,7 +10580,7 @@
         }
       };
       if (startContainer.nodeType === 1 && startContainer.hasChildNodes()) {
-        startContainer = startContainer.childNodes[startOffset];
+        startContainer = clampToExistingChildren(startContainer, startOffset);
       }
       if (endContainer.nodeType === 1 && endContainer.hasChildNodes()) {
         endContainer = getEndChild(endContainer, endOffset);
@@ -11730,7 +11756,7 @@
       }
       return matches;
     };
-    var filter$2 = function (nodeFilters, attributeFilters, node) {
+    var filter$3 = function (nodeFilters, attributeFilters, node) {
       var matches = findMatchingNodes(nodeFilters, attributeFilters, node);
       each(matches, function (match) {
         each(match.filter.callbacks, function (callback) {
@@ -12284,7 +12310,7 @@
       return args.content;
     };
     var setContentTree = function (editor, body, content, args) {
-      filter$2(editor.parser.getNodeFilters(), editor.parser.getAttributeFilters(), content);
+      filter$3(editor.parser.getNodeFilters(), editor.parser.getAttributeFilters(), content);
       var html = Serializer({ validate: editor.validate }, editor.schema).serialize(content);
       args.content = isWsPreserveElement(Element.fromDom(body)) ? html : Tools.trim(html);
       setEditorHtml(editor, args.content);
@@ -17375,7 +17401,7 @@
       return isCaretNode(element.dom()) && isCaretContainerEmpty(element.dom());
     };
 
-    var postProcessHooks = {}, filter$3 = ArrUtils.filter, each$9 = ArrUtils.each;
+    var postProcessHooks = {}, filter$4 = ArrUtils.filter, each$9 = ArrUtils.each;
     var addPostProcessHook = function (name, hook) {
       var hooks = postProcessHooks[name];
       if (!hooks) {
@@ -17401,7 +17427,7 @@
       isPre = NodeType.matchNodeNames(['pre']);
       if (!rng.collapsed) {
         blocks = editor.selection.getSelectedBlocks();
-        each$9(filter$3(filter$3(blocks, isPre), hasPreSibling), function (pre) {
+        each$9(filter$4(filter$4(blocks, isPre), hasPreSibling), function (pre) {
           joinPre(pre.previousSibling, pre);
         });
       }
@@ -20108,7 +20134,7 @@
       var caret = Cell(null);
       var isInlineTarget = curry(InlineUtils.isInlineTarget, editor);
       editor.on('NodeChange', function (e) {
-        if (isFeatureEnabled(editor)) {
+        if (isFeatureEnabled(editor) && !(Env.browser.isIE() && e.initial)) {
           toggleInlines(isInlineTarget, editor.dom, e.parents);
           safeRemoveCaretContainer(editor, caret);
           renderInsideInlineCaret(isInlineTarget, editor, caret, e.parents);
@@ -21992,7 +22018,7 @@
     };
     var canOutdent = function (editor) {
       var blocks = getBlocksToIndent(editor);
-      return editor.readonly !== true && (blocks.length > 1 || validateBlocks(editor, blocks));
+      return !editor.mode.isReadOnly() && (blocks.length > 1 || validateBlocks(editor, blocks));
     };
     var isListComponent = function (el) {
       return isList(el) || isListItem(el);
@@ -22416,10 +22442,41 @@
       }
       return parent !== root ? editableRoot : root;
     };
+    var applyAttributes = function (editor, node, forcedRootBlockAttrs) {
+      Option.from(forcedRootBlockAttrs.style).map(editor.dom.parseStyle).each(function (attrStyles) {
+        var currentStyles = getAllRaw(Element.fromDom(node));
+        var newStyles = __assign(__assign({}, currentStyles), attrStyles);
+        editor.dom.setStyles(node, newStyles);
+      });
+      var attrClassesOpt = Option.from(forcedRootBlockAttrs.class).map(function (attrClasses) {
+        return attrClasses.split(/\s+/);
+      });
+      var currentClassesOpt = Option.from(node.className).map(function (currentClasses) {
+        return filter(currentClasses.split(/\s+/), function (clazz) {
+          return clazz !== '';
+        });
+      });
+      lift2(attrClassesOpt, currentClassesOpt, function (attrClasses, currentClasses) {
+        var filteredClasses = filter(currentClasses, function (clazz) {
+          return !contains(attrClasses, clazz);
+        });
+        var newClasses = __spreadArrays(attrClasses, filteredClasses);
+        editor.dom.setAttrib(node, 'class', newClasses.join(' '));
+      });
+      var appliedAttrs = [
+        'style',
+        'class'
+      ];
+      var remainingAttrs = filter$1(forcedRootBlockAttrs, function (_, attrs) {
+        return !contains(appliedAttrs, attrs);
+      });
+      editor.dom.setAttribs(node, remainingAttrs);
+    };
     var setForcedBlockAttrs = function (editor, node) {
       var forcedRootBlockName = Settings.getForcedRootBlock(editor);
       if (forcedRootBlockName && forcedRootBlockName.toLowerCase() === node.tagName.toLowerCase()) {
-        editor.dom.setAttribs(node, Settings.getForcedRootBlockAttrs(editor));
+        var forcedRootBlockAttrs = Settings.getForcedRootBlockAttrs(editor);
+        applyAttributes(editor, node, forcedRootBlockAttrs);
       }
     };
     var wrapSelfAndSiblingsInDefaultBlock = function (editor, newBlockName, rng, container, offset) {
@@ -22485,7 +22542,6 @@
         var textInlineElements = schema.getTextInlineElements();
         if (name || parentBlockName === 'TABLE' || parentBlockName === 'HR') {
           block = dom.create(name || newBlockName);
-          setForcedBlockAttrs(editor, block);
         } else {
           block = parentBlock.cloneNode(false);
         }
@@ -22511,6 +22567,7 @@
             }
           } while ((node = node.parentNode) && node !== editableRoot);
         }
+        setForcedBlockAttrs(editor, block);
         emptyBlock(caretNode);
         return block;
       };
@@ -22618,6 +22675,7 @@
         if (dom.isEmpty(parentBlock)) {
           emptyBlock(parentBlock);
         }
+        setForcedBlockAttrs(editor, newBlock);
         NewLineUtils.moveToCaretPosition(editor, newBlock);
       } else if (isCaretAtStartOrEndOfBlock()) {
         insertNewBlockAfter();
@@ -22642,6 +22700,7 @@
           dom.remove(newBlock);
           insertNewBlockAfter();
         } else {
+          setForcedBlockAttrs(editor, newBlock);
           NewLineUtils.moveToCaretPosition(editor, newBlock);
         }
       }
@@ -23279,7 +23338,7 @@
       NodeChange.prototype.nodeChanged = function (args) {
         var selection = this.editor.selection;
         var node, parents, root;
-        if (this.editor.initialized && selection && !this.editor.settings.disable_nodechange && !this.editor.readonly) {
+        if (this.editor.initialized && selection && !this.editor.settings.disable_nodechange && !this.editor.mode.isReadOnly()) {
           root = this.editor.getBody();
           node = selection.getStart(true) || root;
           if (node.ownerDocument !== this.editor.getDoc() || !this.editor.dom.isChildOf(node, root)) {
@@ -24467,14 +24526,13 @@
     var createParser = function (editor) {
       var parser = DomParser(editor.settings, editor.schema);
       parser.addAttributeFilter('src,href,style,tabindex', function (nodes, name) {
-        var i = nodes.length, node;
+        var i = nodes.length, node, value;
         var dom = editor.dom;
-        var value, internalName;
+        var internalName = 'data-mce-' + name;
         while (i--) {
           node = nodes[i];
           value = node.attr(name);
-          internalName = 'data-mce-' + name;
-          if (!node.attr(internalName)) {
+          if (value && !node.attr(internalName)) {
             if (value.indexOf('data:') === 0 || value.indexOf('blob:') === 0) {
               continue;
             }
@@ -24548,7 +24606,11 @@
         CaretFinder.firstPositionIn(root).each(function (pos) {
           var node = pos.getNode();
           var caretPos = NodeType.isTable(node) ? CaretFinder.firstPositionIn(node).getOr(pos) : pos;
-          editor.selection.setRng(caretPos.toRange());
+          if (Env.browser.isIE()) {
+            SelectionBookmark.storeNative(editor, caretPos.toRange());
+          } else {
+            editor.selection.setRng(caretPos.toRange());
+          }
         });
       }
     };
@@ -24593,7 +24655,7 @@
       }
       body = editor.getBody();
       body.disabled = true;
-      editor.readonly = settings.readonly;
+      editor.readonly = !!settings.readonly;
       if (!editor.readonly) {
         if (editor.inline && DOM$4.getStyle(body, 'position', true) === 'static') {
           body.style.position = 'relative';
@@ -26345,7 +26407,7 @@
       }
     };
     var isReadOnly = function (editor) {
-      return editor.readonly === true;
+      return editor.readonly;
     };
     var registerFilters = function (editor) {
       editor.parser.addAttributeFilter('contenteditable', function (nodes) {
@@ -27517,8 +27579,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '2.0',
-      releaseDate: '2020-02-13',
+      minorVersion: '2.1',
+      releaseDate: '2020-03-25',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
