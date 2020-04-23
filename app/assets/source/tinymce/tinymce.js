@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.2.1 (2020-03-25)
+ * Version: 5.2.2 (2020-04-23)
  */
 (function (domGlobals) {
     'use strict';
@@ -6831,12 +6831,14 @@
         var node;
         var container = doc.createElement('div');
         var frag = doc.createDocumentFragment();
+        frag.appendChild(container);
         if (html) {
           container.innerHTML = html;
         }
         while (node = container.firstChild) {
           frag.appendChild(node);
         }
+        frag.removeChild(container);
         return frag;
       };
       var remove = function (node, keepChildren) {
@@ -7025,8 +7027,20 @@
       var toHex = function (rgbVal) {
         return styles.toHex(Tools.trim(rgbVal));
       };
+      var isNonEmptyElement = function (node) {
+        if (NodeType.isElement(node)) {
+          var isNamedAnchor = node.nodeName.toLowerCase() === 'a' && !getAttrib(node, 'href') && getAttrib(node, 'id');
+          if (getAttrib(node, 'name') || getAttrib(node, 'data-mce-bookmark') || isNamedAnchor) {
+            return true;
+          }
+        }
+        return false;
+      };
       var isEmpty = function (node, elements) {
-        var i, attributes, type, name, brCount = 0;
+        var type, name, brCount = 0;
+        if (isNonEmptyElement(node)) {
+          return false;
+        }
         node = node.firstChild;
         if (node) {
           var walker = new TreeWalker(node, node.parentNode);
@@ -7049,13 +7063,8 @@
                 }
                 return false;
               }
-              attributes = getAttribs(node);
-              i = attributes.length;
-              while (i--) {
-                name = attributes[i].nodeName;
-                if (name === 'name' || name === 'data-mce-bookmark') {
-                  return false;
-                }
+              if (isNonEmptyElement(node)) {
+                return false;
               }
             }
             if (type === 8) {
@@ -10818,6 +10827,10 @@
       }
       return true;
     };
+    var isNonEmptyElement = function (node) {
+      var isNamedAnchor = node.name === 'a' && !node.attr('href') && node.attr('id');
+      return node.attr('name') || node.attr('id') && !node.firstChild || node.attr('data-mce-bookmark') || isNamedAnchor;
+    };
     var Node$1 = function () {
       function Node(name, type) {
         this.name = name;
@@ -11025,6 +11038,9 @@
         }
         var self = this;
         var node = self.firstChild;
+        if (isNonEmptyElement(self)) {
+          return false;
+        }
         if (node) {
           do {
             if (node.type === 1) {
@@ -11034,12 +11050,8 @@
               if (elements[node.name]) {
                 return false;
               }
-              var i = node.attributes.length;
-              while (i--) {
-                var name_1 = node.attributes[i].name;
-                if (name_1 === 'name' || name_1.indexOf('data-mce-bookmark') === 0) {
-                  return false;
-                }
+              if (isNonEmptyElement(node)) {
+                return false;
               }
             }
             if (node.type === 8) {
@@ -15680,16 +15692,14 @@
                 isInWhiteSpacePreservedElement = false;
               }
               if (elementRule.removeEmpty && isEmpty$1(schema, nonEmptyElements, whiteSpaceElements, node)) {
-                if (!node.attr('name') && !node.attr('id')) {
-                  tempNode = node.parent;
-                  if (blockElements[node.name]) {
-                    node.empty().remove();
-                  } else {
-                    node.unwrap();
-                  }
-                  node = tempNode;
-                  return;
+                tempNode = node.parent;
+                if (blockElements[node.name]) {
+                  node.empty().remove();
+                } else {
+                  node.unwrap();
                 }
+                node = tempNode;
+                return;
               }
               if (elementRule.paddEmpty && (isPaddedWithNbsp(node) || isEmpty$1(schema, nonEmptyElements, whiteSpaceElements, node))) {
                 paddEmptyNode(settings, args, blockElements, node);
@@ -17938,10 +17948,9 @@
         dom.remove(node, true);
       }
     };
-    var processUnderlineAndColor = function (dom, node) {
-      var textDecoration;
+    var processTextDecorationsAndColor = function (dom, node) {
       if (node.nodeType === 1 && node.parentNode && node.parentNode.nodeType === 1) {
-        textDecoration = getTextDecoration(dom, node.parentNode);
+        var textDecoration = getTextDecoration(dom, node.parentNode);
         if (dom.getStyle(node, 'color') && textDecoration) {
           dom.setStyle(node, 'text-decoration', textDecoration);
         } else if (dom.getStyle(node, 'text-decoration') === textDecoration) {
@@ -17949,10 +17958,10 @@
         }
       }
     };
-    var mergeUnderlineAndColor = function (dom, format, vars, node) {
-      if (format.styles.color || format.styles.textDecoration) {
-        Tools.walk(node, curry(processUnderlineAndColor, dom), 'childNodes');
-        processUnderlineAndColor(dom, node);
+    var mergeTextDecorationsAndColor = function (dom, format, vars, node) {
+      if (format.styles && (format.styles.color || format.styles.textDecoration)) {
+        Tools.walk(node, curry(processTextDecorationsAndColor, dom), 'childNodes');
+        processTextDecorationsAndColor(dom, node);
       }
     };
     var mergeBackgroundColorAndFontSize = function (dom, format, vars, node) {
@@ -18203,6 +18212,7 @@
             mergeWithChildren(ed, formatList, vars, node);
             mergeWithParents(ed, format, name, vars, node);
             mergeBackgroundColorAndFontSize(dom, format, vars, node);
+            mergeTextDecorationsAndColor(dom, format, vars, node);
             mergeSubSup(dom, format, vars, node);
             mergeSiblings(dom, format, vars, node);
           }
@@ -18239,9 +18249,6 @@
             ed.selection.setRng(RangeNormalizer.normalize(ed.selection.getRng()));
             bookmark = GetBookmark.getPersistentBookmark(ed.selection, true);
             applyRngStyle(dom, expandRng(ed, selection.getRng(), formatList));
-            if (format.styles) {
-              mergeUnderlineAndColor(dom, format, vars, curSelNode);
-            }
             selection.moveToBookmark(bookmark);
             moveStart(dom, selection, selection.getRng());
             ed.nodeChanged();
@@ -27579,8 +27586,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '2.1',
-      releaseDate: '2020-03-25',
+      minorVersion: '2.2',
+      releaseDate: '2020-04-23',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
