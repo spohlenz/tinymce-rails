@@ -1,4 +1,4 @@
-// 4.9.8 (2020-01-28)
+// 4.9.10 (2020-04-23)
 (function () {
 (function (domGlobals) {
     'use strict';
@@ -3721,6 +3721,17 @@
         return r.length > 0;
       });
     };
+    var getAllRaw = function (element) {
+      var css = {};
+      var dom = element.dom();
+      if (isSupported(dom)) {
+        for (var i = 0; i < dom.style.length; i++) {
+          var ruleName = dom.style.item(i);
+          css[ruleName] = dom.style[ruleName];
+        }
+      }
+      return css;
+    };
 
     var Immutable = function () {
       var fields = [];
@@ -6653,12 +6664,14 @@
         var node;
         var container = doc.createElement('div');
         var frag = doc.createDocumentFragment();
+        frag.appendChild(container);
         if (html) {
           container.innerHTML = html;
         }
         while (node = container.firstChild) {
           frag.appendChild(node);
         }
+        frag.removeChild(container);
         return frag;
       };
       var remove = function (node, keepChildren) {
@@ -7790,6 +7803,18 @@
       };
     };
 
+    var __assign = function () {
+      __assign = Object.assign || function __assign(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+          s = arguments[i];
+          for (var p in s)
+            if (Object.prototype.hasOwnProperty.call(s, p))
+              t[p] = s[p];
+        }
+        return t;
+      };
+      return __assign.apply(this, arguments);
+    };
     function __rest(s, e) {
       var t = {};
       for (var p in s)
@@ -7801,6 +7826,14 @@
             t[p[i]] = s[p[i]];
         }
       return t;
+    }
+    function __spreadArrays() {
+      for (var s = 0, i = 0, il = arguments.length; i < il; i++)
+        s += arguments[i].length;
+      for (var r = Array(s), k = 0, i = 0; i < il; i++)
+        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
+          r[k] = a[j];
+      return r;
     }
 
     var unique = 0;
@@ -16570,271 +16603,25 @@
       };
     }
 
-    var getAbsolutePosition = function (elm) {
-      var doc, docElem, win, clientRect;
-      clientRect = elm.getBoundingClientRect();
-      doc = elm.ownerDocument;
-      docElem = doc.documentElement;
-      win = doc.defaultView;
-      return {
-        top: clientRect.top + win.pageYOffset - docElem.clientTop,
-        left: clientRect.left + win.pageXOffset - docElem.clientLeft
-      };
-    };
-    var getBodyPosition = function (editor) {
-      return editor.inline ? getAbsolutePosition(editor.getBody()) : {
-        left: 0,
-        top: 0
-      };
-    };
-    var getScrollPosition = function (editor) {
-      var body = editor.getBody();
-      return editor.inline ? {
-        left: body.scrollLeft,
-        top: body.scrollTop
-      } : {
-        left: 0,
-        top: 0
-      };
-    };
-    var getBodyScroll = function (editor) {
-      var body = editor.getBody(), docElm = editor.getDoc().documentElement;
-      var inlineScroll = {
-        left: body.scrollLeft,
-        top: body.scrollTop
-      };
-      var iframeScroll = {
-        left: body.scrollLeft || docElm.scrollLeft,
-        top: body.scrollTop || docElm.scrollTop
-      };
-      return editor.inline ? inlineScroll : iframeScroll;
-    };
-    var getMousePosition = function (editor, event) {
-      if (event.target.ownerDocument !== editor.getDoc()) {
-        var iframePosition = getAbsolutePosition(editor.getContentAreaContainer());
-        var scrollPosition = getBodyScroll(editor);
-        return {
-          left: event.pageX - iframePosition.left + scrollPosition.left,
-          top: event.pageY - iframePosition.top + scrollPosition.top
-        };
-      }
-      return {
-        left: event.pageX,
-        top: event.pageY
-      };
-    };
-    var calculatePosition = function (bodyPosition, scrollPosition, mousePosition) {
-      return {
-        pageX: mousePosition.left - bodyPosition.left + scrollPosition.left,
-        pageY: mousePosition.top - bodyPosition.top + scrollPosition.top
-      };
-    };
-    var calc = function (editor, event) {
-      return calculatePosition(getBodyPosition(editor), getScrollPosition(editor), getMousePosition(editor, event));
-    };
-    var MousePosition = { calc: calc };
-
-    var isContentEditableFalse$7 = NodeType.isContentEditableFalse, isContentEditableTrue$3 = NodeType.isContentEditableTrue;
-    var isDraggable = function (rootElm, elm) {
-      return isContentEditableFalse$7(elm) && elm !== rootElm;
-    };
-    var isValidDropTarget = function (editor, targetElement, dragElement) {
-      if (targetElement === dragElement || editor.dom.isChildOf(targetElement, dragElement)) {
-        return false;
-      }
-      if (isContentEditableFalse$7(targetElement)) {
-        return false;
-      }
-      return true;
-    };
-    var cloneElement = function (elm) {
-      var cloneElm = elm.cloneNode(true);
-      cloneElm.removeAttribute('data-mce-selected');
-      return cloneElm;
-    };
-    var createGhost = function (editor, elm, width, height) {
-      var clonedElm = elm.cloneNode(true);
-      editor.dom.setStyles(clonedElm, {
-        width: width,
-        height: height
-      });
-      editor.dom.setAttrib(clonedElm, 'data-mce-selected', null);
-      var ghostElm = editor.dom.create('div', {
-        'class': 'mce-drag-container',
-        'data-mce-bogus': 'all',
-        'unselectable': 'on',
-        'contenteditable': 'false'
-      });
-      editor.dom.setStyles(ghostElm, {
-        position: 'absolute',
-        opacity: 0.5,
-        overflow: 'hidden',
-        border: 0,
-        padding: 0,
-        margin: 0,
-        width: width,
-        height: height
-      });
-      editor.dom.setStyles(clonedElm, {
-        margin: 0,
-        boxSizing: 'border-box'
-      });
-      ghostElm.appendChild(clonedElm);
-      return ghostElm;
-    };
-    var appendGhostToBody = function (ghostElm, bodyElm) {
-      if (ghostElm.parentNode !== bodyElm) {
-        bodyElm.appendChild(ghostElm);
+    var VK = {
+      BACKSPACE: 8,
+      DELETE: 46,
+      DOWN: 40,
+      ENTER: 13,
+      LEFT: 37,
+      RIGHT: 39,
+      SPACEBAR: 32,
+      TAB: 9,
+      UP: 38,
+      END: 35,
+      HOME: 36,
+      modifierPressed: function (e) {
+        return e.shiftKey || e.ctrlKey || e.altKey || this.metaKeyPressed(e);
+      },
+      metaKeyPressed: function (e) {
+        return Env.mac ? e.metaKey : e.ctrlKey && !e.altKey;
       }
     };
-    var moveGhost = function (ghostElm, position, width, height, maxX, maxY) {
-      var overflowX = 0, overflowY = 0;
-      ghostElm.style.left = position.pageX + 'px';
-      ghostElm.style.top = position.pageY + 'px';
-      if (position.pageX + width > maxX) {
-        overflowX = position.pageX + width - maxX;
-      }
-      if (position.pageY + height > maxY) {
-        overflowY = position.pageY + height - maxY;
-      }
-      ghostElm.style.width = width - overflowX + 'px';
-      ghostElm.style.height = height - overflowY + 'px';
-    };
-    var removeElement = function (elm) {
-      if (elm && elm.parentNode) {
-        elm.parentNode.removeChild(elm);
-      }
-    };
-    var isLeftMouseButtonPressed = function (e) {
-      return e.button === 0;
-    };
-    var hasDraggableElement = function (state) {
-      return state.element;
-    };
-    var applyRelPos = function (state, position) {
-      return {
-        pageX: position.pageX - state.relX,
-        pageY: position.pageY + 5
-      };
-    };
-    var start$1 = function (state, editor) {
-      return function (e) {
-        if (isLeftMouseButtonPressed(e)) {
-          var ceElm = find(editor.dom.getParents(e.target), Predicate.or(isContentEditableFalse$7, isContentEditableTrue$3)).getOr(null);
-          if (isDraggable(editor.getBody(), ceElm)) {
-            var elmPos = editor.dom.getPos(ceElm);
-            var bodyElm = editor.getBody();
-            var docElm = editor.getDoc().documentElement;
-            state.element = ceElm;
-            state.screenX = e.screenX;
-            state.screenY = e.screenY;
-            state.maxX = (editor.inline ? bodyElm.scrollWidth : docElm.offsetWidth) - 2;
-            state.maxY = (editor.inline ? bodyElm.scrollHeight : docElm.offsetHeight) - 2;
-            state.relX = e.pageX - elmPos.x;
-            state.relY = e.pageY - elmPos.y;
-            state.width = ceElm.offsetWidth;
-            state.height = ceElm.offsetHeight;
-            state.ghost = createGhost(editor, ceElm, state.width, state.height);
-          }
-        }
-      };
-    };
-    var move$1 = function (state, editor) {
-      var throttledPlaceCaretAt = Delay.throttle(function (clientX, clientY) {
-        editor._selectionOverrides.hideFakeCaret();
-        editor.selection.placeCaretAt(clientX, clientY);
-      }, 0);
-      return function (e) {
-        var movement = Math.max(Math.abs(e.screenX - state.screenX), Math.abs(e.screenY - state.screenY));
-        if (hasDraggableElement(state) && !state.dragging && movement > 10) {
-          var args = editor.fire('dragstart', { target: state.element });
-          if (args.isDefaultPrevented()) {
-            return;
-          }
-          state.dragging = true;
-          editor.focus();
-        }
-        if (state.dragging) {
-          var targetPos = applyRelPos(state, MousePosition.calc(editor, e));
-          appendGhostToBody(state.ghost, editor.getBody());
-          moveGhost(state.ghost, targetPos, state.width, state.height, state.maxX, state.maxY);
-          throttledPlaceCaretAt(e.clientX, e.clientY);
-        }
-      };
-    };
-    var getRawTarget = function (selection) {
-      var rng = selection.getSel().getRangeAt(0);
-      var startContainer = rng.startContainer;
-      return startContainer.nodeType === 3 ? startContainer.parentNode : startContainer;
-    };
-    var drop = function (state, editor) {
-      return function (e) {
-        if (state.dragging) {
-          if (isValidDropTarget(editor, getRawTarget(editor.selection), state.element)) {
-            var targetClone_1 = cloneElement(state.element);
-            var args = editor.fire('drop', {
-              targetClone: targetClone_1,
-              clientX: e.clientX,
-              clientY: e.clientY
-            });
-            if (!args.isDefaultPrevented()) {
-              targetClone_1 = args.targetClone;
-              editor.undoManager.transact(function () {
-                removeElement(state.element);
-                editor.insertContent(editor.dom.getOuterHTML(targetClone_1));
-                editor._selectionOverrides.hideFakeCaret();
-              });
-            }
-          }
-        }
-        removeDragState(state);
-      };
-    };
-    var stop = function (state, editor) {
-      return function () {
-        if (state.dragging) {
-          editor.fire('dragend');
-        }
-        removeDragState(state);
-      };
-    };
-    var removeDragState = function (state) {
-      state.dragging = false;
-      state.element = null;
-      removeElement(state.ghost);
-    };
-    var bindFakeDragEvents = function (editor) {
-      var state = {};
-      var pageDom, dragStartHandler, dragHandler, dropHandler, dragEndHandler, rootDocument;
-      pageDom = DOMUtils$1.DOM;
-      rootDocument = domGlobals.document;
-      dragStartHandler = start$1(state, editor);
-      dragHandler = move$1(state, editor);
-      dropHandler = drop(state, editor);
-      dragEndHandler = stop(state, editor);
-      editor.on('mousedown', dragStartHandler);
-      editor.on('mousemove', dragHandler);
-      editor.on('mouseup', dropHandler);
-      pageDom.bind(rootDocument, 'mousemove', dragHandler);
-      pageDom.bind(rootDocument, 'mouseup', dragEndHandler);
-      editor.on('remove', function () {
-        pageDom.unbind(rootDocument, 'mousemove', dragHandler);
-        pageDom.unbind(rootDocument, 'mouseup', dragEndHandler);
-      });
-    };
-    var blockIeDrop = function (editor) {
-      editor.on('drop', function (e) {
-        var realTarget = typeof e.clientX !== 'undefined' ? editor.getDoc().elementFromPoint(e.clientX, e.clientY) : null;
-        if (isContentEditableFalse$7(realTarget) || isContentEditableFalse$7(editor.dom.getContentEditableParent(realTarget))) {
-          e.preventDefault();
-        }
-      });
-    };
-    var init = function (editor) {
-      bindFakeDragEvents(editor);
-      blockIeDrop(editor);
-    };
-    var DragDropOverrides = { init: init };
 
     var getNodeClientRects = function (node) {
       var toArrayWithNode = function (clientRects) {
@@ -16969,7 +16756,7 @@
       };
     };
 
-    var isContentEditableFalse$8 = NodeType.isContentEditableFalse;
+    var isContentEditableFalse$7 = NodeType.isContentEditableFalse;
     var findNode$1 = findNode;
     var distanceToRectLeft = function (clientRect, clientX) {
       return Math.abs(clientRect.left - clientX);
@@ -16991,7 +16778,7 @@
         if (isInside(clientX, oldClientRect)) {
           return oldClientRect;
         }
-        if (newDistance === oldDistance && isContentEditableFalse$8(clientRect.node)) {
+        if (newDistance === oldDistance && isContentEditableFalse$7(clientRect.node)) {
           return clientRect;
         }
         if (newDistance < oldDistance) {
@@ -17065,6 +16852,272 @@
     };
     var RangePoint = { isXYWithinRange: isXYWithinRange };
 
+    var getAbsolutePosition = function (elm) {
+      var doc, docElem, win, clientRect;
+      clientRect = elm.getBoundingClientRect();
+      doc = elm.ownerDocument;
+      docElem = doc.documentElement;
+      win = doc.defaultView;
+      return {
+        top: clientRect.top + win.pageYOffset - docElem.clientTop,
+        left: clientRect.left + win.pageXOffset - docElem.clientLeft
+      };
+    };
+    var getBodyPosition = function (editor) {
+      return editor.inline ? getAbsolutePosition(editor.getBody()) : {
+        left: 0,
+        top: 0
+      };
+    };
+    var getScrollPosition = function (editor) {
+      var body = editor.getBody();
+      return editor.inline ? {
+        left: body.scrollLeft,
+        top: body.scrollTop
+      } : {
+        left: 0,
+        top: 0
+      };
+    };
+    var getBodyScroll = function (editor) {
+      var body = editor.getBody(), docElm = editor.getDoc().documentElement;
+      var inlineScroll = {
+        left: body.scrollLeft,
+        top: body.scrollTop
+      };
+      var iframeScroll = {
+        left: body.scrollLeft || docElm.scrollLeft,
+        top: body.scrollTop || docElm.scrollTop
+      };
+      return editor.inline ? inlineScroll : iframeScroll;
+    };
+    var getMousePosition = function (editor, event) {
+      if (event.target.ownerDocument !== editor.getDoc()) {
+        var iframePosition = getAbsolutePosition(editor.getContentAreaContainer());
+        var scrollPosition = getBodyScroll(editor);
+        return {
+          left: event.pageX - iframePosition.left + scrollPosition.left,
+          top: event.pageY - iframePosition.top + scrollPosition.top
+        };
+      }
+      return {
+        left: event.pageX,
+        top: event.pageY
+      };
+    };
+    var calculatePosition = function (bodyPosition, scrollPosition, mousePosition) {
+      return {
+        pageX: mousePosition.left - bodyPosition.left + scrollPosition.left,
+        pageY: mousePosition.top - bodyPosition.top + scrollPosition.top
+      };
+    };
+    var calc = function (editor, event) {
+      return calculatePosition(getBodyPosition(editor), getScrollPosition(editor), getMousePosition(editor, event));
+    };
+    var MousePosition = { calc: calc };
+
+    var isContentEditableFalse$8 = NodeType.isContentEditableFalse, isContentEditableTrue$3 = NodeType.isContentEditableTrue;
+    var isDraggable = function (rootElm, elm) {
+      return isContentEditableFalse$8(elm) && elm !== rootElm;
+    };
+    var isValidDropTarget = function (editor, targetElement, dragElement) {
+      if (targetElement === dragElement || editor.dom.isChildOf(targetElement, dragElement)) {
+        return false;
+      }
+      if (isContentEditableFalse$8(targetElement)) {
+        return false;
+      }
+      return true;
+    };
+    var cloneElement = function (elm) {
+      var cloneElm = elm.cloneNode(true);
+      cloneElm.removeAttribute('data-mce-selected');
+      return cloneElm;
+    };
+    var createGhost = function (editor, elm, width, height) {
+      var clonedElm = elm.cloneNode(true);
+      editor.dom.setStyles(clonedElm, {
+        width: width,
+        height: height
+      });
+      editor.dom.setAttrib(clonedElm, 'data-mce-selected', null);
+      var ghostElm = editor.dom.create('div', {
+        'class': 'mce-drag-container',
+        'data-mce-bogus': 'all',
+        'unselectable': 'on',
+        'contenteditable': 'false'
+      });
+      editor.dom.setStyles(ghostElm, {
+        position: 'absolute',
+        opacity: 0.5,
+        overflow: 'hidden',
+        border: 0,
+        padding: 0,
+        margin: 0,
+        width: width,
+        height: height
+      });
+      editor.dom.setStyles(clonedElm, {
+        margin: 0,
+        boxSizing: 'border-box'
+      });
+      ghostElm.appendChild(clonedElm);
+      return ghostElm;
+    };
+    var appendGhostToBody = function (ghostElm, bodyElm) {
+      if (ghostElm.parentNode !== bodyElm) {
+        bodyElm.appendChild(ghostElm);
+      }
+    };
+    var moveGhost = function (ghostElm, position, width, height, maxX, maxY) {
+      var overflowX = 0, overflowY = 0;
+      ghostElm.style.left = position.pageX + 'px';
+      ghostElm.style.top = position.pageY + 'px';
+      if (position.pageX + width > maxX) {
+        overflowX = position.pageX + width - maxX;
+      }
+      if (position.pageY + height > maxY) {
+        overflowY = position.pageY + height - maxY;
+      }
+      ghostElm.style.width = width - overflowX + 'px';
+      ghostElm.style.height = height - overflowY + 'px';
+    };
+    var removeElement = function (elm) {
+      if (elm && elm.parentNode) {
+        elm.parentNode.removeChild(elm);
+      }
+    };
+    var isLeftMouseButtonPressed = function (e) {
+      return e.button === 0;
+    };
+    var hasDraggableElement = function (state) {
+      return state.element;
+    };
+    var applyRelPos = function (state, position) {
+      return {
+        pageX: position.pageX - state.relX,
+        pageY: position.pageY + 5
+      };
+    };
+    var start$1 = function (state, editor) {
+      return function (e) {
+        if (isLeftMouseButtonPressed(e)) {
+          var ceElm = find(editor.dom.getParents(e.target), Predicate.or(isContentEditableFalse$8, isContentEditableTrue$3)).getOr(null);
+          if (isDraggable(editor.getBody(), ceElm)) {
+            var elmPos = editor.dom.getPos(ceElm);
+            var bodyElm = editor.getBody();
+            var docElm = editor.getDoc().documentElement;
+            state.element = ceElm;
+            state.screenX = e.screenX;
+            state.screenY = e.screenY;
+            state.maxX = (editor.inline ? bodyElm.scrollWidth : docElm.offsetWidth) - 2;
+            state.maxY = (editor.inline ? bodyElm.scrollHeight : docElm.offsetHeight) - 2;
+            state.relX = e.pageX - elmPos.x;
+            state.relY = e.pageY - elmPos.y;
+            state.width = ceElm.offsetWidth;
+            state.height = ceElm.offsetHeight;
+            state.ghost = createGhost(editor, ceElm, state.width, state.height);
+          }
+        }
+      };
+    };
+    var move$1 = function (state, editor) {
+      var throttledPlaceCaretAt = Delay.throttle(function (clientX, clientY) {
+        editor._selectionOverrides.hideFakeCaret();
+        editor.selection.placeCaretAt(clientX, clientY);
+      }, 0);
+      return function (e) {
+        var movement = Math.max(Math.abs(e.screenX - state.screenX), Math.abs(e.screenY - state.screenY));
+        if (hasDraggableElement(state) && !state.dragging && movement > 10) {
+          var args = editor.fire('dragstart', { target: state.element });
+          if (args.isDefaultPrevented()) {
+            return;
+          }
+          state.dragging = true;
+          editor.focus();
+        }
+        if (state.dragging) {
+          var targetPos = applyRelPos(state, MousePosition.calc(editor, e));
+          appendGhostToBody(state.ghost, editor.getBody());
+          moveGhost(state.ghost, targetPos, state.width, state.height, state.maxX, state.maxY);
+          throttledPlaceCaretAt(e.clientX, e.clientY);
+        }
+      };
+    };
+    var getRawTarget = function (selection) {
+      var rng = selection.getSel().getRangeAt(0);
+      var startContainer = rng.startContainer;
+      return startContainer.nodeType === 3 ? startContainer.parentNode : startContainer;
+    };
+    var drop = function (state, editor) {
+      return function (e) {
+        if (state.dragging) {
+          if (isValidDropTarget(editor, getRawTarget(editor.selection), state.element)) {
+            var targetClone_1 = cloneElement(state.element);
+            var args = editor.fire('drop', {
+              targetClone: targetClone_1,
+              clientX: e.clientX,
+              clientY: e.clientY
+            });
+            if (!args.isDefaultPrevented()) {
+              targetClone_1 = args.targetClone;
+              editor.undoManager.transact(function () {
+                removeElement(state.element);
+                editor.insertContent(editor.dom.getOuterHTML(targetClone_1));
+                editor._selectionOverrides.hideFakeCaret();
+              });
+            }
+          }
+        }
+        removeDragState(state);
+      };
+    };
+    var stop = function (state, editor) {
+      return function () {
+        if (state.dragging) {
+          editor.fire('dragend');
+        }
+        removeDragState(state);
+      };
+    };
+    var removeDragState = function (state) {
+      state.dragging = false;
+      state.element = null;
+      removeElement(state.ghost);
+    };
+    var bindFakeDragEvents = function (editor) {
+      var state = {};
+      var pageDom, dragStartHandler, dragHandler, dropHandler, dragEndHandler, rootDocument;
+      pageDom = DOMUtils$1.DOM;
+      rootDocument = domGlobals.document;
+      dragStartHandler = start$1(state, editor);
+      dragHandler = move$1(state, editor);
+      dropHandler = drop(state, editor);
+      dragEndHandler = stop(state, editor);
+      editor.on('mousedown', dragStartHandler);
+      editor.on('mousemove', dragHandler);
+      editor.on('mouseup', dropHandler);
+      pageDom.bind(rootDocument, 'mousemove', dragHandler);
+      pageDom.bind(rootDocument, 'mouseup', dragEndHandler);
+      editor.on('remove', function () {
+        pageDom.unbind(rootDocument, 'mousemove', dragHandler);
+        pageDom.unbind(rootDocument, 'mouseup', dragEndHandler);
+      });
+    };
+    var blockIeDrop = function (editor) {
+      editor.on('drop', function (e) {
+        var realTarget = typeof e.clientX !== 'undefined' ? editor.getDoc().elementFromPoint(e.clientX, e.clientY) : null;
+        if (isContentEditableFalse$8(realTarget) || isContentEditableFalse$8(editor.dom.getContentEditableParent(realTarget))) {
+          e.preventDefault();
+        }
+      });
+    };
+    var init = function (editor) {
+      bindFakeDragEvents(editor);
+      blockIeDrop(editor);
+    };
+    var DragDropOverrides = { init: init };
+
     var setup$4 = function (editor) {
       var renderFocusCaret = first(function () {
         if (!editor.removed) {
@@ -17083,26 +17136,6 @@
       });
     };
     var CefFocus = { setup: setup$4 };
-
-    var VK = {
-      BACKSPACE: 8,
-      DELETE: 46,
-      DOWN: 40,
-      ENTER: 13,
-      LEFT: 37,
-      RIGHT: 39,
-      SPACEBAR: 32,
-      TAB: 9,
-      UP: 38,
-      END: 35,
-      HOME: 36,
-      modifierPressed: function (e) {
-        return e.shiftKey || e.ctrlKey || e.altKey || this.metaKeyPressed(e);
-      },
-      metaKeyPressed: function (e) {
-        return Env.mac ? e.metaKey : e.ctrlKey && !e.altKey;
-      }
-    };
 
     var isContentEditableTrue$4 = NodeType.isContentEditableTrue;
     var isContentEditableFalse$9 = NodeType.isContentEditableFalse;
@@ -17302,8 +17335,8 @@
           }
         });
         editor.on('setSelectionRange', function (e) {
-          var rng;
-          rng = setContentEditableSelection(e.range, e.forward);
+          e.range = normalizeShortEndedElementSelection(e.range);
+          var rng = setContentEditableSelection(e.range, e.forward);
           if (rng) {
             e.range = rng;
           }
@@ -17345,6 +17378,33 @@
       };
       var isRangeInCaretContainer = function (rng) {
         return isWithinCaretContainer(rng.startContainer) || isWithinCaretContainer(rng.endContainer);
+      };
+      var normalizeShortEndedElementSelection = function (rng) {
+        var shortEndedElements = editor.schema.getShortEndedElements();
+        var newRng = editor.dom.createRng();
+        var startContainer = rng.startContainer;
+        var startOffset = rng.startOffset;
+        var endContainer = rng.endContainer;
+        var endOffset = rng.endOffset;
+        if (has(shortEndedElements, startContainer.nodeName.toLowerCase())) {
+          if (startOffset === 0) {
+            newRng.setStartBefore(startContainer);
+          } else {
+            newRng.setStartAfter(startContainer);
+          }
+        } else {
+          newRng.setStart(startContainer, startOffset);
+        }
+        if (has(shortEndedElements, endContainer.nodeName.toLowerCase())) {
+          if (endOffset === 0) {
+            newRng.setEndBefore(endContainer);
+          } else {
+            newRng.setEndAfter(endContainer);
+          }
+        } else {
+          newRng.setEnd(endContainer, endOffset);
+        }
+        return newRng;
       };
       var setContentEditableSelection = function (range, forward) {
         var node;
@@ -17466,7 +17526,11 @@
       return name.indexOf('data-') === 0 || name.indexOf('aria-') === 0;
     };
     var trimComments = function (text) {
-      return text.replace(/<!--|--!?>/g, '');
+      var sanitizedText = text;
+      while (/<!--|--!?>/g.test(sanitizedText)) {
+        sanitizedText = sanitizedText.replace(/<!--|--!?>/g, '');
+      }
+      return sanitizedText;
     };
     var isInvalidUri = function (settings, uri) {
       if (settings.allow_html_data_urls) {
@@ -23352,10 +23416,41 @@
       }
       return parent !== root ? editableRoot : root;
     };
+    var applyAttributes = function (editor, node, forcedRootBlockAttrs) {
+      Option.from(forcedRootBlockAttrs.style).map(editor.dom.parseStyle).each(function (attrStyles) {
+        var currentStyles = getAllRaw(Element.fromDom(node));
+        var newStyles = __assign(__assign({}, currentStyles), attrStyles);
+        editor.dom.setStyles(node, newStyles);
+      });
+      var attrClassesOpt = Option.from(forcedRootBlockAttrs.class).map(function (attrClasses) {
+        return attrClasses.split(/\s+/);
+      });
+      var currentClassesOpt = Option.from(node.className).map(function (currentClasses) {
+        return filter(currentClasses.split(/\s+/), function (clazz) {
+          return clazz !== '';
+        });
+      });
+      lift2(attrClassesOpt, currentClassesOpt, function (attrClasses, currentClasses) {
+        var filteredClasses = filter(currentClasses, function (clazz) {
+          return !contains(attrClasses, clazz);
+        });
+        var newClasses = __spreadArrays(attrClasses, filteredClasses);
+        editor.dom.setAttrib(node, 'class', newClasses.join(' '));
+      });
+      var appliedAttrs = [
+        'style',
+        'class'
+      ];
+      var remainingAttrs = bifilter(forcedRootBlockAttrs, function (_, attrs) {
+        return !contains(appliedAttrs, attrs);
+      }).t;
+      editor.dom.setAttribs(node, remainingAttrs);
+    };
     var setForcedBlockAttrs = function (editor, node) {
       var forcedRootBlockName = Settings.getForcedRootBlock(editor);
       if (forcedRootBlockName && forcedRootBlockName.toLowerCase() === node.tagName.toLowerCase()) {
-        editor.dom.setAttribs(node, Settings.getForcedRootBlockAttrs(editor));
+        var forcedRootBlockAttrs = Settings.getForcedRootBlockAttrs(editor);
+        applyAttributes(editor, node, forcedRootBlockAttrs);
       }
     };
     var wrapSelfAndSiblingsInDefaultBlock = function (editor, newBlockName, rng, container, offset) {
@@ -23421,7 +23516,6 @@
         var textInlineElements = schema.getTextInlineElements();
         if (name || parentBlockName === 'TABLE' || parentBlockName === 'HR') {
           block = dom.create(name || newBlockName);
-          setForcedBlockAttrs(editor, block);
         } else {
           block = parentBlock.cloneNode(false);
         }
@@ -23447,6 +23541,7 @@
             }
           } while ((node = node.parentNode) && node !== editableRoot);
         }
+        setForcedBlockAttrs(editor, block);
         emptyBlock(caretNode);
         return block;
       };
@@ -23553,6 +23648,7 @@
         if (dom.isEmpty(parentBlock)) {
           emptyBlock(parentBlock);
         }
+        setForcedBlockAttrs(editor, newBlock);
         NewLineUtils.moveToCaretPosition(editor, newBlock);
       } else if (isCaretAtStartOrEndOfBlock()) {
         insertNewBlockAfter();
@@ -23577,6 +23673,7 @@
           dom.remove(newBlock);
           insertNewBlockAfter();
         } else {
+          setForcedBlockAttrs(editor, newBlock);
           NewLineUtils.moveToCaretPosition(editor, newBlock);
         }
       }
@@ -26267,15 +26364,15 @@
       defaultSettings: {},
       $: DomQuery,
       majorVersion: '4',
-      minorVersion: '9.8',
-      releaseDate: '2020-01-28',
+      minorVersion: '9.10',
+      releaseDate: '2020-04-23',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
       settings: {},
       setup: function () {
         var self = this;
-        var baseURL, documentBaseURL, suffix = '', preInit, src;
+        var baseURL, documentBaseURL, suffix = '';
         documentBaseURL = URI.getDocumentBaseUrl(domGlobals.document.location);
         if (/^[^:]+:\/\/\/?[^\/]+\//.test(documentBaseURL)) {
           documentBaseURL = documentBaseURL.replace(/[\?#].*$/, '').replace(/[\/\\][^\/]+$/, '');
@@ -26283,14 +26380,17 @@
             documentBaseURL += '/';
           }
         }
-        preInit = window.tinymce || window.tinyMCEPreInit;
+        var preInit = window.tinymce || window.tinyMCEPreInit;
         if (preInit) {
           baseURL = preInit.base || preInit.baseURL;
           suffix = preInit.suffix;
         } else {
           var scripts = domGlobals.document.getElementsByTagName('script');
           for (var i = 0; i < scripts.length; i++) {
-            src = scripts[i].src;
+            var src = scripts[i].src || '';
+            if (src === '') {
+              continue;
+            }
             var srcScript = src.substring(src.lastIndexOf('/'));
             if (/tinymce(\.full|\.jquery|)(\.min|\.dev|)\.js/.test(src)) {
               if (srcScript.indexOf('.min') !== -1) {
@@ -26301,7 +26401,7 @@
             }
           }
           if (!baseURL && domGlobals.document.currentScript) {
-            src = domGlobals.document.currentScript.src;
+            var src = domGlobals.document.currentScript.src;
             if (src.indexOf('.min') !== -1) {
               suffix = '.min';
             }
