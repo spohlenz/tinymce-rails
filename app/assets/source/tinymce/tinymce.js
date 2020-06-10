@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.3.0 (2020-05-21)
+ * Version: 5.3.2 (2020-06-10)
  */
 (function (domGlobals) {
     'use strict';
@@ -18244,17 +18244,34 @@
       return node && (blockElements[node.name] || node.name === 'br');
     };
 
-    var isInternalImageSource = function (src) {
-      return src === Env.transparentSrc;
+    var isBogusImage = function (img) {
+      return img.attr('data-mce-bogus');
+    };
+    var isInternalImageSource = function (img) {
+      return img.attr('src') === Env.transparentSrc || img.attr('data-mce-placeholder');
+    };
+    var isValidDataImg = function (img, settings) {
+      if (settings.images_dataimg_filter) {
+        var imgElem_1 = new domGlobals.Image();
+        imgElem_1.src = img.attr('src');
+        each$1(img.attributes.map, function (value, key) {
+          imgElem_1.setAttribute(key, value);
+        });
+        return settings.images_dataimg_filter(imgElem_1);
+      } else {
+        return true;
+      }
     };
     var registerBase64ImageFilter = function (parser, settings) {
       var blobCache = settings.blob_cache;
       var processImage = function (img) {
         var inputSrc = img.attr('src');
-        if (isInternalImageSource(inputSrc)) {
+        if (isInternalImageSource(img) || isBogusImage(img)) {
           return;
         }
-        parseDataUri(inputSrc).bind(function (_a) {
+        parseDataUri(inputSrc).filter(function () {
+          return isValidDataImg(img, settings);
+        }).bind(function (_a) {
           var type = _a.type, data = _a.data;
           return Option.from(blobCache.getByData(data, type)).orThunk(function () {
             return buildBlob(type, data).map(function (blob) {
@@ -25252,7 +25269,8 @@
         inline_styles: settings.inline_styles,
         root_name: getRootName(editor),
         validate: true,
-        blob_cache: blobCache
+        blob_cache: blobCache,
+        images_dataimg_filter: settings.images_dataimg_filter
       });
     };
     var mkSerializerSettings = function (editor) {
@@ -27923,8 +27941,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '3.0',
-      releaseDate: '2020-05-21',
+      minorVersion: '3.2',
+      releaseDate: '2020-06-10',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
