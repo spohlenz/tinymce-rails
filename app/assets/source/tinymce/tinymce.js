@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.4.0 (2020-06-30)
+ * Version: 5.4.1 (2020-07-08)
  */
 (function (domGlobals) {
     'use strict';
@@ -2496,7 +2496,7 @@
       var textBlockElementsMap = createLookupTable('text_block_elements', 'h1 h2 h3 h4 h5 h6 p div address pre form ' + 'blockquote center dir fieldset header footer article section hgroup aside main nav figure');
       var blockElementsMap = createLookupTable('block_elements', 'hr table tbody thead tfoot ' + 'th tr td li ol ul caption dl dt dd noscript menu isindex option ' + 'datalist select optgroup figcaption details summary', textBlockElementsMap);
       var textInlineElementsMap = createLookupTable('text_inline_elements', 'span strong b em i font strike u var cite ' + 'dfn code mark q sup sub samp');
-      each$3((settings.special || 'script noscript noframes noembed title style textarea xmp').split(' '), function (name) {
+      each$3((settings.special || 'script noscript iframe noframes noembed title style textarea xmp').split(' '), function (name) {
         specialElements[name] = new RegExp('</' + name + '[^>]*>', 'gi');
       });
       var patternToRegExp = function (str) {
@@ -9450,6 +9450,9 @@
     };
     var getExternalPlugins = function (editor) {
       return editor.getParam('external_plugins');
+    };
+    var shouldBlockUnsupportedDrop = function (editor) {
+      return editor.getParam('block_unsupported_drop', true, 'boolean');
     };
 
     var isElement$4 = isElement$1;
@@ -18450,7 +18453,7 @@
           var blockElements = Tools.extend({}, schema.getBlockElements());
           var nonEmptyElements = schema.getNonEmptyElements();
           var parent, lastParent, prev, prevName;
-          var whiteSpaceElements = schema.getNonEmptyElements();
+          var whiteSpaceElements = schema.getWhiteSpaceElements();
           var elementRule, textNode;
           blockElements.body = 1;
           for (i = 0; i < l; i++) {
@@ -20598,8 +20601,11 @@
       var isInsertTextDataNull = function (event) {
         return event.inputType === 'insertText' && event.data === null;
       };
+      var isInsertFromPasteOrDrop = function (event) {
+        return event.inputType === 'insertFromPaste' || event.inputType === 'insertFromDrop';
+      };
       editor.on('input', function (e) {
-        if (e.inputType && (isInsertReplacementText(e) || isInsertTextDataNull(e))) {
+        if (e.inputType && (isInsertReplacementText(e) || isInsertTextDataNull(e) || isInsertFromPasteOrDrop(e))) {
           addNonTypingUndoLevel(e);
         }
       });
@@ -24538,9 +24544,50 @@
         }
       });
     };
+    var blockUnsupportedFileDrop = function (editor) {
+      var preventFileDrop = function (e) {
+        if (!e.defaultPrevented) {
+          var dataTransfer = e.dataTransfer;
+          if (dataTransfer && (contains(dataTransfer.types, 'Files') || dataTransfer.files.length > 0)) {
+            e.preventDefault();
+          }
+        }
+      };
+      var preventFileDropIfUIElement = function (e) {
+        if (isUIElement(editor, e.target)) {
+          preventFileDrop(e);
+        }
+      };
+      var setup = function () {
+        var pageDom = DOMUtils$1.DOM;
+        var dom = editor.dom;
+        var doc = domGlobals.document;
+        var editorRoot = editor.inline ? editor.getBody() : editor.getDoc();
+        var eventNames = [
+          'drop',
+          'dragover'
+        ];
+        each(eventNames, function (name) {
+          pageDom.bind(doc, name, preventFileDropIfUIElement);
+          dom.bind(editorRoot, name, preventFileDrop);
+        });
+        editor.on('remove', function () {
+          each(eventNames, function (name) {
+            pageDom.unbind(doc, name, preventFileDropIfUIElement);
+            dom.unbind(editorRoot, name, preventFileDrop);
+          });
+        });
+      };
+      editor.on('init', function () {
+        Delay.setEditorTimeout(editor, setup, 0);
+      });
+    };
     var init = function (editor) {
       bindFakeDragEvents(editor);
       blockIeDrop(editor);
+      if (shouldBlockUnsupportedDrop(editor)) {
+        blockUnsupportedFileDrop(editor);
+      }
     };
 
     var setup$k = function (editor) {
@@ -28066,8 +28113,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '4.0',
-      releaseDate: '2020-06-30',
+      minorVersion: '4.1',
+      releaseDate: '2020-07-08',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
