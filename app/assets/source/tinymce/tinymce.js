@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.6.0 (2020-11-18)
+ * Version: 5.6.1 (2020-11-25)
  */
 (function () {
     'use strict';
@@ -20748,6 +20748,14 @@
               'class',
               'style'
             ]
+          },
+          {
+            inline: 's',
+            remove: 'all',
+            preserve_attributes: [
+              'class',
+              'style'
+            ]
           }
         ],
         forecolor: {
@@ -20810,7 +20818,7 @@
         },
         removeformat: [
           {
-            selector: 'b,strong,em,i,font,u,strike,sub,sup,dfn,code,samp,kbd,var,cite,mark,q,del,ins',
+            selector: 'b,strong,em,i,font,u,strike,s,sub,sup,dfn,code,samp,kbd,var,cite,mark,q,del,ins',
             remove: 'all',
             split: true,
             expand: false,
@@ -28731,8 +28739,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '6.0',
-      releaseDate: '2020-11-18',
+      minorVersion: '6.1',
+      releaseDate: '2020-11-25',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
