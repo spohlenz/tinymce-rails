@@ -23,4 +23,7 @@ matrix:
         - gem install bundler -v '< 2'
 
     - gemfile: gemfiles/rails-6.0.gemfile
-      rvm: 2.6.3
+      rvm: 2.6.6
+
+    - gemfile: gemfiles/rails-6.1.gemfile
+      rvm: 2.6.6
