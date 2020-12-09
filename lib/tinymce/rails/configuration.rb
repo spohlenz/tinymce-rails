@@ -47,7 +47,7 @@ module TinyMCE::Rails
       # Check for files provided in the content_css option to replace them with their actual path.
       # If no corresponding stylesheet is found for a file, it will remain unchanged.
       "content_css" => ->(value) {
-        helpers = ActionView::Base.new(ActionView::LookupContext.new([]))
+        helpers = ActionView::Base.new(ActionView::LookupContext.new([]), {}, nil)
         separator = OPTION_SEPARATORS["content_css"]
 
         value.split(separator).map { |file|
