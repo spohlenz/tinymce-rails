@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.8.0 (2021-05-06)
+ * Version: 5.8.1 (2021-05-20)
  */
 (function () {
     'use strict';
@@ -16160,11 +16160,16 @@
                 }
               }
             }
-            if (name === 'class') {
-              elm.removeAttribute('className');
-            }
             if (MCE_ATTR_RE.test(name)) {
               elm.removeAttribute('data-mce-' + name);
+            }
+            if (name === 'style' && matchNodeNames(['li'])(elm) && dom.getStyle(elm, 'list-style-type') === 'none') {
+              elm.removeAttribute(name);
+              dom.setStyle(elm, 'list-style-type', 'none');
+              return;
+            }
+            if (name === 'class') {
+              elm.removeAttribute('className');
             }
             elm.removeAttribute(name);
           }
@@ -19993,7 +19998,7 @@
           });
           addNotification(notification);
           reposition();
-          editor.fire('OpenNotification', __assign({}, notification));
+          editor.fire('OpenNotification', { notification: __assign({}, notification) });
           return notification;
         });
       };
@@ -29058,8 +29063,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '8.0',
-      releaseDate: '2021-05-06',
+      minorVersion: '8.1',
+      releaseDate: '2021-05-20',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
