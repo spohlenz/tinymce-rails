@@ -946,7 +946,7 @@ interface AutocompleterSpec {
     columns?: ColumnTypes$1;
     matches?: (rng: Range, text: string, pattern: string) => boolean;
     fetch: (pattern: string, maxResults: number, fetchOptions: Record<string, any>) => Promise<AutocompleterContents[]>;
-    onAction: (autocompleterApi: AutocompleterInstanceApi, rng: any, value: string, meta: Record<string, any>) => void;
+    onAction: (autocompleterApi: AutocompleterInstanceApi, rng: Range, value: string, meta: Record<string, any>) => void;
     maxResults?: number;
     highlightOn?: string[];
 }
@@ -1059,23 +1059,22 @@ interface FancyActionArgsMap {
         value: string;
     };
 }
-interface BaseFancyMenuItemSpec {
+interface BaseFancyMenuItemSpec<T extends keyof FancyActionArgsMap> {
     type: 'fancymenuitem';
-    fancytype: string;
+    fancytype: T;
     initData?: Record<string, unknown>;
-    onAction?: (data: Record<string, unknown>) => void;
+    onAction?: (data: FancyActionArgsMap[T]) => void;
 }
-interface InsertTableMenuItemSpec extends BaseFancyMenuItemSpec {
+interface InsertTableMenuItemSpec extends BaseFancyMenuItemSpec<'inserttable'> {
     fancytype: 'inserttable';
-    onAction?: (data: FancyActionArgsMap['inserttable']) => void;
+    initData?: {};
 }
-interface ColorSwatchMenuItemSpec extends BaseFancyMenuItemSpec {
+interface ColorSwatchMenuItemSpec extends BaseFancyMenuItemSpec<'colorswatch'> {
     fancytype: 'colorswatch';
     initData?: {
         allowCustomColors?: boolean;
         colors: ChoiceMenuItemSpec[];
     };
-    onAction?: (data: FancyActionArgsMap['colorswatch']) => void;
 }
 declare type FancyMenuItemSpec = InsertTableMenuItemSpec | ColorSwatchMenuItemSpec;
 interface MenuItemSpec extends CommonMenuItemSpec {
