@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.9.1 (2021-08-27)
+ * Version: 5.9.2 (2021-09-08)
  */
 (function () {
     'use strict';
@@ -13841,12 +13841,16 @@
       var emptyRegExp = new RegExp('^(<' + blockName + '[^>]*>(&nbsp;|&#160;|\\s|\xA0|<br \\/>|)<\\/' + blockName + '>[\r\n]*|<br \\/>[\r\n]*)$');
       return html.replace(emptyRegExp, '');
     };
-    var getContentFromBody = function (editor, args, format, body) {
-      var updatedArgs = args.no_events ? args : editor.fire('BeforeGetContent', __assign(__assign({}, args), {
+    var setupArgs$3 = function (args, format) {
+      return __assign(__assign({}, args), {
         format: format,
         get: true,
         getInner: true
-      }));
+      });
+    };
+    var getContentFromBody = function (editor, args, format, body) {
+      var defaultedArgs = setupArgs$3(args, format);
+      var updatedArgs = args.no_events ? defaultedArgs : editor.fire('BeforeGetContent', defaultedArgs);
       var content;
       if (updatedArgs.format === 'raw') {
         content = Tools.trim(trimExternal(editor.serializer, body.innerHTML));
@@ -15579,11 +15583,15 @@
       }
       return content;
     };
-    var setContentInternal = function (editor, content, args) {
-      var updatedArgs = args.no_events ? args : editor.fire('BeforeSetContent', __assign(__assign({ format: defaultFormat$1 }, args), {
+    var setupArgs$2 = function (args, content) {
+      return __assign(__assign({ format: defaultFormat$1 }, args), {
         set: true,
         content: isTreeNode(content) ? '' : content
-      }));
+      });
+    };
+    var setContentInternal = function (editor, content, args) {
+      var defaultedArgs = setupArgs$2(args, content);
+      var updatedArgs = args.no_events ? defaultedArgs : editor.fire('BeforeSetContent', defaultedArgs);
       if (!isTreeNode(content)) {
         content = updatedArgs.content;
       }
@@ -17331,15 +17339,19 @@
       }
       return editor.selection.serializer.serialize(tmpElm, args);
     };
+    var setupArgs$1 = function (args, format) {
+      return __assign(__assign({}, args), {
+        format: format,
+        get: true,
+        selection: true
+      });
+    };
     var getSelectedContentInternal = function (editor, format, args) {
       if (args === void 0) {
         args = {};
       }
-      var updatedArgs = editor.fire('BeforeGetContent', __assign(__assign({}, args), {
-        format: format,
-        get: true,
-        selection: true
-      }));
+      var defaultedArgs = setupArgs$1(args, format);
+      var updatedArgs = editor.fire('BeforeGetContent', defaultedArgs);
       if (updatedArgs.isDefaultPrevented()) {
         editor.fire('GetContent', updatedArgs);
         return updatedArgs.content;
@@ -18198,10 +18210,10 @@
       if (args === void 0) {
         args = {};
       }
-      var contentArgs = setupArgs(args, content);
-      var updatedArgs = contentArgs;
-      if (!contentArgs.no_events) {
-        var eventArgs = editor.fire('BeforeSetContent', contentArgs);
+      var defaultedArgs = setupArgs(args, content);
+      var updatedArgs = defaultedArgs;
+      if (!defaultedArgs.no_events) {
+        var eventArgs = editor.fire('BeforeSetContent', defaultedArgs);
         if (eventArgs.isDefaultPrevented()) {
           editor.fire('SetContent', eventArgs);
           return;
@@ -29327,8 +29339,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '9.1',
-      releaseDate: '2021-08-27',
+      minorVersion: '9.2',
+      releaseDate: '2021-09-08',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
