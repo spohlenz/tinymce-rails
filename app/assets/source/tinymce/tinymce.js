@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.9.2 (2021-09-08)
+ * Version: 5.10.0 (2021-10-11)
  */
 (function () {
     'use strict';
@@ -1681,7 +1681,11 @@
 
     var get$7 = function (_win) {
       var win = _win === undefined ? window : _win;
-      return Optional.from(win['visualViewport']);
+      if (detect().browser.isFirefox()) {
+        return Optional.none();
+      } else {
+        return Optional.from(win['visualViewport']);
+      }
     };
     var bounds = function (x, y, width, height) {
       return {
@@ -1974,499 +1978,217 @@
 
     var exports$1 = {}, module$1 = { exports: exports$1 };
     (function (define, exports, module, require) {
-      (function (f) {
-        if (typeof exports === 'object' && typeof module !== 'undefined') {
-          module.exports = f();
-        } else if (typeof define === 'function' && define.amd) {
-          define([], f);
-        } else {
-          var g;
-          if (typeof window !== 'undefined') {
-            g = window;
-          } else if (typeof global !== 'undefined') {
-            g = global;
-          } else if (typeof self !== 'undefined') {
-            g = self;
-          } else {
-            g = this;
-          }
-          g.EphoxContactWrapper = f();
-        }
-      }(function () {
-        return function () {
-          function r(e, n, t) {
-            function o(i, f) {
-              if (!n[i]) {
-                if (!e[i]) {
-                  var c = 'function' == typeof require && require;
-                  if (!f && c)
-                    return c(i, !0);
-                  if (u)
-                    return u(i, !0);
-                  var a = new Error('Cannot find module \'' + i + '\'');
-                  throw a.code = 'MODULE_NOT_FOUND', a;
-                }
-                var p = n[i] = { exports: {} };
-                e[i][0].call(p.exports, function (r) {
-                  var n = e[i][1][r];
-                  return o(n || r);
-                }, p, p.exports, r, e, n, t);
-              }
-              return n[i].exports;
+      (function (global, factory) {
+        typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() : typeof define === 'function' && define.amd ? define(factory) : (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.EphoxContactWrapper = factory());
+      }(this, function () {
+        var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+        var promise = { exports: {} };
+        (function (module) {
+          (function (root) {
+            var setTimeoutFunc = setTimeout;
+            function noop() {
             }
-            for (var u = 'function' == typeof require && require, i = 0; i < t.length; i++)
-              o(t[i]);
-            return o;
-          }
-          return r;
-        }()({
-          1: [
-            function (require, module, exports) {
-              var process = module.exports = {};
-              var cachedSetTimeout;
-              var cachedClearTimeout;
-              function defaultSetTimout() {
-                throw new Error('setTimeout has not been defined');
+            function bind(fn, thisArg) {
+              return function () {
+                fn.apply(thisArg, arguments);
+              };
+            }
+            function Promise(fn) {
+              if (typeof this !== 'object')
+                throw new TypeError('Promises must be constructed via new');
+              if (typeof fn !== 'function')
+                throw new TypeError('not a function');
+              this._state = 0;
+              this._handled = false;
+              this._value = undefined;
+              this._deferreds = [];
+              doResolve(fn, this);
+            }
+            function handle(self, deferred) {
+              while (self._state === 3) {
+                self = self._value;
               }
-              function defaultClearTimeout() {
-                throw new Error('clearTimeout has not been defined');
+              if (self._state === 0) {
+                self._deferreds.push(deferred);
+                return;
               }
-              (function () {
-                try {
-                  if (typeof setTimeout === 'function') {
-                    cachedSetTimeout = setTimeout;
-                  } else {
-                    cachedSetTimeout = defaultSetTimout;
-                  }
-                } catch (e) {
-                  cachedSetTimeout = defaultSetTimout;
-                }
-                try {
-                  if (typeof clearTimeout === 'function') {
-                    cachedClearTimeout = clearTimeout;
-                  } else {
-                    cachedClearTimeout = defaultClearTimeout;
-                  }
-                } catch (e) {
-                  cachedClearTimeout = defaultClearTimeout;
-                }
-              }());
-              function runTimeout(fun) {
-                if (cachedSetTimeout === setTimeout) {
-                  return setTimeout(fun, 0);
-                }
-                if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
-                  cachedSetTimeout = setTimeout;
-                  return setTimeout(fun, 0);
-                }
-                try {
-                  return cachedSetTimeout(fun, 0);
-                } catch (e) {
-                  try {
-                    return cachedSetTimeout.call(null, fun, 0);
-                  } catch (e) {
-                    return cachedSetTimeout.call(this, fun, 0);
-                  }
-                }
-              }
-              function runClearTimeout(marker) {
-                if (cachedClearTimeout === clearTimeout) {
-                  return clearTimeout(marker);
-                }
-                if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
-                  cachedClearTimeout = clearTimeout;
-                  return clearTimeout(marker);
-                }
-                try {
-                  return cachedClearTimeout(marker);
-                } catch (e) {
-                  try {
-                    return cachedClearTimeout.call(null, marker);
-                  } catch (e) {
-                    return cachedClearTimeout.call(this, marker);
-                  }
-                }
-              }
-              var queue = [];
-              var draining = false;
-              var currentQueue;
-              var queueIndex = -1;
-              function cleanUpNextTick() {
-                if (!draining || !currentQueue) {
+              self._handled = true;
+              Promise._immediateFn(function () {
+                var cb = self._state === 1 ? deferred.onFulfilled : deferred.onRejected;
+                if (cb === null) {
+                  (self._state === 1 ? resolve : reject)(deferred.promise, self._value);
                   return;
                 }
-                draining = false;
-                if (currentQueue.length) {
-                  queue = currentQueue.concat(queue);
-                } else {
-                  queueIndex = -1;
-                }
-                if (queue.length) {
-                  drainQueue();
-                }
-              }
-              function drainQueue() {
-                if (draining) {
+                var ret;
+                try {
+                  ret = cb(self._value);
+                } catch (e) {
+                  reject(deferred.promise, e);
                   return;
                 }
-                var timeout = runTimeout(cleanUpNextTick);
-                draining = true;
-                var len = queue.length;
-                while (len) {
-                  currentQueue = queue;
-                  queue = [];
-                  while (++queueIndex < len) {
-                    if (currentQueue) {
-                      currentQueue[queueIndex].run();
-                    }
-                  }
-                  queueIndex = -1;
-                  len = queue.length;
-                }
-                currentQueue = null;
-                draining = false;
-                runClearTimeout(timeout);
-              }
-              process.nextTick = function (fun) {
-                var args = new Array(arguments.length - 1);
-                if (arguments.length > 1) {
-                  for (var i = 1; i < arguments.length; i++) {
-                    args[i - 1] = arguments[i];
-                  }
-                }
-                queue.push(new Item(fun, args));
-                if (queue.length === 1 && !draining) {
-                  runTimeout(drainQueue);
-                }
-              };
-              function Item(fun, array) {
-                this.fun = fun;
-                this.array = array;
-              }
-              Item.prototype.run = function () {
-                this.fun.apply(null, this.array);
-              };
-              process.title = 'browser';
-              process.browser = true;
-              process.env = {};
-              process.argv = [];
-              process.version = '';
-              process.versions = {};
-              function noop() {
-              }
-              process.on = noop;
-              process.addListener = noop;
-              process.once = noop;
-              process.off = noop;
-              process.removeListener = noop;
-              process.removeAllListeners = noop;
-              process.emit = noop;
-              process.prependListener = noop;
-              process.prependOnceListener = noop;
-              process.listeners = function (name) {
-                return [];
-              };
-              process.binding = function (name) {
-                throw new Error('process.binding is not supported');
-              };
-              process.cwd = function () {
-                return '/';
-              };
-              process.chdir = function (dir) {
-                throw new Error('process.chdir is not supported');
-              };
-              process.umask = function () {
-                return 0;
-              };
-            },
-            {}
-          ],
-          2: [
-            function (require, module, exports) {
-              (function (setImmediate) {
-                (function (root) {
-                  var setTimeoutFunc = setTimeout;
-                  function noop() {
-                  }
-                  function bind(fn, thisArg) {
-                    return function () {
-                      fn.apply(thisArg, arguments);
-                    };
-                  }
-                  function Promise(fn) {
-                    if (typeof this !== 'object')
-                      throw new TypeError('Promises must be constructed via new');
-                    if (typeof fn !== 'function')
-                      throw new TypeError('not a function');
-                    this._state = 0;
-                    this._handled = false;
-                    this._value = undefined;
-                    this._deferreds = [];
-                    doResolve(fn, this);
-                  }
-                  function handle(self, deferred) {
-                    while (self._state === 3) {
-                      self = self._value;
-                    }
-                    if (self._state === 0) {
-                      self._deferreds.push(deferred);
-                      return;
-                    }
-                    self._handled = true;
-                    Promise._immediateFn(function () {
-                      var cb = self._state === 1 ? deferred.onFulfilled : deferred.onRejected;
-                      if (cb === null) {
-                        (self._state === 1 ? resolve : reject)(deferred.promise, self._value);
-                        return;
-                      }
-                      var ret;
-                      try {
-                        ret = cb(self._value);
-                      } catch (e) {
-                        reject(deferred.promise, e);
-                        return;
-                      }
-                      resolve(deferred.promise, ret);
-                    });
-                  }
-                  function resolve(self, newValue) {
-                    try {
-                      if (newValue === self)
-                        throw new TypeError('A promise cannot be resolved with itself.');
-                      if (newValue && (typeof newValue === 'object' || typeof newValue === 'function')) {
-                        var then = newValue.then;
-                        if (newValue instanceof Promise) {
-                          self._state = 3;
-                          self._value = newValue;
-                          finale(self);
-                          return;
-                        } else if (typeof then === 'function') {
-                          doResolve(bind(then, newValue), self);
-                          return;
-                        }
-                      }
-                      self._state = 1;
-                      self._value = newValue;
-                      finale(self);
-                    } catch (e) {
-                      reject(self, e);
-                    }
-                  }
-                  function reject(self, newValue) {
-                    self._state = 2;
+                resolve(deferred.promise, ret);
+              });
+            }
+            function resolve(self, newValue) {
+              try {
+                if (newValue === self)
+                  throw new TypeError('A promise cannot be resolved with itself.');
+                if (newValue && (typeof newValue === 'object' || typeof newValue === 'function')) {
+                  var then = newValue.then;
+                  if (newValue instanceof Promise) {
+                    self._state = 3;
                     self._value = newValue;
                     finale(self);
+                    return;
+                  } else if (typeof then === 'function') {
+                    doResolve(bind(then, newValue), self);
+                    return;
                   }
-                  function finale(self) {
-                    if (self._state === 2 && self._deferreds.length === 0) {
-                      Promise._immediateFn(function () {
-                        if (!self._handled) {
-                          Promise._unhandledRejectionFn(self._value);
-                        }
-                      });
-                    }
-                    for (var i = 0, len = self._deferreds.length; i < len; i++) {
-                      handle(self, self._deferreds[i]);
-                    }
-                    self._deferreds = null;
-                  }
-                  function Handler(onFulfilled, onRejected, promise) {
-                    this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null;
-                    this.onRejected = typeof onRejected === 'function' ? onRejected : null;
-                    this.promise = promise;
-                  }
-                  function doResolve(fn, self) {
-                    var done = false;
-                    try {
-                      fn(function (value) {
-                        if (done)
-                          return;
-                        done = true;
-                        resolve(self, value);
-                      }, function (reason) {
-                        if (done)
-                          return;
-                        done = true;
-                        reject(self, reason);
-                      });
-                    } catch (ex) {
-                      if (done)
-                        return;
-                      done = true;
-                      reject(self, ex);
-                    }
-                  }
-                  Promise.prototype['catch'] = function (onRejected) {
-                    return this.then(null, onRejected);
-                  };
-                  Promise.prototype.then = function (onFulfilled, onRejected) {
-                    var prom = new this.constructor(noop);
-                    handle(this, new Handler(onFulfilled, onRejected, prom));
-                    return prom;
-                  };
-                  Promise.all = function (arr) {
-                    var args = Array.prototype.slice.call(arr);
-                    return new Promise(function (resolve, reject) {
-                      if (args.length === 0)
-                        return resolve([]);
-                      var remaining = args.length;
-                      function res(i, val) {
-                        try {
-                          if (val && (typeof val === 'object' || typeof val === 'function')) {
-                            var then = val.then;
-                            if (typeof then === 'function') {
-                              then.call(val, function (val) {
-                                res(i, val);
-                              }, reject);
-                              return;
-                            }
-                          }
-                          args[i] = val;
-                          if (--remaining === 0) {
-                            resolve(args);
-                          }
-                        } catch (ex) {
-                          reject(ex);
-                        }
-                      }
-                      for (var i = 0; i < args.length; i++) {
-                        res(i, args[i]);
-                      }
-                    });
-                  };
-                  Promise.resolve = function (value) {
-                    if (value && typeof value === 'object' && value.constructor === Promise) {
-                      return value;
-                    }
-                    return new Promise(function (resolve) {
-                      resolve(value);
-                    });
-                  };
-                  Promise.reject = function (value) {
-                    return new Promise(function (resolve, reject) {
-                      reject(value);
-                    });
-                  };
-                  Promise.race = function (values) {
-                    return new Promise(function (resolve, reject) {
-                      for (var i = 0, len = values.length; i < len; i++) {
-                        values[i].then(resolve, reject);
-                      }
-                    });
-                  };
-                  Promise._immediateFn = typeof setImmediate === 'function' ? function (fn) {
-                    setImmediate(fn);
-                  } : function (fn) {
-                    setTimeoutFunc(fn, 0);
-                  };
-                  Promise._unhandledRejectionFn = function _unhandledRejectionFn(err) {
-                    if (typeof console !== 'undefined' && console) {
-                      console.warn('Possible Unhandled Promise Rejection:', err);
-                    }
-                  };
-                  Promise._setImmediateFn = function _setImmediateFn(fn) {
-                    Promise._immediateFn = fn;
-                  };
-                  Promise._setUnhandledRejectionFn = function _setUnhandledRejectionFn(fn) {
-                    Promise._unhandledRejectionFn = fn;
-                  };
-                  if (typeof module !== 'undefined' && module.exports) {
-                    module.exports = Promise;
-                  } else if (!root.Promise) {
-                    root.Promise = Promise;
-                  }
-                }(this));
-              }.call(this, require('timers').setImmediate));
-            },
-            { 'timers': 3 }
-          ],
-          3: [
-            function (require, module, exports) {
-              (function (setImmediate, clearImmediate) {
-                var nextTick = require('process/browser.js').nextTick;
-                var apply = Function.prototype.apply;
-                var slice = Array.prototype.slice;
-                var immediateIds = {};
-                var nextImmediateId = 0;
-                exports.setTimeout = function () {
-                  return new Timeout(apply.call(setTimeout, window, arguments), clearTimeout);
-                };
-                exports.setInterval = function () {
-                  return new Timeout(apply.call(setInterval, window, arguments), clearInterval);
-                };
-                exports.clearTimeout = exports.clearInterval = function (timeout) {
-                  timeout.close();
-                };
-                function Timeout(id, clearFn) {
-                  this._id = id;
-                  this._clearFn = clearFn;
                 }
-                Timeout.prototype.unref = Timeout.prototype.ref = function () {
-                };
-                Timeout.prototype.close = function () {
-                  this._clearFn.call(window, this._id);
-                };
-                exports.enroll = function (item, msecs) {
-                  clearTimeout(item._idleTimeoutId);
-                  item._idleTimeout = msecs;
-                };
-                exports.unenroll = function (item) {
-                  clearTimeout(item._idleTimeoutId);
-                  item._idleTimeout = -1;
-                };
-                exports._unrefActive = exports.active = function (item) {
-                  clearTimeout(item._idleTimeoutId);
-                  var msecs = item._idleTimeout;
-                  if (msecs >= 0) {
-                    item._idleTimeoutId = setTimeout(function onTimeout() {
-                      if (item._onTimeout)
-                        item._onTimeout();
-                    }, msecs);
-                  }
-                };
-                exports.setImmediate = typeof setImmediate === 'function' ? setImmediate : function (fn) {
-                  var id = nextImmediateId++;
-                  var args = arguments.length < 2 ? false : slice.call(arguments, 1);
-                  immediateIds[id] = true;
-                  nextTick(function onNextTick() {
-                    if (immediateIds[id]) {
-                      if (args) {
-                        fn.apply(null, args);
-                      } else {
-                        fn.call(null);
-                      }
-                      exports.clearImmediate(id);
-                    }
-                  });
-                  return id;
-                };
-                exports.clearImmediate = typeof clearImmediate === 'function' ? clearImmediate : function (id) {
-                  delete immediateIds[id];
-                };
-              }.call(this, require('timers').setImmediate, require('timers').clearImmediate));
-            },
-            {
-              'process/browser.js': 1,
-              'timers': 3
+                self._state = 1;
+                self._value = newValue;
+                finale(self);
+              } catch (e) {
+                reject(self, e);
+              }
             }
-          ],
-          4: [
-            function (require, module, exports) {
-              var promisePolyfill = require('promise-polyfill');
-              var Global = function () {
-                if (typeof window !== 'undefined') {
-                  return window;
-                } else {
-                  return Function('return this;')();
+            function reject(self, newValue) {
+              self._state = 2;
+              self._value = newValue;
+              finale(self);
+            }
+            function finale(self) {
+              if (self._state === 2 && self._deferreds.length === 0) {
+                Promise._immediateFn(function () {
+                  if (!self._handled) {
+                    Promise._unhandledRejectionFn(self._value);
+                  }
+                });
+              }
+              for (var i = 0, len = self._deferreds.length; i < len; i++) {
+                handle(self, self._deferreds[i]);
+              }
+              self._deferreds = null;
+            }
+            function Handler(onFulfilled, onRejected, promise) {
+              this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null;
+              this.onRejected = typeof onRejected === 'function' ? onRejected : null;
+              this.promise = promise;
+            }
+            function doResolve(fn, self) {
+              var done = false;
+              try {
+                fn(function (value) {
+                  if (done)
+                    return;
+                  done = true;
+                  resolve(self, value);
+                }, function (reason) {
+                  if (done)
+                    return;
+                  done = true;
+                  reject(self, reason);
+                });
+              } catch (ex) {
+                if (done)
+                  return;
+                done = true;
+                reject(self, ex);
+              }
+            }
+            Promise.prototype['catch'] = function (onRejected) {
+              return this.then(null, onRejected);
+            };
+            Promise.prototype.then = function (onFulfilled, onRejected) {
+              var prom = new this.constructor(noop);
+              handle(this, new Handler(onFulfilled, onRejected, prom));
+              return prom;
+            };
+            Promise.all = function (arr) {
+              var args = Array.prototype.slice.call(arr);
+              return new Promise(function (resolve, reject) {
+                if (args.length === 0)
+                  return resolve([]);
+                var remaining = args.length;
+                function res(i, val) {
+                  try {
+                    if (val && (typeof val === 'object' || typeof val === 'function')) {
+                      var then = val.then;
+                      if (typeof then === 'function') {
+                        then.call(val, function (val) {
+                          res(i, val);
+                        }, reject);
+                        return;
+                      }
+                    }
+                    args[i] = val;
+                    if (--remaining === 0) {
+                      resolve(args);
+                    }
+                  } catch (ex) {
+                    reject(ex);
+                  }
                 }
-              }();
-              module.exports = { boltExport: Global.Promise || promisePolyfill };
-            },
-            { 'promise-polyfill': 2 }
-          ]
-        }, {}, [4])(4);
+                for (var i = 0; i < args.length; i++) {
+                  res(i, args[i]);
+                }
+              });
+            };
+            Promise.resolve = function (value) {
+              if (value && typeof value === 'object' && value.constructor === Promise) {
+                return value;
+              }
+              return new Promise(function (resolve) {
+                resolve(value);
+              });
+            };
+            Promise.reject = function (value) {
+              return new Promise(function (resolve, reject) {
+                reject(value);
+              });
+            };
+            Promise.race = function (values) {
+              return new Promise(function (resolve, reject) {
+                for (var i = 0, len = values.length; i < len; i++) {
+                  values[i].then(resolve, reject);
+                }
+              });
+            };
+            Promise._immediateFn = typeof setImmediate === 'function' ? function (fn) {
+              setImmediate(fn);
+            } : function (fn) {
+              setTimeoutFunc(fn, 0);
+            };
+            Promise._unhandledRejectionFn = function _unhandledRejectionFn(err) {
+              if (typeof console !== 'undefined' && console) {
+                console.warn('Possible Unhandled Promise Rejection:', err);
+              }
+            };
+            Promise._setImmediateFn = function _setImmediateFn(fn) {
+              Promise._immediateFn = fn;
+            };
+            Promise._setUnhandledRejectionFn = function _setUnhandledRejectionFn(fn) {
+              Promise._unhandledRejectionFn = fn;
+            };
+            if (module.exports) {
+              module.exports = Promise;
+            } else if (!root.Promise) {
+              root.Promise = Promise;
+            }
+          }(commonjsGlobal));
+        }(promise));
+        var promisePolyfill = promise.exports;
+        var Global = function () {
+          if (typeof window !== 'undefined') {
+            return window;
+          } else {
+            return Function('return this;')();
+          }
+        }();
+        var promisePolyfill_1 = { boltExport: Global.Promise || promisePolyfill };
+        return promisePolyfill_1;
       }));
-    }(undefined, exports$1, module$1, undefined));
+    }(undefined, exports$1, module$1));
     var Promise$1 = module$1.exports.boltExport;
 
     var nu$1 = function (baseFn) {
@@ -2882,183 +2604,7 @@
       return ClosestOrAncestor(is, ancestor$2, scope, selector, isRoot);
     };
 
-    var promise = function () {
-      var bind = function (fn, thisArg) {
-        return function () {
-          var args = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i] = arguments[_i];
-          }
-          fn.apply(thisArg, args);
-        };
-      };
-      var isArray = Array.isArray || function (value) {
-        return Object.prototype.toString.call(value) === '[object Array]';
-      };
-      var Promise = function (fn) {
-        if (typeof this !== 'object') {
-          throw new TypeError('Promises must be constructed via new');
-        }
-        if (typeof fn !== 'function') {
-          throw new TypeError('not a function');
-        }
-        this._state = null;
-        this._value = null;
-        this._deferreds = [];
-        doResolve(fn, bind(resolve, this), bind(reject, this));
-      };
-      var asap = Promise.immediateFn || typeof setImmediate === 'function' && setImmediate || function (fn) {
-        return setTimeout(fn, 1);
-      };
-      function handle(deferred) {
-        var me = this;
-        if (this._state === null) {
-          this._deferreds.push(deferred);
-          return;
-        }
-        asap(function () {
-          var cb = me._state ? deferred.onFulfilled : deferred.onRejected;
-          if (cb === null) {
-            (me._state ? deferred.resolve : deferred.reject)(me._value);
-            return;
-          }
-          var ret;
-          try {
-            ret = cb(me._value);
-          } catch (e) {
-            deferred.reject(e);
-            return;
-          }
-          deferred.resolve(ret);
-        });
-      }
-      function resolve(newValue) {
-        try {
-          if (newValue === this) {
-            throw new TypeError('A promise cannot be resolved with itself.');
-          }
-          if (newValue && (typeof newValue === 'object' || typeof newValue === 'function')) {
-            var then = newValue.then;
-            if (typeof then === 'function') {
-              doResolve(bind(then, newValue), bind(resolve, this), bind(reject, this));
-              return;
-            }
-          }
-          this._state = true;
-          this._value = newValue;
-          finale.call(this);
-        } catch (e) {
-          reject.call(this, e);
-        }
-      }
-      function reject(newValue) {
-        this._state = false;
-        this._value = newValue;
-        finale.call(this);
-      }
-      function finale() {
-        for (var i = 0, len = this._deferreds.length; i < len; i++) {
-          handle.call(this, this._deferreds[i]);
-        }
-        this._deferreds = null;
-      }
-      function Handler(onFulfilled, onRejected, resolve, reject) {
-        this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null;
-        this.onRejected = typeof onRejected === 'function' ? onRejected : null;
-        this.resolve = resolve;
-        this.reject = reject;
-      }
-      var doResolve = function (fn, onFulfilled, onRejected) {
-        var done = false;
-        try {
-          fn(function (value) {
-            if (done) {
-              return;
-            }
-            done = true;
-            onFulfilled(value);
-          }, function (reason) {
-            if (done) {
-              return;
-            }
-            done = true;
-            onRejected(reason);
-          });
-        } catch (ex) {
-          if (done) {
-            return;
-          }
-          done = true;
-          onRejected(ex);
-        }
-      };
-      Promise.prototype.catch = function (onRejected) {
-        return this.then(null, onRejected);
-      };
-      Promise.prototype.then = function (onFulfilled, onRejected) {
-        var me = this;
-        return new Promise(function (resolve, reject) {
-          handle.call(me, new Handler(onFulfilled, onRejected, resolve, reject));
-        });
-      };
-      Promise.all = function () {
-        var values = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-          values[_i] = arguments[_i];
-        }
-        var args = Array.prototype.slice.call(values.length === 1 && isArray(values[0]) ? values[0] : values);
-        return new Promise(function (resolve, reject) {
-          if (args.length === 0) {
-            return resolve([]);
-          }
-          var remaining = args.length;
-          var res = function (i, val) {
-            try {
-              if (val && (typeof val === 'object' || typeof val === 'function')) {
-                var then = val.then;
-                if (typeof then === 'function') {
-                  then.call(val, function (val) {
-                    res(i, val);
-                  }, reject);
-                  return;
-                }
-              }
-              args[i] = val;
-              if (--remaining === 0) {
-                resolve(args);
-              }
-            } catch (ex) {
-              reject(ex);
-            }
-          };
-          for (var i = 0; i < args.length; i++) {
-            res(i, args[i]);
-          }
-        });
-      };
-      Promise.resolve = function (value) {
-        if (value && typeof value === 'object' && value.constructor === Promise) {
-          return value;
-        }
-        return new Promise(function (resolve) {
-          resolve(value);
-        });
-      };
-      Promise.reject = function (value) {
-        return new Promise(function (resolve, reject) {
-          reject(value);
-        });
-      };
-      Promise.race = function (values) {
-        return new Promise(function (resolve, reject) {
-          for (var i = 0, len = values.length; i < len; i++) {
-            values[i].then(resolve, reject);
-          }
-        });
-      };
-      return Promise;
-    };
-    var promiseObj = window.Promise ? window.Promise : promise();
+    var promiseObj = window.Promise ? window.Promise : Promise$1;
 
     var requestAnimationFramePromise;
     var requestAnimationFrame = function (callback, element) {
@@ -7010,7 +6556,7 @@
       var keepValues = settings.keep_values;
       var keepUrlHook = {
         set: function ($elm, value, name) {
-          if (settings.url_converter) {
+          if (settings.url_converter && value !== null) {
             value = settings.url_converter.call(settings.url_converter_scope || getContext(), value, name, $elm[0]);
           }
           $elm.attr('data-mce-' + name, value).attr(name, value);
@@ -10851,8 +10397,8 @@
       var dom = editor.dom;
       var root = dom.getRoot();
       var format = formatList[0];
-      if (isBlockFormat(format) && !format.wrapper) {
-        node = dom.getParent(container, format.block, root);
+      if (isBlockFormat(format)) {
+        node = format.wrapper ? null : dom.getParent(container, format.block, root);
       }
       if (!node) {
         var scopeRoot = dom.getParent(container, 'LI,TD,TH');
@@ -11478,6 +11024,7 @@
       DELETE: 46,
       DOWN: 40,
       ENTER: 13,
+      ESC: 27,
       LEFT: 37,
       RIGHT: 39,
       SPACEBAR: 32,
@@ -11712,7 +11259,10 @@
               };
               startScrollWidth = rootElement.scrollWidth;
               startScrollHeight = rootElement.scrollHeight;
-              resizeBackdrop = dom.add(rootElement, 'div', { class: 'mce-resize-backdrop' });
+              resizeBackdrop = dom.add(rootElement, 'div', {
+                'class': 'mce-resize-backdrop',
+                'data-mce-bogus': 'all'
+              });
               dom.setStyles(resizeBackdrop, {
                 position: 'fixed',
                 left: '0',
@@ -12378,7 +11928,7 @@
     };
     var createMarker = function (element, offset) {
       var startPoint = descend(element, offset);
-      var span = SugarElement.fromHtml('<span data-mce-bogus="all">' + ZWSP$1 + '</span>');
+      var span = SugarElement.fromHtml('<span data-mce-bogus="all" style="display: inline-block;">' + ZWSP$1 + '</span>');
       before$4(startPoint.element, span);
       return markerInfo(span, function () {
         return remove$7(span);
@@ -13378,17 +12928,24 @@
       }
     };
 
+    var each$d = Tools.each, trim = Tools.trim;
+    var queryParts = 'source protocol authority userInfo user password host port relative path directory file query anchor'.split(' ');
+    var DEFAULT_PORTS = {
+      ftp: 21,
+      http: 80,
+      https: 443,
+      mailto: 25
+    };
     var safeSvgDataUrlElements = [
       'img',
       'video'
     ];
-    var filteredClobberElements = Tools.makeMap('button,fieldset,form,iframe,img,image,input,object,output,select,textarea');
-    var isValidPrefixAttrName = function (name) {
-      return name.indexOf('data-') === 0 || name.indexOf('aria-') === 0;
-    };
     var blockSvgDataUris = function (allowSvgDataUrls, tagName) {
-      var allowed = isNullable(allowSvgDataUrls) ? contains$3(safeSvgDataUrlElements, tagName) : allowSvgDataUrls;
-      return !allowed;
+      if (isNonNullable(allowSvgDataUrls)) {
+        return !allowSvgDataUrls;
+      } else {
+        return isNonNullable(tagName) ? !contains$3(safeSvgDataUrlElements, tagName) : true;
+      }
     };
     var isInvalidUri = function (settings, uri, tagName) {
       if (settings.allow_html_data_urls) {
@@ -13398,6 +12955,266 @@
       } else {
         return /^data:/i.test(uri);
       }
+    };
+    var URI = function () {
+      function URI(url, settings) {
+        url = trim(url);
+        this.settings = settings || {};
+        var baseUri = this.settings.base_uri;
+        var self = this;
+        if (/^([\w\-]+):([^\/]{2})/i.test(url) || /^\s*#/.test(url)) {
+          self.source = url;
+          return;
+        }
+        var isProtocolRelative = url.indexOf('//') === 0;
+        if (url.indexOf('/') === 0 && !isProtocolRelative) {
+          url = (baseUri ? baseUri.protocol || 'http' : 'http') + '://mce_host' + url;
+        }
+        if (!/^[\w\-]*:?\/\//.test(url)) {
+          var baseUrl = this.settings.base_uri ? this.settings.base_uri.path : new URI(document.location.href).directory;
+          if (this.settings.base_uri && this.settings.base_uri.protocol == '') {
+            url = '//mce_host' + self.toAbsPath(baseUrl, url);
+          } else {
+            var match = /([^#?]*)([#?]?.*)/.exec(url);
+            url = (baseUri && baseUri.protocol || 'http') + '://mce_host' + self.toAbsPath(baseUrl, match[1]) + match[2];
+          }
+        }
+        url = url.replace(/@@/g, '(mce_at)');
+        var urlMatch = /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@\/]*):?([^:@\/]*))?@)?(\[[a-zA-Z0-9:.%]+\]|[^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/.exec(url);
+        each$d(queryParts, function (v, i) {
+          var part = urlMatch[i];
+          if (part) {
+            part = part.replace(/\(mce_at\)/g, '@@');
+          }
+          self[v] = part;
+        });
+        if (baseUri) {
+          if (!self.protocol) {
+            self.protocol = baseUri.protocol;
+          }
+          if (!self.userInfo) {
+            self.userInfo = baseUri.userInfo;
+          }
+          if (!self.port && self.host === 'mce_host') {
+            self.port = baseUri.port;
+          }
+          if (!self.host || self.host === 'mce_host') {
+            self.host = baseUri.host;
+          }
+          self.source = '';
+        }
+        if (isProtocolRelative) {
+          self.protocol = '';
+        }
+      }
+      URI.parseDataUri = function (uri) {
+        var type;
+        var uriComponents = decodeURIComponent(uri).split(',');
+        var matches = /data:([^;]+)/.exec(uriComponents[0]);
+        if (matches) {
+          type = matches[1];
+        }
+        return {
+          type: type,
+          data: uriComponents[1]
+        };
+      };
+      URI.isDomSafe = function (uri, context, options) {
+        if (options === void 0) {
+          options = {};
+        }
+        if (options.allow_script_urls) {
+          return true;
+        } else {
+          var decodedUri = Entities.decode(uri).replace(/[\s\u0000-\u001F]+/g, '');
+          try {
+            decodedUri = decodeURIComponent(decodedUri);
+          } catch (ex) {
+            decodedUri = unescape(decodedUri);
+          }
+          if (/((java|vb)script|mhtml):/i.test(decodedUri)) {
+            return false;
+          }
+          return !isInvalidUri(options, decodedUri, context);
+        }
+      };
+      URI.getDocumentBaseUrl = function (loc) {
+        var baseUrl;
+        if (loc.protocol.indexOf('http') !== 0 && loc.protocol !== 'file:') {
+          baseUrl = loc.href;
+        } else {
+          baseUrl = loc.protocol + '//' + loc.host + loc.pathname;
+        }
+        if (/^[^:]+:\/\/\/?[^\/]+\//.test(baseUrl)) {
+          baseUrl = baseUrl.replace(/[\?#].*$/, '').replace(/[\/\\][^\/]+$/, '');
+          if (!/[\/\\]$/.test(baseUrl)) {
+            baseUrl += '/';
+          }
+        }
+        return baseUrl;
+      };
+      URI.prototype.setPath = function (path) {
+        var pathMatch = /^(.*?)\/?(\w+)?$/.exec(path);
+        this.path = pathMatch[0];
+        this.directory = pathMatch[1];
+        this.file = pathMatch[2];
+        this.source = '';
+        this.getURI();
+      };
+      URI.prototype.toRelative = function (uri) {
+        var output;
+        if (uri === './') {
+          return uri;
+        }
+        var relativeUri = new URI(uri, { base_uri: this });
+        if (relativeUri.host !== 'mce_host' && this.host !== relativeUri.host && relativeUri.host || this.port !== relativeUri.port || this.protocol !== relativeUri.protocol && relativeUri.protocol !== '') {
+          return relativeUri.getURI();
+        }
+        var tu = this.getURI(), uu = relativeUri.getURI();
+        if (tu === uu || tu.charAt(tu.length - 1) === '/' && tu.substr(0, tu.length - 1) === uu) {
+          return tu;
+        }
+        output = this.toRelPath(this.path, relativeUri.path);
+        if (relativeUri.query) {
+          output += '?' + relativeUri.query;
+        }
+        if (relativeUri.anchor) {
+          output += '#' + relativeUri.anchor;
+        }
+        return output;
+      };
+      URI.prototype.toAbsolute = function (uri, noHost) {
+        var absoluteUri = new URI(uri, { base_uri: this });
+        return absoluteUri.getURI(noHost && this.isSameOrigin(absoluteUri));
+      };
+      URI.prototype.isSameOrigin = function (uri) {
+        if (this.host == uri.host && this.protocol == uri.protocol) {
+          if (this.port == uri.port) {
+            return true;
+          }
+          var defaultPort = DEFAULT_PORTS[this.protocol];
+          if (defaultPort && (this.port || defaultPort) == (uri.port || defaultPort)) {
+            return true;
+          }
+        }
+        return false;
+      };
+      URI.prototype.toRelPath = function (base, path) {
+        var breakPoint = 0, out = '', i, l;
+        var normalizedBase = base.substring(0, base.lastIndexOf('/')).split('/');
+        var items = path.split('/');
+        if (normalizedBase.length >= items.length) {
+          for (i = 0, l = normalizedBase.length; i < l; i++) {
+            if (i >= items.length || normalizedBase[i] !== items[i]) {
+              breakPoint = i + 1;
+              break;
+            }
+          }
+        }
+        if (normalizedBase.length < items.length) {
+          for (i = 0, l = items.length; i < l; i++) {
+            if (i >= normalizedBase.length || normalizedBase[i] !== items[i]) {
+              breakPoint = i + 1;
+              break;
+            }
+          }
+        }
+        if (breakPoint === 1) {
+          return path;
+        }
+        for (i = 0, l = normalizedBase.length - (breakPoint - 1); i < l; i++) {
+          out += '../';
+        }
+        for (i = breakPoint - 1, l = items.length; i < l; i++) {
+          if (i !== breakPoint - 1) {
+            out += '/' + items[i];
+          } else {
+            out += items[i];
+          }
+        }
+        return out;
+      };
+      URI.prototype.toAbsPath = function (base, path) {
+        var i, nb = 0, o = [], outPath;
+        var tr = /\/$/.test(path) ? '/' : '';
+        var normalizedBase = base.split('/');
+        var normalizedPath = path.split('/');
+        each$d(normalizedBase, function (k) {
+          if (k) {
+            o.push(k);
+          }
+        });
+        normalizedBase = o;
+        for (i = normalizedPath.length - 1, o = []; i >= 0; i--) {
+          if (normalizedPath[i].length === 0 || normalizedPath[i] === '.') {
+            continue;
+          }
+          if (normalizedPath[i] === '..') {
+            nb++;
+            continue;
+          }
+          if (nb > 0) {
+            nb--;
+            continue;
+          }
+          o.push(normalizedPath[i]);
+        }
+        i = normalizedBase.length - nb;
+        if (i <= 0) {
+          outPath = reverse(o).join('/');
+        } else {
+          outPath = normalizedBase.slice(0, i).join('/') + '/' + reverse(o).join('/');
+        }
+        if (outPath.indexOf('/') !== 0) {
+          outPath = '/' + outPath;
+        }
+        if (tr && outPath.lastIndexOf('/') !== outPath.length - 1) {
+          outPath += tr;
+        }
+        return outPath;
+      };
+      URI.prototype.getURI = function (noProtoHost) {
+        if (noProtoHost === void 0) {
+          noProtoHost = false;
+        }
+        var s;
+        if (!this.source || noProtoHost) {
+          s = '';
+          if (!noProtoHost) {
+            if (this.protocol) {
+              s += this.protocol + '://';
+            } else {
+              s += '//';
+            }
+            if (this.userInfo) {
+              s += this.userInfo + '@';
+            }
+            if (this.host) {
+              s += this.host;
+            }
+            if (this.port) {
+              s += ':' + this.port;
+            }
+          }
+          if (this.path) {
+            s += this.path;
+          }
+          if (this.query) {
+            s += '?' + this.query;
+          }
+          if (this.anchor) {
+            s += '#' + this.anchor;
+          }
+          this.source = s;
+        }
+        return this.source;
+      };
+      return URI;
+    }();
+
+    var filteredClobberElements = Tools.makeMap('button,fieldset,form,iframe,img,image,input,object,output,select,textarea');
+    var isValidPrefixAttrName = function (name) {
+      return name.indexOf('data-') === 0 || name.indexOf('aria-') === 0;
     };
     var findMatchingEndTagIndex = function (schema, html, startIndex) {
       var startTagRegExp = /<([!?\/])?([A-Za-z0-9\-_:.]+)/g;
@@ -13500,7 +13317,6 @@
         var anyAttributesRequired, attrValue, idCount = 0;
         var decode = Entities.decode;
         var filteredUrlAttrs = Tools.makeMap('src,href,data,background,action,formaction,poster,xlink:href');
-        var scriptUriRegExp = /((java|vb)script|mhtml):/i;
         var parsingMode = format === 'html' ? 0 : 1;
         var processEndTag = function (name) {
           var pos, i;
@@ -13547,21 +13363,19 @@
           return endIndex + 1;
         };
         var parseAttribute = function (tagName, name, value, val2, val3) {
-          var attrRule, i;
-          var trimRegExp = /[\s\u0000-\u001F]+/g;
           name = name.toLowerCase();
           value = processAttr(name in fillAttrsMap ? name : decode(value || val2 || val3 || ''));
           if (validate && !isInternalElement && isValidPrefixAttrName(name) === false) {
-            attrRule = validAttributesMap[name];
+            var attrRule = validAttributesMap[name];
             if (!attrRule && validAttributePatterns) {
-              i = validAttributePatterns.length;
-              while (i--) {
-                attrRule = validAttributePatterns[i];
+              var i_1 = validAttributePatterns.length;
+              while (i_1--) {
+                attrRule = validAttributePatterns[i_1];
                 if (attrRule.pattern.test(name)) {
                   break;
                 }
               }
-              if (i === -1) {
+              if (i_1 === -1) {
                 attrRule = null;
               }
             }
@@ -13576,19 +13390,8 @@
           if (isNameOrId && tagName in filteredClobberElements && (value in doc || value in form)) {
             return;
           }
-          if (filteredUrlAttrs[name] && !settings.allow_script_urls) {
-            var uri = value.replace(trimRegExp, '');
-            try {
-              uri = decodeURIComponent(uri);
-            } catch (ex) {
-              uri = unescape(uri);
-            }
-            if (scriptUriRegExp.test(uri)) {
-              return;
-            }
-            if (isInvalidUri(settings, uri, tagName)) {
-              return;
-            }
+          if (filteredUrlAttrs[name] && !URI.isDomSafe(value, tagName, settings)) {
+            return;
           }
           if (isInternalElement && (name in filteredUrlAttrs || name.indexOf('on') === 0)) {
             return;
@@ -13881,7 +13684,7 @@
       });
     };
 
-    var each$d = Tools.each;
+    var each$c = Tools.each;
     var ElementUtils = function (dom) {
       var compare = function (node1, node2) {
         if (node1.nodeName !== node2.nodeName) {
@@ -13889,7 +13692,7 @@
         }
         var getAttribs = function (node) {
           var attribs = {};
-          each$d(dom.getAttribs(node), function (attr) {
+          each$c(dom.getAttribs(node), function (attr) {
             var name = attr.nodeName.toLowerCase();
             if (name.indexOf('_') !== 0 && name !== 'style' && name.indexOf('data-') !== 0) {
               attribs[name] = dom.getAttrib(node, name);
@@ -14899,48 +14702,80 @@
         }
       });
     };
-    var setCursorInCell = function (editor, cell) {
+    var deleteContentInsideCell = function (editor, cell, rng, isFirstCellInSelection) {
+      var insideTableRng = rng.cloneRange();
+      if (isFirstCellInSelection) {
+        insideTableRng.setStart(rng.startContainer, rng.startOffset);
+        insideTableRng.setEndAfter(cell.dom.lastChild);
+      } else {
+        insideTableRng.setStartBefore(cell.dom.firstChild);
+        insideTableRng.setEnd(rng.endContainer, rng.endOffset);
+      }
+      deleteCellContents(editor, insideTableRng, cell, false);
+    };
+    var collapseAndRestoreCellSelection = function (editor) {
       var selectedCells = getCellsFromEditor(editor);
-      editor.selection.setCursorLocation(cell.dom, 0);
-      if (selectedCells.length > 1) {
-        set$1(cell, 'data-mce-selected', '1');
+      var selectedNode = SugarElement.fromDom(editor.selection.getNode());
+      if (isTableCell$5(selectedNode.dom) && isEmpty$2(selectedNode)) {
+        editor.selection.setCursorLocation(selectedNode.dom, 0);
+      } else {
+        editor.selection.collapse(true);
+      }
+      if (selectedCells.length > 1 && exists(selectedCells, function (cell) {
+          return eq(cell, selectedNode);
+        })) {
+        set$1(selectedNode, 'data-mce-selected', '1');
       }
     };
     var emptySingleTableCells = function (editor, cells, outsideDetails) {
-      cleanCells(cells);
-      outsideDetails.map(function (_a) {
+      var editorRng = editor.selection.getRng();
+      var cellsToClean = outsideDetails.bind(function (_a) {
         var rng = _a.rng, isStartInTable = _a.isStartInTable;
         var outsideBlock = getOutsideBlock(editor, isStartInTable ? rng.endContainer : rng.startContainer);
         rng.deleteContents();
         handleEmptyBlock(editor, isStartInTable, outsideBlock.filter(isEmpty$2));
-      });
-      if (outsideDetails.forall(function (details) {
-          return details.isStartInTable;
-        })) {
-        setCursorInCell(editor, cells[0]);
-      } else {
-        editor.selection.collapse(true);
-      }
+        var endPointCell = isStartInTable ? cells[0] : cells[cells.length - 1];
+        deleteContentInsideCell(editor, endPointCell, editorRng, isStartInTable);
+        if (!isEmpty$2(endPointCell)) {
+          return Optional.some(isStartInTable ? cells.slice(1) : cells.slice(0, -1));
+        } else {
+          return Optional.none();
+        }
+      }).getOr(cells);
+      cleanCells(cellsToClean);
+      collapseAndRestoreCellSelection(editor);
       return true;
     };
     var emptyMultiTableCells = function (editor, startTableCells, endTableCells, betweenRng) {
-      cleanCells(startTableCells.concat(endTableCells));
+      var rng = editor.selection.getRng();
+      var startCell = startTableCells[0];
+      var endCell = endTableCells[endTableCells.length - 1];
+      deleteContentInsideCell(editor, startCell, rng, true);
+      deleteContentInsideCell(editor, endCell, rng, false);
+      var startTableCellsToClean = isEmpty$2(startCell) ? startTableCells : startTableCells.slice(1);
+      var endTableCellsToClean = isEmpty$2(endCell) ? endTableCells : endTableCells.slice(0, -1);
+      cleanCells(startTableCellsToClean.concat(endTableCellsToClean));
       betweenRng.deleteContents();
-      setCursorInCell(editor, startTableCells[0]);
+      collapseAndRestoreCellSelection(editor);
       return true;
     };
-    var deleteCellContents = function (editor, rng, cell) {
+    var deleteCellContents = function (editor, rng, cell, moveSelection) {
+      if (moveSelection === void 0) {
+        moveSelection = true;
+      }
       rng.deleteContents();
       var lastNode = freefallRtl(cell).getOr(cell);
       var lastBlock = SugarElement.fromDom(editor.dom.getParent(lastNode.dom, editor.dom.isBlock));
       if (isEmpty$2(lastBlock)) {
         fillWithPaddingBr(lastBlock);
-        editor.selection.setCursorLocation(lastBlock.dom, 0);
+        if (moveSelection) {
+          editor.selection.setCursorLocation(lastBlock.dom, 0);
+        }
       }
       if (!eq(cell, lastBlock)) {
         var additionalCleanupNodes = is$1(parent(lastBlock), cell) ? [] : siblings(lastBlock);
         each$k(additionalCleanupNodes.concat(children(cell)), function (node) {
-          if (!eq(node, lastBlock) && !contains$1(node, lastBlock)) {
+          if (!eq(node, lastBlock) && !contains$1(node, lastBlock) && isEmpty$2(node)) {
             remove$7(node);
           }
         });
@@ -15285,23 +15120,14 @@
       var nextRng;
       var dom = editor.dom;
       var selection = editor.selection;
-      var getContentEditableFalseParent = function (node) {
-        var root = editor.getBody();
-        for (; node && node !== root; node = node.parentNode) {
-          if (dom.getContentEditable(node) === 'false') {
-            return node;
-          }
-        }
-        return null;
-      };
       if (!marker) {
         return;
       }
       selection.scrollIntoView(marker);
-      var parentEditableFalseElm = getContentEditableFalseParent(marker);
-      if (parentEditableFalseElm) {
+      var parentEditableElm = getContentEditableRoot$1(editor.getBody(), marker);
+      if (dom.getContentEditable(parentEditableElm) === 'false') {
         dom.remove(marker);
-        selection.select(parentEditableFalseElm);
+        selection.select(parentEditableElm);
         return;
       }
       var rng = dom.createRng();
@@ -16047,7 +15873,7 @@
 
     var postProcessHooks = {};
     var filter = filter$2;
-    var each$c = each$i;
+    var each$b = each$i;
     var addPostProcessHook = function (name, hook) {
       var hooks = postProcessHooks[name];
       if (!hooks) {
@@ -16056,7 +15882,7 @@
       postProcessHooks[name].push(hook);
     };
     var postProcess$1 = function (name, editor) {
-      each$c(postProcessHooks[name], function (hook) {
+      each$b(postProcessHooks[name], function (hook) {
         hook(editor);
       });
     };
@@ -16073,13 +15899,13 @@
       var isPre = matchNodeNames(['pre']);
       if (!rng.collapsed) {
         blocks = editor.selection.getSelectedBlocks();
-        each$c(filter(filter(blocks, isPre), hasPreSibling), function (pre) {
+        each$b(filter(filter(blocks, isPre), hasPreSibling), function (pre) {
           joinPre(pre.previousSibling, pre);
         });
       }
     });
 
-    var each$b = Tools.each;
+    var each$a = Tools.each;
     var isElementNode$1 = function (node) {
       return isElement$5(node) && !isBookmarkNode$1(node) && !isCaretNode(node) && !isBogus$2(node);
     };
@@ -16123,9 +15949,9 @@
     var clearChildStyles = function (dom, format, node) {
       if (format.clear_child_styles) {
         var selector = format.links ? '*:not(a)' : '*';
-        each$b(dom.select(selector, node), function (node) {
+        each$a(dom.select(selector, node), function (node) {
           if (isElementNode$1(node)) {
-            each$b(format.styles, function (value, name) {
+            each$a(format.styles, function (value, name) {
               dom.setStyle(node, name, '');
             });
           }
@@ -16133,7 +15959,7 @@
       }
     };
     var processChildElements = function (node, filter, process) {
-      each$b(node.childNodes, function (node) {
+      each$a(node.childNodes, function (node) {
         if (isElementNode$1(node)) {
           if (filter(node)) {
             process(node);
@@ -16170,7 +15996,7 @@
       { removed: [] }
     ]);
     var MCE_ATTR_RE = /^(src|href|style)$/;
-    var each$a = Tools.each;
+    var each$9 = Tools.each;
     var isEq$2 = isEq$5;
     var isTableCellOrRow = function (node) {
       return /^(TR|TH|TD)$/.test(node.nodeName);
@@ -16304,7 +16130,7 @@
         }
       }
       if (format.remove !== 'all') {
-        each$a(format.styles, function (value, name) {
+        each$9(format.styles, function (value, name) {
           value = normalizeStyleValue(dom, replaceVars(value, vars), name + '');
           if (isNumber(name)) {
             name = value;
@@ -16319,7 +16145,7 @@
           elm.removeAttribute('style');
           elm.removeAttribute('data-mce-style');
         }
-        each$a(format.attributes, function (value, name) {
+        each$9(format.attributes, function (value, name) {
           var valueOut;
           value = replaceVars(value, vars);
           if (isNumber(name)) {
@@ -16356,7 +16182,7 @@
             elm.removeAttribute(name);
           }
         });
-        each$a(format.classes, function (value) {
+        each$9(format.classes, function (value) {
           value = replaceVars(value, vars);
           if (!compareNode || dom.hasClass(compareNode, value)) {
             dom.removeClass(elm, value);
@@ -16609,7 +16435,7 @@
       fireFormatRemove(ed, name, node, vars);
     };
 
-    var each$9 = Tools.each;
+    var each$8 = Tools.each;
     var mergeTextDecorationsAndColor = function (dom, format, vars, node) {
       var processTextDecorationsAndColor = function (n) {
         if (n.nodeType === 1 && n.parentNode && n.parentNode.nodeType === 1) {
@@ -16638,9 +16464,9 @@
       }
     };
     var mergeWithChildren = function (editor, formatList, vars, node) {
-      each$9(formatList, function (format) {
+      each$8(formatList, function (format) {
         if (isInlineFormat(format)) {
-          each$9(editor.dom.select(format.inline, node), function (child) {
+          each$8(editor.dom.select(format.inline, node), function (child) {
             if (!isElementNode$1(child)) {
               return;
             }
@@ -16666,7 +16492,7 @@
       }
     };
 
-    var each$8 = Tools.each;
+    var each$7 = Tools.each;
     var isElementNode = function (node) {
       return isElement$5(node) && !isBookmarkNode$1(node) && !isCaretNode(node) && !isBogus$2(node);
     };
@@ -16704,7 +16530,7 @@
         if (isFunction(fmt.onformat)) {
           fmt.onformat(elm, fmt, vars, node);
         }
-        each$8(fmt.styles, function (value, name) {
+        each$7(fmt.styles, function (value, name) {
           dom.setStyle(elm, name, replaceVars(value, vars));
         });
         if (fmt.styles) {
@@ -16713,10 +16539,10 @@
             dom.setAttrib(elm, 'data-mce-style', styleVal);
           }
         }
-        each$8(fmt.attributes, function (value, name) {
+        each$7(fmt.attributes, function (value, name) {
           dom.setAttrib(elm, name, replaceVars(value, vars));
         });
-        each$8(fmt.classes, function (value) {
+        each$7(fmt.classes, function (value) {
           value = replaceVars(value, vars);
           if (!dom.hasClass(elm, value)) {
             dom.addClass(elm, value);
@@ -16725,7 +16551,7 @@
       };
       var applyNodeStyle = function (formatList, node) {
         var found = false;
-        each$8(formatList, function (format) {
+        each$7(formatList, function (format) {
           if (!isSelectorFormat(format)) {
             return false;
           }
@@ -18246,29 +18072,36 @@
     function SelectorChanged (dom, editor) {
       var selectorChangedData;
       var currentSelectors;
+      var findMatchingNode = function (selector, nodes) {
+        return find$3(nodes, function (node) {
+          return dom.is(node, selector);
+        });
+      };
+      var getParents = function (elem) {
+        return dom.getParents(elem, null, dom.getRoot());
+      };
       return {
         selectorChangedWithUnbind: function (selector, callback) {
           if (!selectorChangedData) {
             selectorChangedData = {};
             currentSelectors = {};
             editor.on('NodeChange', function (e) {
-              var node = e.element, parents = dom.getParents(node, null, dom.getRoot()), matchedSelectors = {};
+              var node = e.element;
+              var parents = getParents(node);
+              var matchedSelectors = {};
               Tools.each(selectorChangedData, function (callbacks, selector) {
-                Tools.each(parents, function (node) {
-                  if (dom.is(node, selector)) {
-                    if (!currentSelectors[selector]) {
-                      Tools.each(callbacks, function (callback) {
-                        callback(true, {
-                          node: node,
-                          selector: selector,
-                          parents: parents
-                        });
+                findMatchingNode(selector, parents).each(function (node) {
+                  if (!currentSelectors[selector]) {
+                    each$k(callbacks, function (callback) {
+                      callback(true, {
+                        node: node,
+                        selector: selector,
+                        parents: parents
                       });
-                      currentSelectors[selector] = callbacks;
-                    }
-                    matchedSelectors[selector] = callbacks;
-                    return false;
+                    });
+                    currentSelectors[selector] = callbacks;
                   }
+                  matchedSelectors[selector] = callbacks;
                 });
               });
               Tools.each(currentSelectors, function (callbacks, selector) {
@@ -18289,6 +18122,9 @@
             selectorChangedData[selector] = [];
           }
           selectorChangedData[selector].push(callback);
+          findMatchingNode(selector, getParents(editor.selection.getStart())).each(function () {
+            currentSelectors[selector] = selectorChangedData[selector];
+          });
           return {
             unbind: function () {
               deleteFromCallbackMap(selectorChangedData, selector, callback);
@@ -18522,7 +18358,11 @@
         return scrollContainer;
       };
       var scrollIntoView = function (elm, alignToTop) {
-        return scrollElementIntoView(editor, elm, alignToTop);
+        if (isNonNullable(elm)) {
+          scrollElementIntoView(editor, elm, alignToTop);
+        } else {
+          scrollRangeIntoView(editor, getRng$1(), alignToTop);
+        }
       };
       var placeCaretAt = function (clientX, clientY) {
         return setRng(fromPoint(clientX, clientY, editor.getDoc()));
@@ -19045,7 +18885,7 @@
       registerBase64ImageFilter(parser, settings);
     };
 
-    var makeMap = Tools.makeMap, each$7 = Tools.each, explode$2 = Tools.explode, extend$4 = Tools.extend;
+    var makeMap = Tools.makeMap, each$6 = Tools.each, explode$2 = Tools.explode, extend$4 = Tools.extend;
     var DomParser = function (settings, schema) {
       if (schema === void 0) {
         schema = Schema();
@@ -19185,7 +19025,7 @@
         return node;
       };
       var addNodeFilter = function (name, callback) {
-        each$7(explode$2(name), function (name) {
+        each$6(explode$2(name), function (name) {
           var list = nodeFilters[name];
           if (!list) {
             nodeFilters[name] = list = [];
@@ -19206,7 +19046,7 @@
         return out;
       };
       var addAttributeFilter = function (name, callback) {
-        each$7(explode$2(name), function (name) {
+        each$6(explode$2(name), function (name) {
           var i;
           for (i = 0; i < attributeFilters.length; i++) {
             if (attributeFilters[i].name === name) {
@@ -19920,6 +19760,44 @@
     };
     var deepMerge = baseMerge(deep);
 
+    var deprecatedSettings = ('autoresize_on_init,content_editable_state,convert_fonts_to_spans,inline_styles,padd_empty_with_br,block_elements,' + 'boolean_attributes,editor_deselector,editor_selector,elements,file_browser_callback_types,filepicker_validator_handler,' + 'force_hex_style_colors,force_p_newlines,gecko_spellcheck,images_dataimg_filter,media_scripts,mode,move_caret_before_on_enter_elements,' + 'non_empty_elements,self_closing_elements,short_ended_elements,special,spellchecker_select_languages,spellchecker_whitelist,' + 'tab_focus,table_responsive_width,text_block_elements,text_inline_elements,toolbar_drawer,types,validate,whitespace_elements,' + 'paste_word_valid_elements,paste_retain_style_properties,paste_convert_word_fake_lists').split(',');
+    var deprecatedPlugins = 'bbcode,colorpicker,contextmenu,fullpage,legacyoutput,spellchecker,textcolor'.split(',');
+    var movedToPremiumPlugins = 'imagetools,toc'.split(',');
+    var getDeprecatedSettings = function (settings) {
+      var settingNames = filter$4(deprecatedSettings, function (setting) {
+        return has$2(settings, setting);
+      });
+      var forcedRootBlock = settings.forced_root_block;
+      if (forcedRootBlock === false || forcedRootBlock === '') {
+        settingNames.push('forced_root_block (false only)');
+      }
+      return sort(settingNames);
+    };
+    var getDeprecatedPlugins = function (settings) {
+      var plugins = Tools.makeMap(settings.plugins, ' ');
+      var hasPlugin = function (plugin) {
+        return has$2(plugins, plugin);
+      };
+      var pluginNames = __spreadArray(__spreadArray([], filter$4(deprecatedPlugins, hasPlugin), true), bind(movedToPremiumPlugins, function (plugin) {
+        return hasPlugin(plugin) ? [plugin + ' (moving to premium)'] : [];
+      }), true);
+      return sort(pluginNames);
+    };
+    var logDeprecationsWarning = function (rawSettings, finalSettings) {
+      var deprecatedSettings = getDeprecatedSettings(rawSettings);
+      var deprecatedPlugins = getDeprecatedPlugins(finalSettings);
+      var hasDeprecatedPlugins = deprecatedPlugins.length > 0;
+      var hasDeprecatedSettings = deprecatedSettings.length > 0;
+      var isLegacyMobileTheme = finalSettings.theme === 'mobile';
+      if (hasDeprecatedPlugins || hasDeprecatedSettings || isLegacyMobileTheme) {
+        var listJoiner = '\n- ';
+        var themesMessage = isLegacyMobileTheme ? '\n\nThemes:' + listJoiner + 'mobile' : '';
+        var pluginsMessage = hasDeprecatedPlugins ? '\n\nPlugins:' + listJoiner + deprecatedPlugins.join(listJoiner) : '';
+        var settingsMessage = hasDeprecatedSettings ? '\n\nSettings:' + listJoiner + deprecatedSettings.join(listJoiner) : '';
+        console.warn('The following deprecated features are currently enabled, these will be removed in TinyMCE 6.0. ' + 'See https://www.tiny.cloud/docs/release-notes/6.0-upcoming-changes/ for more information.' + themesMessage + pluginsMessage + settingsMessage);
+      }
+    };
+
     var sectionResult = function (sections, settings) {
       return {
         sections: constant(sections),
@@ -20066,7 +19944,11 @@
     };
     var getEditorSettings = function (editor, id, documentBaseUrl, defaultOverrideSettings, settings) {
       var defaultSettings = getDefaultSettings(settings, id, documentBaseUrl, isTouch, editor);
-      return combineSettings(isPhone || isTablet, isPhone, defaultSettings, defaultOverrideSettings, settings);
+      var finalSettings = combineSettings(isPhone || isTablet, isPhone, defaultSettings, defaultOverrideSettings, settings);
+      if (finalSettings.deprecation_warnings !== false) {
+        logDeprecationsWarning(settings, finalSettings);
+      }
+      return finalSettings;
     };
     var getFiltered = function (predicate, editor, name) {
       return Optional.from(editor.settings[name]).filter(predicate);
@@ -20267,8 +20149,9 @@
               timeout: 0
             }, false);
           }
+          reposition();
         });
-        editor.on('ResizeEditor ResizeWindow NodeChange', function () {
+        editor.on('show ResizeEditor ResizeWindow NodeChange', function () {
           Delay.requestAnimationFrame(reposition);
         });
         editor.on('remove', function () {
@@ -20440,9 +20323,9 @@
       var console = window.console;
       if (console) {
         if (console.error) {
-          console.error.apply(console, __spreadArray([message], x));
+          console.error.apply(console, __spreadArray([message], x, false));
         } else {
-          console.log.apply(console, __spreadArray([message], x));
+          console.log.apply(console, __spreadArray([message], x, false));
         }
       }
     };
@@ -21374,7 +21257,7 @@
       };
     };
 
-    var each$6 = Tools.each;
+    var each$5 = Tools.each;
     var dom = DOMUtils.DOM;
     var parsedSelectorToHtml = function (ancestry, editor) {
       var elm, item, fragment;
@@ -21535,19 +21418,19 @@
         previewFrag = parsedSelectorToHtml([name], editor);
       }
       var previewElm = dom.select(name, previewFrag)[0] || previewFrag.firstChild;
-      each$6(format.styles, function (value, name) {
+      each$5(format.styles, function (value, name) {
         var newValue = removeVars(value);
         if (newValue) {
           dom.setStyle(previewElm, name, newValue);
         }
       });
-      each$6(format.attributes, function (value, name) {
+      each$5(format.attributes, function (value, name) {
         var newValue = removeVars(value);
         if (newValue) {
           dom.setAttrib(previewElm, name, newValue);
         }
       });
-      each$6(format.classes, function (value) {
+      each$5(format.classes, function (value) {
         var newValue = removeVars(value);
         if (!dom.hasClass(previewElm, newValue)) {
           dom.addClass(previewElm, newValue);
@@ -21561,7 +21444,7 @@
       editor.getBody().appendChild(previewFrag);
       parentFontSize = dom.getStyle(editor.getBody(), 'fontSize', true);
       parentFontSize = /px$/.test(parentFontSize) ? parseInt(parentFontSize, 10) : 0;
-      each$6(previewStyles.split(' '), function (name) {
+      each$5(previewStyles.split(' '), function (name) {
         var value = dom.getStyle(previewElm, name, true);
         if (name === 'background-color' && /transparent|rgba\s*\([^)]+,\s*0\)/.test(value)) {
           value = dom.getStyle(editor.getBody(), name, true);
@@ -23000,17 +22883,23 @@
     var isInsideY = function (clientY, clientRect) {
       return clientY >= clientRect.top && clientY <= clientRect.bottom;
     };
-    var findClosestClientRect = function (clientRects, clientX) {
+    var isNodeClientRect = function (rect) {
+      return hasNonNullableKey(rect, 'node');
+    };
+    var findClosestClientRect = function (clientRects, clientX, allowInside) {
+      if (allowInside === void 0) {
+        allowInside = always;
+      }
       return reduce(clientRects, function (oldClientRect, clientRect) {
-        var oldDistance = Math.min(distanceToRectLeft(oldClientRect, clientX), distanceToRectRight(oldClientRect, clientX));
-        var newDistance = Math.min(distanceToRectLeft(clientRect, clientX), distanceToRectRight(clientRect, clientX));
         if (isInsideX(clientX, clientRect)) {
-          return clientRect;
+          return allowInside(clientRect) ? clientRect : oldClientRect;
         }
         if (isInsideX(clientX, oldClientRect)) {
-          return oldClientRect;
+          return allowInside(oldClientRect) ? oldClientRect : clientRect;
         }
-        if (newDistance === oldDistance && isContentEditableFalse$3(clientRect.node)) {
+        var oldDistance = Math.min(distanceToRectLeft(oldClientRect, clientX), distanceToRectRight(oldClientRect, clientX));
+        var newDistance = Math.min(distanceToRectLeft(clientRect, clientX), distanceToRectRight(clientRect, clientX));
+        if (newDistance === oldDistance && isNodeClientRect(clientRect) && isContentEditableFalse$3(clientRect.node)) {
           return clientRect;
         }
         if (newDistance < oldDistance) {
@@ -23056,10 +22945,13 @@
     var closestFakeCaret = function (root, clientX, clientY) {
       var fakeTargetNodeRects = getClientRects(getFakeCaretTargets(root));
       var targetNodeRects = filter$4(fakeTargetNodeRects, curry(isInsideY, clientY));
-      var closestNodeRect = findClosestClientRect(targetNodeRects, clientX);
+      var checkInside = function (clientRect) {
+        return !isTable$3(clientRect.node) && !isMedia$2(clientRect.node);
+      };
+      var closestNodeRect = findClosestClientRect(targetNodeRects, clientX, checkInside);
       if (closestNodeRect) {
-        var includeChildren = !isTable$3(closestNodeRect.node) && !isMedia$2(closestNodeRect.node);
-        closestNodeRect = findClosestClientRect(findLineNodeRects(root, closestNodeRect, includeChildren), clientX);
+        var includeChildren = checkInside(closestNodeRect);
+        closestNodeRect = findClosestClientRect(findLineNodeRects(root, closestNodeRect, includeChildren), clientX, checkInside);
         if (closestNodeRect && isFakeCaretTarget(closestNodeRect.node)) {
           return caretInfo(closestNodeRect, clientX);
         }
@@ -24602,7 +24494,7 @@
         var filteredClasses = filter$4(currentClasses, function (clazz) {
           return !contains$3(attrClasses, clazz);
         });
-        var newClasses = __spreadArray(__spreadArray([], attrClasses), filteredClasses);
+        var newClasses = __spreadArray(__spreadArray([], attrClasses, true), filteredClasses, true);
         dom.setAttrib(node, 'class', newClasses.join(' '));
       });
       var appliedAttrs = [
@@ -25669,6 +25561,7 @@
                 });
               }
             }
+            editor.fire('dragend');
           }
         });
         removeDragState(state);
@@ -25706,6 +25599,11 @@
       editor.on('remove', function () {
         pageDom.unbind(rootDocument, 'mousemove', dragHandler);
         pageDom.unbind(rootDocument, 'mouseup', dragEndHandler);
+      });
+      editor.on('keydown', function (e) {
+        if (e.keyCode === VK.ESC) {
+          dragEndHandler();
+        }
       });
     };
     var blockIeDrop = function (editor) {
@@ -25882,13 +25780,18 @@
         editor.on('blur NewBlock', removeElementSelection);
         editor.on('ResizeWindow FullscreenStateChanged', fakeCaret.reposition);
         var hasNormalCaretPosition = function (elm) {
-          var caretWalker = CaretWalker(elm);
-          if (!elm.firstChild) {
+          var start = elm.firstChild;
+          if (isNullable(start)) {
             return false;
           }
-          var startPos = CaretPosition.before(elm.firstChild);
-          var newPos = caretWalker.next(startPos);
-          return newPos && !isNearFakeSelectionElement(newPos);
+          var startPos = CaretPosition.before(start);
+          if (isBr$5(startPos.getNode()) && elm.childNodes.length === 1) {
+            return !isNearFakeSelectionElement(startPos);
+          } else {
+            var caretWalker = CaretWalker(elm);
+            var newPos = caretWalker.next(startPos);
+            return newPos && !isNearFakeSelectionElement(newPos);
+          }
         };
         var isInSameBlock = function (node1, node2) {
           var block1 = dom.getParent(node1, isBlock);
@@ -25898,10 +25801,13 @@
         var hasBetterMouseTarget = function (targetNode, caretNode) {
           var targetBlock = dom.getParent(targetNode, isBlock);
           var caretBlock = dom.getParent(caretNode, isBlock);
-          if (targetBlock && targetNode !== caretBlock && dom.isChildOf(targetBlock, caretBlock) && isContentEditableFalse(getContentEditableRoot(editor, targetBlock)) === false) {
+          if (isNullable(targetBlock)) {
+            return false;
+          }
+          if (targetNode !== caretBlock && dom.isChildOf(targetBlock, caretBlock) && isContentEditableFalse(getContentEditableRoot(editor, targetBlock)) === false) {
             return true;
           }
-          return targetBlock && !isInSameBlock(targetBlock, caretBlock) && hasNormalCaretPosition(targetBlock);
+          return !dom.isChildOf(caretBlock, targetBlock) && !isInSameBlock(targetBlock, caretBlock) && hasNormalCaretPosition(targetBlock);
         };
         editor.on('tap', function (e) {
           var targetElm = e.target;
@@ -25943,8 +25849,8 @@
               if (!hasBetterMouseTarget(targetElm, fakeCaretInfo.node)) {
                 e.preventDefault();
                 var range = showCaret(1, fakeCaretInfo.node, fakeCaretInfo.before, false);
-                editor.getBody().focus();
                 setRange(range);
+                editor.getBody().focus();
               }
             }
           }
@@ -27527,7 +27433,7 @@
       insertContent(editor, result.content, result.details);
     };
 
-    var each$5 = Tools.each;
+    var each$4 = Tools.each;
     var map = Tools.map, inArray = Tools.inArray;
     var EditorCommands = function () {
       function EditorCommands(editor) {
@@ -27570,7 +27476,7 @@
           });
           return true;
         }
-        each$5(this.editor.plugins, function (p) {
+        each$4(this.editor.plugins, function (p) {
           if (p.execCommand && p.execCommand(command, ui, value)) {
             self.editor.fire('ExecCommand', {
               command: command,
@@ -27640,8 +27546,8 @@
           type = 'exec';
         }
         var self = this;
-        each$5(commandList, function (callback, command) {
-          each$5(command.toLowerCase().split(','), function (command) {
+        each$4(commandList, function (callback, command) {
+          each$4(command.toLowerCase().split(','), function (command) {
             self.commands[type][command] = callback;
           });
         });
@@ -27751,7 +27657,7 @@
             if (align === 'full') {
               align = 'justify';
             }
-            each$5('left,center,right,justify'.split(','), function (name) {
+            each$4('left,center,right,justify'.split(','), function (name) {
               if (align !== name) {
                 editor.formatter.remove('align' + name);
               }
@@ -28131,9 +28037,9 @@
               this.toggleEvent(currentName, true);
             }
             if (prepend) {
-              handlers = __spreadArray([wrappedCallback], handlers);
+              handlers = __spreadArray([wrappedCallback], handlers, true);
             } else {
-              handlers = __spreadArray(__spreadArray([], handlers), [wrappedCallback]);
+              handlers = __spreadArray(__spreadArray([], handlers, true), [wrappedCallback], false);
             }
             this.bindings[currentName] = handlers;
           }
@@ -28444,7 +28350,7 @@
       };
     };
 
-    var each$4 = Tools.each, explode$1 = Tools.explode;
+    var each$3 = Tools.each, explode$1 = Tools.explode;
     var keyCodeLookup = {
       f1: 112,
       f2: 113,
@@ -28463,7 +28369,7 @@
     var parseShortcut = function (pattern) {
       var key;
       var shortcut = {};
-      each$4(explode$1(pattern.toLowerCase(), '+'), function (value) {
+      each$3(explode$1(pattern.toLowerCase(), '+'), function (value) {
         if (value in modifierNames) {
           shortcut[value] = true;
         } else {
@@ -28510,7 +28416,7 @@
         var self = this;
         editor.on('keyup keypress keydown', function (e) {
           if ((self.hasModifier(e) || self.isFunctionKey(e)) && !e.isDefaultPrevented()) {
-            each$4(self.shortcuts, function (shortcut) {
+            each$3(self.shortcuts, function (shortcut) {
               if (self.matchShortcut(e, shortcut)) {
                 self.pendingPatterns = shortcut.subpatterns.slice(0);
                 if (e.type === 'keydown') {
@@ -28533,7 +28439,7 @@
       Shortcuts.prototype.add = function (pattern, desc, cmdFunc, scope) {
         var self = this;
         var func = self.normalizeCommandFunc(cmdFunc);
-        each$4(explode$1(Tools.trim(pattern)), function (pattern) {
+        each$3(explode$1(Tools.trim(pattern)), function (pattern) {
           var shortcut = self.createShortcut(pattern, desc, func, scope);
           self.shortcuts[shortcut.id] = shortcut;
         });
@@ -28666,251 +28572,6 @@
         getAll: bridge.getAll
       };
     };
-
-    var each$3 = Tools.each, trim = Tools.trim;
-    var queryParts = 'source protocol authority userInfo user password host port relative path directory file query anchor'.split(' ');
-    var DEFAULT_PORTS = {
-      ftp: 21,
-      http: 80,
-      https: 443,
-      mailto: 25
-    };
-    var URI = function () {
-      function URI(url, settings) {
-        url = trim(url);
-        this.settings = settings || {};
-        var baseUri = this.settings.base_uri;
-        var self = this;
-        if (/^([\w\-]+):([^\/]{2})/i.test(url) || /^\s*#/.test(url)) {
-          self.source = url;
-          return;
-        }
-        var isProtocolRelative = url.indexOf('//') === 0;
-        if (url.indexOf('/') === 0 && !isProtocolRelative) {
-          url = (baseUri ? baseUri.protocol || 'http' : 'http') + '://mce_host' + url;
-        }
-        if (!/^[\w\-]*:?\/\//.test(url)) {
-          var baseUrl = this.settings.base_uri ? this.settings.base_uri.path : new URI(document.location.href).directory;
-          if (this.settings.base_uri && this.settings.base_uri.protocol == '') {
-            url = '//mce_host' + self.toAbsPath(baseUrl, url);
-          } else {
-            var match = /([^#?]*)([#?]?.*)/.exec(url);
-            url = (baseUri && baseUri.protocol || 'http') + '://mce_host' + self.toAbsPath(baseUrl, match[1]) + match[2];
-          }
-        }
-        url = url.replace(/@@/g, '(mce_at)');
-        var urlMatch = /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@\/]*):?([^:@\/]*))?@)?(\[[a-zA-Z0-9:.%]+\]|[^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/.exec(url);
-        each$3(queryParts, function (v, i) {
-          var part = urlMatch[i];
-          if (part) {
-            part = part.replace(/\(mce_at\)/g, '@@');
-          }
-          self[v] = part;
-        });
-        if (baseUri) {
-          if (!self.protocol) {
-            self.protocol = baseUri.protocol;
-          }
-          if (!self.userInfo) {
-            self.userInfo = baseUri.userInfo;
-          }
-          if (!self.port && self.host === 'mce_host') {
-            self.port = baseUri.port;
-          }
-          if (!self.host || self.host === 'mce_host') {
-            self.host = baseUri.host;
-          }
-          self.source = '';
-        }
-        if (isProtocolRelative) {
-          self.protocol = '';
-        }
-      }
-      URI.parseDataUri = function (uri) {
-        var type;
-        var uriComponents = decodeURIComponent(uri).split(',');
-        var matches = /data:([^;]+)/.exec(uriComponents[0]);
-        if (matches) {
-          type = matches[1];
-        }
-        return {
-          type: type,
-          data: uriComponents[1]
-        };
-      };
-      URI.getDocumentBaseUrl = function (loc) {
-        var baseUrl;
-        if (loc.protocol.indexOf('http') !== 0 && loc.protocol !== 'file:') {
-          baseUrl = loc.href;
-        } else {
-          baseUrl = loc.protocol + '//' + loc.host + loc.pathname;
-        }
-        if (/^[^:]+:\/\/\/?[^\/]+\//.test(baseUrl)) {
-          baseUrl = baseUrl.replace(/[\?#].*$/, '').replace(/[\/\\][^\/]+$/, '');
-          if (!/[\/\\]$/.test(baseUrl)) {
-            baseUrl += '/';
-          }
-        }
-        return baseUrl;
-      };
-      URI.prototype.setPath = function (path) {
-        var pathMatch = /^(.*?)\/?(\w+)?$/.exec(path);
-        this.path = pathMatch[0];
-        this.directory = pathMatch[1];
-        this.file = pathMatch[2];
-        this.source = '';
-        this.getURI();
-      };
-      URI.prototype.toRelative = function (uri) {
-        var output;
-        if (uri === './') {
-          return uri;
-        }
-        var relativeUri = new URI(uri, { base_uri: this });
-        if (relativeUri.host !== 'mce_host' && this.host !== relativeUri.host && relativeUri.host || this.port !== relativeUri.port || this.protocol !== relativeUri.protocol && relativeUri.protocol !== '') {
-          return relativeUri.getURI();
-        }
-        var tu = this.getURI(), uu = relativeUri.getURI();
-        if (tu === uu || tu.charAt(tu.length - 1) === '/' && tu.substr(0, tu.length - 1) === uu) {
-          return tu;
-        }
-        output = this.toRelPath(this.path, relativeUri.path);
-        if (relativeUri.query) {
-          output += '?' + relativeUri.query;
-        }
-        if (relativeUri.anchor) {
-          output += '#' + relativeUri.anchor;
-        }
-        return output;
-      };
-      URI.prototype.toAbsolute = function (uri, noHost) {
-        var absoluteUri = new URI(uri, { base_uri: this });
-        return absoluteUri.getURI(noHost && this.isSameOrigin(absoluteUri));
-      };
-      URI.prototype.isSameOrigin = function (uri) {
-        if (this.host == uri.host && this.protocol == uri.protocol) {
-          if (this.port == uri.port) {
-            return true;
-          }
-          var defaultPort = DEFAULT_PORTS[this.protocol];
-          if (defaultPort && (this.port || defaultPort) == (uri.port || defaultPort)) {
-            return true;
-          }
-        }
-        return false;
-      };
-      URI.prototype.toRelPath = function (base, path) {
-        var breakPoint = 0, out = '', i, l;
-        var normalizedBase = base.substring(0, base.lastIndexOf('/')).split('/');
-        var items = path.split('/');
-        if (normalizedBase.length >= items.length) {
-          for (i = 0, l = normalizedBase.length; i < l; i++) {
-            if (i >= items.length || normalizedBase[i] !== items[i]) {
-              breakPoint = i + 1;
-              break;
-            }
-          }
-        }
-        if (normalizedBase.length < items.length) {
-          for (i = 0, l = items.length; i < l; i++) {
-            if (i >= normalizedBase.length || normalizedBase[i] !== items[i]) {
-              breakPoint = i + 1;
-              break;
-            }
-          }
-        }
-        if (breakPoint === 1) {
-          return path;
-        }
-        for (i = 0, l = normalizedBase.length - (breakPoint - 1); i < l; i++) {
-          out += '../';
-        }
-        for (i = breakPoint - 1, l = items.length; i < l; i++) {
-          if (i !== breakPoint - 1) {
-            out += '/' + items[i];
-          } else {
-            out += items[i];
-          }
-        }
-        return out;
-      };
-      URI.prototype.toAbsPath = function (base, path) {
-        var i, nb = 0, o = [], outPath;
-        var tr = /\/$/.test(path) ? '/' : '';
-        var normalizedBase = base.split('/');
-        var normalizedPath = path.split('/');
-        each$3(normalizedBase, function (k) {
-          if (k) {
-            o.push(k);
-          }
-        });
-        normalizedBase = o;
-        for (i = normalizedPath.length - 1, o = []; i >= 0; i--) {
-          if (normalizedPath[i].length === 0 || normalizedPath[i] === '.') {
-            continue;
-          }
-          if (normalizedPath[i] === '..') {
-            nb++;
-            continue;
-          }
-          if (nb > 0) {
-            nb--;
-            continue;
-          }
-          o.push(normalizedPath[i]);
-        }
-        i = normalizedBase.length - nb;
-        if (i <= 0) {
-          outPath = reverse(o).join('/');
-        } else {
-          outPath = normalizedBase.slice(0, i).join('/') + '/' + reverse(o).join('/');
-        }
-        if (outPath.indexOf('/') !== 0) {
-          outPath = '/' + outPath;
-        }
-        if (tr && outPath.lastIndexOf('/') !== outPath.length - 1) {
-          outPath += tr;
-        }
-        return outPath;
-      };
-      URI.prototype.getURI = function (noProtoHost) {
-        if (noProtoHost === void 0) {
-          noProtoHost = false;
-        }
-        var s;
-        if (!this.source || noProtoHost) {
-          s = '';
-          if (!noProtoHost) {
-            if (this.protocol) {
-              s += this.protocol + '://';
-            } else {
-              s += '//';
-            }
-            if (this.userInfo) {
-              s += this.userInfo + '@';
-            }
-            if (this.host) {
-              s += this.host;
-            }
-            if (this.port) {
-              s += ':' + this.port;
-            }
-          }
-          if (this.path) {
-            s += this.path;
-          }
-          if (this.query) {
-            s += '?' + this.query;
-          }
-          if (this.anchor) {
-            s += '#' + this.anchor;
-          }
-          this.source = s;
-        }
-        return this.source;
-      };
-      return URI;
-    }();
 
     var DOM$1 = DOMUtils.DOM;
     var extend$3 = Tools.extend, each$2 = Tools.each;
@@ -29339,8 +29000,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '9.2',
-      releaseDate: '2021-09-08',
+      minorVersion: '10.0',
+      releaseDate: '2021-10-11',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
