@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.10.0 (2021-10-11)
+ * Version: 5.10.1 (2021-11-03)
  */
 (function () {
     'use strict';
@@ -9215,7 +9215,7 @@
     var getVisualAidsAnchorClass = function (editor) {
       return editor.getParam('visual_anchor_class', 'mce-item-anchor', 'string');
     };
-    var getIframeTitle = function (editor) {
+    var getIframeAriaText = function (editor) {
       return editor.getParam('iframe_aria_text', 'Rich Text Area. Press ALT-0 for help.', 'string');
     };
 
@@ -26900,15 +26900,16 @@
       iframeHTML += '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />';
       var bodyId = getBodyId(editor);
       var bodyClass = getBodyClass(editor);
+      var translatedAriaText = editor.translate(getIframeAriaText(editor));
       if (getContentSecurityPolicy(editor)) {
         iframeHTML += '<meta http-equiv="Content-Security-Policy" content="' + getContentSecurityPolicy(editor) + '" />';
       }
-      iframeHTML += '</head><body id="' + bodyId + '" class="mce-content-body ' + bodyClass + '" data-id="' + editor.id + '"><br></body></html>';
+      iframeHTML += '</head>' + ('<body id="' + bodyId + '" class="mce-content-body ' + bodyClass + '" data-id="' + editor.id + '" aria-label="' + translatedAriaText + '">') + '<br>' + '</body></html>';
       return iframeHTML;
     };
     var createIframe = function (editor, o) {
-      var iframeTranslatedTitle = editor.translate(getIframeTitle(editor));
-      var ifr = createIframeElement(editor.id, iframeTranslatedTitle, o.height, getIframeAttrs(editor)).dom;
+      var iframeTitle = editor.translate('Rich Text Area');
+      var ifr = createIframeElement(editor.id, iframeTitle, o.height, getIframeAttrs(editor)).dom;
       ifr.onload = function () {
         ifr.onload = null;
         editor.fire('load');
@@ -29000,8 +29001,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '10.0',
-      releaseDate: '2021-10-11',
+      minorVersion: '10.1',
+      releaseDate: '2021-11-03',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
