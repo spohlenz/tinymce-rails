@@ -25,13 +25,13 @@ module TinyMCE::Rails
     end
 
     def last_updated
-      File.exists?(path) && File.mtime(path)
+      File.exist?(path) && File.mtime(path)
     end
 
     def load_configuration
       @last_loaded = last_updated
 
-      return Configuration.new_with_defaults if !File.exists?(path)
+      return Configuration.new_with_defaults if !File.exist?(path)
 
       options = load_yaml(path)
 
