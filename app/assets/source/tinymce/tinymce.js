@@ -4,7 +4,7 @@
  * For LGPL see License.txt in the project root for license information.
  * For commercial licenses see https://www.tiny.cloud/
  *
- * Version: 5.10.2 (2021-11-17)
+ * Version: 5.10.3 (2022-02-09)
  */
 (function () {
     'use strict';
@@ -16292,8 +16292,11 @@
         var children = from(node.childNodes);
         if (contentEditable && !hasContentEditableState) {
           var removed = removeNodeFormat(node);
+          var currentNodeMatches = removed || exists(formatList, function (f) {
+            return matchName$1(dom, node, f);
+          });
           var parentNode = node.parentNode;
-          if (!removed && isNonNullable(parentNode) && shouldExpandToSelector(format)) {
+          if (!currentNodeMatches && isNonNullable(parentNode) && shouldExpandToSelector(format)) {
             removeNodeFormat(parentNode);
           }
         }
@@ -29001,8 +29004,8 @@
       suffix: null,
       $: DomQuery,
       majorVersion: '5',
-      minorVersion: '10.2',
-      releaseDate: '2021-11-17',
+      minorVersion: '10.3',
+      releaseDate: '2022-02-09',
       editors: legacyEditors,
       i18n: I18n,
       activeEditor: null,
