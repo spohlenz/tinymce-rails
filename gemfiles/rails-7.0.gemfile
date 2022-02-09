@@ -4,7 +4,6 @@ gem 'rails', '~> 7.0.0'
 gem 'sprockets-rails'
 gem 'jquery-rails'
 gem 'turbolinks'
-gem 'rake', '< 11'
 
 group :test do
   gem "test-unit",   "~> 3.0"
