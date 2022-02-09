@@ -5,7 +5,7 @@ before_install:
   - gem install bundler
 
 rvm:
-  - 2.4.5
+  - 2.4.10
 
 gemfile:
   - gemfiles/rails-4.2.gemfile
@@ -23,7 +23,10 @@ matrix:
         - gem install bundler -v '< 2'
 
     - gemfile: gemfiles/rails-6.0.gemfile
-      rvm: 2.6.6
+      rvm: 2.6.9
 
     - gemfile: gemfiles/rails-6.1.gemfile
-      rvm: 2.6.6
+      rvm: 2.6.9
+
+    - gemfile: gemfiles/rails-7.0.gemfile
+      rvm: 2.7.5
