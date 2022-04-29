@@ -71,7 +71,7 @@ module TinyMCE::Rails
     end
 
     # Converts options into a String representing a JavaScript object
-    # that can be passed directly to tinyMCE.init
+    # that can be passed directly to tinymce.init
     def to_javascript
       options_to_javascript(options_for_tinymce)
     end

@@ -29,10 +29,9 @@ task :extract do
     `mv tmp/tinymce/js/tinymce/* vendor/assets/javascripts/tinymce/`
   end
 
-  step "Extracting jQuery & unminified source files" do
+  step "Extracting unminified source" do
    `rm -rf tmp/tinymce`
    `unzip -u tmp/tinymce.dev.zip -d tmp`
-   `mv tmp/tinymce/js/tinymce/jquery.tinymce.min.js vendor/assets/javascripts/tinymce/jquery.tinymce.js`
    `mkdir -p app/assets/source/tinymce`
    `mv tmp/tinymce/js/tinymce/tinymce.js app/assets/source/tinymce/tinymce.js`
   end

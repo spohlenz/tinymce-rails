@@ -1,8 +1,7 @@
 Sandbox::Application.routes.draw do
   controller "editor" do
     get :helpers
-    get :jquery
-    get :standalone
+    get :manual
   end
 
   root :to => "editor#index"

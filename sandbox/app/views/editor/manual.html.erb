@@ -1,0 +1,15 @@
+<% content_for :javascript do %>
+  <%= javascript_include_tag "tinymce-manual", "data-turbolinks-track": :reload %>
+<% end %>
+
+<h1>TinyMCE Standalone</h1>
+
+<p><%= link_to 'Back to index', root_path %></p>
+
+<%= text_area_tag :editor, "", :rows => 20, :cols => 60 %>
+
+<%= javascript_tag nonce: true do %>
+  tinymce.init({
+    selector: 'textarea'
+  });
+<% end %>

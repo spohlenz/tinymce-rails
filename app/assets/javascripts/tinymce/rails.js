@@ -9,7 +9,7 @@ window.TinyMCERails = {
       var configuration = TinyMCERails.configuration[config || 'default'];
       configuration = TinyMCERails._merge(configuration, options);
 
-      tinyMCE.init(configuration);
+      tinymce.init(configuration);
     } else {
       // Wait until TinyMCE is loaded
       setTimeout(function() {

@@ -5,11 +5,10 @@ The `tinymce-rails` gem integrates the [TinyMCE](https://www.tiny.cloud/) editor
 
 This gem is compatible with Rails 4.2 and higher.
 
-This is the branch for TinyMCE 5. For TinyMCE 4, please see the [tinymce-4 branch](https://github.com/spohlenz/tinymce-rails/tree/tinymce-4), and for TinyMCE 3.5.x, please see the [tinymce-3 branch](https://github.com/spohlenz/tinymce-rails/tree/tinymce-3).
+This is the branch for TinyMCE 6. Please see alternate branches for [TinyMCE 5](https://github.com/spohlenz/tinymce-rails/tree/tinymce-5), [TinyMCE 4](https://github.com/spohlenz/tinymce-rails/tree/tinymce-4) & [TinyMCE 3.5.x](https://github.com/spohlenz/tinymce-rails/tree/tinymce-3).
 
-[![Build Status](https://travis-ci.org/spohlenz/tinymce-rails.svg?branch=master)](https://travis-ci.org/spohlenz/tinymce-rails)
+[![Build Status](https://travis-ci.org/spohlenz/tinymce-rails.svg?branch=main)](https://travis-ci.org/spohlenz/tinymce-rails)
 
-**New in 3.5.11, 4.1.10 and 4.2.1:** Alternative asset installation methods (copy vs compile/symlink). See the [Asset Compilation](#asset-compilation) section below for details.
 
 Instructions
 ------------
@@ -51,7 +50,7 @@ alternate:
     - table
 ```
 
-See the [TinyMCE 5 Documentation](https://www.tiny.cloud/docs/configure/) for a full list of configuration options.
+See the [TinyMCE 6 Documentation](https://www.tiny.cloud/docs/tinymce/6/) for a full list of configuration options.
 
 
 **3. Include the TinyMCE assets**
@@ -64,13 +63,7 @@ Use *one* of the following options to include TinyMCE assets.
 //= require tinymce
 ```
 
-or (2) with jQuery integration:
-
-```js
-//= require tinymce-jquery
-```
-
-(3) The TinyMCE assets can be included on a per-page basis using the `tinymce_assets` helper:
+or (2) add the script tag to your layout using the `tinymce_assets` helper:
 
 ```erb
 <%= tinymce_assets %>
@@ -120,13 +113,13 @@ See the [tinymce-rails-langs](https://github.com/spohlenz/tinymce-rails-langs) g
 Manual Initialization
 ---------------------
 
-Using the `tinymce` helper and global configuration file is entirely optional. The `tinyMCE.init` function can be invoked manually if desired.
+Using the `tinymce` helper and global configuration file is entirely optional. The `tinymce.init` JS function can be invoked manually if desired.
 
 ```erb
 <%= text_area_tag :editor, "", :rows => 40, :cols => 120 %>
 
 <script type="text/javascript">
-  tinyMCE.init({
+  tinymce.init({
     selector: 'textarea.editor'
   });
 </script>
@@ -152,11 +145,7 @@ If you experience issues with the `compile` method, you may wish to use the `cop
 config.tinymce.install = :copy
 ```
 
-If you are including TinyMCE via `application.js` or using the `tinymce_assets` helper, you do not need to manually alter the precompile paths. However if you wish to include `tinymce-jquery.js` independently (i.e. using `javascript_include_tag`), you will need to add it to the precompile list in `config/environments/production.rb`:
-
-```ruby
-config.assets.precompile << "tinymce-jquery.js"
-```
+If you are including TinyMCE via `application.js` or using the `tinymce_assets` helper, you do not need to manually add the scripts to the Sprockets precompile paths.
 
 
 Custom Plugins & Skins
