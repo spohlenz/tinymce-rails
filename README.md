@@ -5,7 +5,7 @@ The `tinymce-rails` gem integrates the [TinyMCE](http://www.tinymce.com/) editor
 
 This gem is compatible with Rails 3.1.1 and higher (including Rails 4).
 
-This is the branch for TinyMCE 4. For TinyMCE 5, please see the [master branch](https://github.com/spohlenz/tinymce-rails), and for TinyMCE 3.5.x, please see the [tinymce-3 branch](https://github.com/spohlenz/tinymce-rails/tree/tinymce-3).
+This is the branch for TinyMCE 4. Please see the [`main`](https://github.com/spohlenz/tinymce-rails) branch for TinyMCE 6, and alternate branches for For [TinyMCE 5](https://github.com/spohlenz/tinymce-rails/tree/tinymce-5) & [TinyMCE 3](https://github.com/spohlenz/tinymce-rails/tree/tinymce-3).
 
 [![Build Status](https://travis-ci.org/spohlenz/tinymce-rails.png?branch=master)](https://travis-ci.org/spohlenz/tinymce-rails)
 
@@ -52,7 +52,7 @@ alternate:
     - table
 ```
 
-See the [TinyMCE 4 Documentation](https://www.tinymce.com/docs/configure/) for a full list of configuration options.
+See the [TinyMCE 4 Documentation](https://www.tiny.cloud/docs-4x/configure/) for a full list of configuration options.
 
 
 **3. Include the TinyMCE assets**
