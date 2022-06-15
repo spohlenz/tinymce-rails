@@ -37,7 +37,7 @@ module TinyMCE
     class YamlManifest < AssetManifest
       def self.try(manifest_path)
         yaml_file = File.join(manifest_path, "manifest.yml")
-        new(yaml_file) if File.exists?(yaml_file)
+        new(yaml_file) if File.exist?(yaml_file)
       end
 
       def initialize(file)

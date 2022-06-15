@@ -37,7 +37,7 @@ module TinyMCE
           allow(manifest).to receive(:each).and_yield(asset)
           expect(manifest).to receive(:asset_path).with(asset).and_yield(digested_asset, asset)
 
-          allow(File).to receive(:exists?).and_return(true)
+          allow(File).to receive(:exist?).and_return(true)
 
           expect(FileUtils).to receive(:ln_s).with("es-abcde1234567890.js", "/assets/tinymce/langs/es.js", :force => true)
 
@@ -58,7 +58,7 @@ module TinyMCE
 
           allow(manifest).to receive(:each).and_yield(asset)
           expect(manifest).to receive(:remove_digest).with(asset).and_yield(digested_asset, asset)
-          allow(File).to receive(:exists?).and_return(true)
+          allow(File).to receive(:exist?).and_return(true)
           expect(FileUtils).to receive(:mv).with("/assets/tinymce/langs/es-abcde1234567890.js", "/assets/tinymce/langs/es.js", :force => true)
 
           install
