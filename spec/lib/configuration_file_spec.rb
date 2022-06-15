@@ -50,7 +50,7 @@ module TinyMCE::Rails
       end
 
       it "returns true if the file no longer exists" do
-        allow(File).to receive(:exists?).and_return(false)
+        allow(File).to receive(:exist?).and_return(false)
         expect(file).to be_changed
       end
 
