@@ -43,7 +43,8 @@ module TinyMCE::Rails
     end
 
     def load_yaml(path)
-      YAML::load(ERB.new(IO.read(path)).result)
+      result = ERB.new(IO.read(path)).result
+      YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(result) : YAML.load(result)
     end
   end
 end
