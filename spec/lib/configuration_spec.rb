@@ -38,6 +38,11 @@ module TinyMCE::Rails
         expect(config.options_for_tinymce["font_formats"]).to eq("Andale Mono=andale mono,times;Comic Sans MS=comic sans ms,sans-serif")
       end
 
+      it "quotes keys in hash values when required" do
+        config = Configuration.new("valid_styles" => { "*" => "border,font-size", "div" => "width,height" })
+        expect(config.options_for_tinymce["valid_styles"]).to eq({ "'*'" => "border,font-size", "div" => "width,height" })
+      end
+
       it "works with integer values" do
         config = Configuration.new("width" => 123)
         expect(config.options_for_tinymce["width"]).to eq(123)

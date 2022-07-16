@@ -1,4 +1,7 @@
 default:
+  valid_styles:
+    '*': 'border,font-size'
+    div: 'width,height'
 
 custom:
   plugins:

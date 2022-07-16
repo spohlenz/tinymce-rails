@@ -98,10 +98,15 @@ module TinyMCE::Rails
       FUNCTION_REGEX =~ value.to_s
     end
 
+    def valid_property_name?(key)
+      key =~ /^(?![0-9])[a-zA-Z0-9$_]+$/
+    end
+
     def preprocess_options(options)
       result = {}
 
       options.each do |key, value|
+        key = "'#{key}'" unless valid_property_name?(key)
         result[key] = preprocess_option(key, value)
       end
 
