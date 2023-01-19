@@ -44,7 +44,17 @@ module TinyMCE::Rails
 
     def load_yaml(path)
       result = ERB.new(IO.read(path)).result
-      YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(result) : YAML.load(result)
+      method_name = YAML.respond_to?(:unsafe_load) ? :unsafe_load : :load
+
+      begin
+        YAML.public_send(method_name, result, aliases: true) || {}
+      rescue ArgumentError
+        YAML.public_send(method_name, result) || {}
+      end
+    rescue Psych::SyntaxError => e
+      raise "YAML syntax error occurred while parsing #{path}. " \
+            "Please note that YAML must be consistently indented using spaces. Tabs are not allowed. " \
+            "Error: #{e.message}"
     end
   end
 end
