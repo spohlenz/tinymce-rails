@@ -1,13 +1,13 @@
 Rails Integration for TinyMCE
 =============================
 
-The `tinymce-rails` gem integrates the [TinyMCE](http://www.tinymce.com/) editor with the Rails asset pipeline.
+The `tinymce-rails` gem integrates the [TinyMCE](https://www.tiny.cloud/) editor with the Rails asset pipeline.
 
-This gem is compatible with Rails 3.2 and higher (including Rails 4).
+This gem is compatible with Rails 5.0 and higher.
 
 This is the branch for TinyMCE 3.5.x. Please see the [`main`](https://github.com/spohlenz/tinymce-rails) branch for TinyMCE 6, and alternate branches for For [TinyMCE 5](https://github.com/spohlenz/tinymce-rails/tree/tinymce-5) & [TinyMCE 4](https://github.com/spohlenz/tinymce-rails/tree/tinymce-4).
 
-[![Build Status](https://travis-ci.org/spohlenz/tinymce-rails.png?branch=tinymce-3)](https://travis-ci.org/spohlenz/tinymce-rails)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/spohlenz/tinymce-rails/rspec.yml?branch=tinymce-3)](https://github.com/spohlenz/tinymce-rails/actions?query=branch%3Atinymce-3)
 
 **New in 3.5.11, 4.1.10 and 4.2.1:** Alternative asset installation methods (copy vs compile/symlink). See the [Asset Compilation](#asset-compilation) section below for details.
 
