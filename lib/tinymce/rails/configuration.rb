@@ -15,7 +15,7 @@ module TinyMCE::Rails
       }
     end
 
-    FUNCTION_REGEX = /^function\s*\(/
+    FUNCTION_REGEX = /^function\s*\(([\w\d\s_,]*)\)\s*\{([^}]*)\}|\(([\w\d\s_,]*)\)\s*=>\s*\{([^}]*)\}/
     RELATIVE_PATH_REGEX = /^(\/|\.{1,2})\S*/
 
     COMMA = ",".freeze
