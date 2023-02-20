@@ -54,8 +54,14 @@ module TinyMCE::Rails
         expect(config.options_for_tinymce["setup"]).to be_a(Configuration::Function)
       end
 
+      it "converts javascript arrow function strings to Function objects" do
+        config = Configuration.new("oninit" => "() => {}", "setup" => "(editor) => {}")
+        expect(config.options_for_tinymce["oninit"]).to be_a(Configuration::Function)
+        expect(config.options_for_tinymce["setup"]).to be_a(Configuration::Function)
+      end
+
       it "converts javascript function strings to Function objects within nested hash" do
-        config = Configuration.new("nested" => { "oninit" => "function() {}", "setup" => "function (editor) {}" })
+        config = Configuration.new("nested" => { "oninit" => "function() {}", "setup" => "(editor) => {}" })
         expect(config.options_for_tinymce["nested"]["oninit"]).to be_a(Configuration::Function)
         expect(config.options_for_tinymce["nested"]["setup"]).to be_a(Configuration::Function)
       end
