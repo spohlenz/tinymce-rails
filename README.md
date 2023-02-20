@@ -7,7 +7,7 @@ This gem is compatible with Rails 5.0 and higher.
 
 This is the branch for TinyMCE 6. Please see alternate branches for [TinyMCE 5](https://github.com/spohlenz/tinymce-rails/tree/tinymce-5), [TinyMCE 4](https://github.com/spohlenz/tinymce-rails/tree/tinymce-4) & [TinyMCE 3.5.x](https://github.com/spohlenz/tinymce-rails/tree/tinymce-3).
 
-[![Build Status](https://img.shields.io/github/workflow/status/spohlenz/tinymce-rails/RSpec?style=flat)](https://github.com/spohlenz/tinymce-rails/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/spohlenz/tinymce-rails/rspec.yml)](https://github.com/spohlenz/tinymce-rails/actions)
 
 
 Instructions
