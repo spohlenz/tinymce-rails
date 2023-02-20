@@ -1,13 +1,14 @@
 source 'https://rubygems.org'
 
-gem 'rails', '3.2.22.2'
+gem 'rails', '~> 5.2.0'
 gem 'jquery-rails'
+gem 'turbolinks'
 gem 'rake', '< 11'
 
 group :test do
   gem "test-unit",   "~> 3.0"
-  gem "rspec-rails", "~> 2.0"
-  gem "capybara",    "~> 2.3.0"
+  gem "rspec-rails", "~> 3.5.0"
+  gem "capybara",    "~> 2.4.4"
 end
 
 gemspec :path => "../"
