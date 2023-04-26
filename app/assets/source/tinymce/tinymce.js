@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 6.4.1 (2023-03-29)
+ * TinyMCE version 6.4.2 (2023-04-26)
  */
 
 (function () {
@@ -1742,13 +1742,6 @@
       const x = doc.body.scrollLeft || doc.documentElement.scrollLeft;
       const y = doc.body.scrollTop || doc.documentElement.scrollTop;
       return SugarPosition(x, y);
-    };
-    const to = (x, y, _DOC) => {
-      const doc = _DOC !== undefined ? _DOC.dom : document;
-      const win = doc.defaultView;
-      if (win) {
-        win.scrollTo(x, y);
-      }
     };
     const intoView = (element, alignToTop) => {
       const isSafari = detect$2().browser.isSafari();
@@ -10238,36 +10231,28 @@
       newRng.setEnd(endElement, endOffset);
       editor.selection.setRng(rng);
     };
-    const scrollToMarker = (marker, viewHeight, alignToTop, doc) => {
-      const pos = marker.pos;
-      if (alignToTop) {
-        to(pos.left, pos.top, doc);
-      } else {
-        const y = pos.top - viewHeight + marker.height;
-        to(pos.left, y, doc);
-      }
-    };
-    const intoWindowIfNeeded = (doc, scrollTop, viewHeight, marker, alignToTop) => {
+    const scrollToMarker = (marker, alignToTop) => marker.element.dom.scrollIntoView({ block: alignToTop ? 'start' : 'end' });
+    const intoWindowIfNeeded = (scrollTop, viewHeight, marker, alignToTop) => {
       const viewportBottom = viewHeight + scrollTop;
       const markerTop = marker.pos.top;
       const markerBottom = marker.bottom;
       const largerThanViewport = markerBottom - markerTop >= viewHeight;
       if (markerTop < scrollTop) {
-        scrollToMarker(marker, viewHeight, alignToTop !== false, doc);
+        scrollToMarker(marker, alignToTop !== false);
       } else if (markerTop > viewportBottom) {
         const align = largerThanViewport ? alignToTop !== false : alignToTop === true;
-        scrollToMarker(marker, viewHeight, align, doc);
+        scrollToMarker(marker, align);
       } else if (markerBottom > viewportBottom && !largerThanViewport) {
-        scrollToMarker(marker, viewHeight, alignToTop === true, doc);
+        scrollToMarker(marker, alignToTop === true);
       }
     };
     const intoWindow = (doc, scrollTop, marker, alignToTop) => {
       const viewHeight = defaultView(doc).dom.innerHeight;
-      intoWindowIfNeeded(doc, scrollTop, viewHeight, marker, alignToTop);
+      intoWindowIfNeeded(scrollTop, viewHeight, marker, alignToTop);
     };
     const intoFrame = (doc, scrollTop, marker, alignToTop) => {
       const frameViewHeight = defaultView(doc).dom.innerHeight;
-      intoWindowIfNeeded(doc, scrollTop, frameViewHeight, marker, alignToTop);
+      intoWindowIfNeeded(scrollTop, frameViewHeight, marker, alignToTop);
       const op = find(marker.element);
       const viewportBounds = getBounds(window);
       if (op.top < viewportBounds.y) {
@@ -14515,7 +14500,10 @@
       }
     };
 
-    const blobUriToBlob = url => fetch(url).then(res => res.ok ? res.blob() : Promise.reject()).catch(() => Promise.reject(`Cannot convert ${ url } to Blob. Resource might not exist or is inaccessible.`));
+    const blobUriToBlob = url => fetch(url).then(res => res.ok ? res.blob() : Promise.reject()).catch(() => Promise.reject({
+      message: `Cannot convert ${ url } to Blob. Resource might not exist or is inaccessible.`,
+      uriType: 'blob'
+    }));
     const extractBase64Data = data => {
       const matches = /([a-z0-9+\/=\s]+)/i.exec(data);
       return matches ? matches[1] : '';
@@ -19673,6 +19661,8 @@
           const filteredResult = filter$5(result, resultItem => {
             if (isString(resultItem)) {
               displayError(editor, resultItem);
+              return false;
+            } else if (resultItem.uriType === 'blob') {
               return false;
             } else {
               return true;
@@ -29997,8 +29987,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '6',
-      minorVersion: '4.1',
-      releaseDate: '2023-03-29',
+      minorVersion: '4.2',
+      releaseDate: '2023-04-26',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
