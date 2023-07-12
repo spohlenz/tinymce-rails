@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 6.5.1 (2023-06-19)
+ * TinyMCE version 6.6.0 (2023-07-12)
  */
 
 (function () {
@@ -30686,8 +30686,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '6',
-      minorVersion: '5.1',
-      releaseDate: '2023-06-19',
+      minorVersion: '6.0',
+      releaseDate: '2023-07-12',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
