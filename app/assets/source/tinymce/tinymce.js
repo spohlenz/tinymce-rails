@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 6.6.0 (2023-07-12)
+ * TinyMCE version 6.6.1 (2023-08-02)
  */
 
 (function () {
@@ -2523,7 +2523,6 @@
     const isTransparentBlock = (schema, node) => isTransparentElement(schema, node) && hasBlockAttr(node);
     const isTransparentInline = (schema, node) => isTransparentElement(schema, node) && !hasBlockAttr(node);
     const isTransparentAstBlock = (schema, node) => node.type === 1 && isTransparentElementName(schema, node.name) && isString(node.attr(transparentBlockAttr));
-    const isTransparentAstInline = (schema, node) => node.type === 1 && isTransparentElementName(schema, node.name) && isUndefined(node.attr(transparentBlockAttr));
 
     const browser$1 = detect$2().browser;
     const firstElement = nodes => find$2(nodes, isElement$7);
@@ -7015,6 +7014,10 @@
       registerOption('remove_trailing_brs', {
         processor: 'boolean',
         default: true
+      });
+      registerOption('pad_empty_with_br', {
+        processor: 'boolean',
+        default: false
       });
       registerOption('inline_styles', {
         processor: 'boolean',
@@ -12337,10 +12340,13 @@
       runFilters(matches, args);
     };
 
-    const paddEmptyNode = (args, isBlock, node) => {
-      if (args.insert && isBlock(node)) {
+    const paddEmptyNode = (settings, args, isBlock, node) => {
+      const brPreferred = settings.pad_empty_with_br || args.insert;
+      if (brPreferred && isBlock(node)) {
         const astNode = new AstNode('br', 1);
-        astNode.attr('data-mce-bogus', '1');
+        if (args.insert) {
+          astNode.attr('data-mce-bogus', '1');
+        }
         node.empty().append(astNode);
       } else {
         node.empty().append(new AstNode('#text', 3)).value = nbsp;
@@ -14596,17 +14602,17 @@
       }
     };
 
-    const addNodeFilter = (htmlParser, schema) => {
+    const addNodeFilter = (settings, htmlParser, schema) => {
       htmlParser.addNodeFilter('br', (nodes, _, args) => {
         const blockElements = Tools.extend({}, schema.getBlockElements());
         const nonEmptyElements = schema.getNonEmptyElements();
         const whitespaceElements = schema.getWhitespaceElements();
         blockElements.body = 1;
-        const isBlock = node => node.name in blockElements && isTransparentAstInline(schema, node);
+        const isBlock = node => node.name in blockElements || isTransparentAstBlock(schema, node);
         for (let i = 0, l = nodes.length; i < l; i++) {
           let node = nodes[i];
           let parent = node.parent;
-          if (parent && blockElements[parent.name] && node === parent.lastChild) {
+          if (parent && isBlock(parent) && node === parent.lastChild) {
             let prev = node.prev;
             while (prev) {
               const prevName = prev.name;
@@ -14626,7 +14632,7 @@
                   if (elementRule.removeEmpty) {
                     parent.remove();
                   } else if (elementRule.paddEmpty) {
-                    paddEmptyNode(args, isBlock, parent);
+                    paddEmptyNode(settings, args, isBlock, parent);
                   }
                 }
               }
@@ -14781,7 +14787,7 @@
     const register$4 = (parser, settings) => {
       const schema = parser.schema;
       if (settings.remove_trailing_brs) {
-        addNodeFilter(parser, schema);
+        addNodeFilter(settings, parser, schema);
       }
       parser.addAttributeFilter('href', nodes => {
         let i = nodes.length;
@@ -16993,7 +16999,7 @@
           if (validate && elementRule) {
             const isNodeEmpty = isEmpty(schema, nonEmptyElements, whitespaceElements, node);
             if (elementRule.paddInEmptyBlock && isNodeEmpty && isTextRootBlockEmpty(node)) {
-              paddEmptyNode(args, isBlock, node);
+              paddEmptyNode(settings, args, isBlock, node);
             } else if (elementRule.removeEmpty && isNodeEmpty) {
               if (isBlock(node)) {
                 node.remove();
@@ -17001,7 +17007,7 @@
                 node.unwrap();
               }
             } else if (elementRule.paddEmpty && (isNodeEmpty || isPaddedWithNbsp(node))) {
-              paddEmptyNode(args, isBlock, node);
+              paddEmptyNode(settings, args, isBlock, node);
             }
           }
         } else if (node.type === 3) {
@@ -18676,7 +18682,7 @@
         }
       });
       if (settings.remove_trailing_brs) {
-        addNodeFilter(htmlParser, htmlParser.schema);
+        addNodeFilter(settings, htmlParser, htmlParser.schema);
       }
     };
     const trimTrailingBr = rootNode => {
@@ -18775,6 +18781,7 @@
       const defaultedSettings = {
         entity_encoding: 'named',
         remove_trailing_brs: true,
+        pad_empty_with_br: false,
         ...settings
       };
       const dom = editor && editor.dom ? editor.dom : DOMUtils.DOM;
@@ -28045,6 +28052,7 @@
         ...mkSchemaSettings(editor),
         ...removeUndefined({
           remove_trailing_brs: getOption('remove_trailing_brs'),
+          pad_empty_with_br: getOption('pad_empty_with_br'),
           url_converter: getOption('url_converter'),
           url_converter_scope: getOption('url_converter_scope'),
           element_format: getOption('element_format'),
@@ -30686,8 +30694,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '6',
-      minorVersion: '6.0',
-      releaseDate: '2023-07-12',
+      minorVersion: '6.1',
+      releaseDate: '2023-08-02',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
