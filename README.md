@@ -76,13 +76,13 @@ or (2) add the script tag to your layout using the `tinymce_assets` helper:
 For each textarea that you want to use with TinyMCE, add the "tinymce" class and ensure it has a unique ID:
 
 ```erb
-<%= text_area_tag :content, "", :class => "tinymce", :rows => 40, :cols => 120 %>
+<%= text_area_tag :content, "", class: "tinymce", rows: 40, cols: 120 %>
 ```
 
 or if you are using Rails' form builders:
 
 ```erb
-<%= f.text_area :content, :class => "tinymce", :rows => 40, :cols => 120 %>
+<%= f.text_area :content, class: "tinymce", rows: 40, cols: 120 %>
 ```
 
 Then invoke the `tinymce` helper to initialize TinyMCE:
@@ -94,7 +94,7 @@ Then invoke the `tinymce` helper to initialize TinyMCE:
 Custom options can be passed to `tinymce` to override the global options specified in `config/tinymce.yml`:
 
 ```erb
-<%= tinymce :theme => "simple", :language => "de", :plugins => ["wordcount", "paste"] %>
+<%= tinymce theme: "simple", language: "de", plugins: ["wordcount", "paste"] %>
 ```
 
 Alternate configurations defined in 'config/tinymce.yml' can be used with:
@@ -116,7 +116,7 @@ Manual Initialization
 Using the `tinymce` helper and global configuration file is entirely optional. The `tinymce.init` JS function can be invoked manually if desired.
 
 ```erb
-<%= text_area_tag :editor, "", :rows => 40, :cols => 120 %>
+<%= text_area_tag :editor, "", rows: 40, cols: 120 %>
 
 <script type="text/javascript">
   tinymce.init({
