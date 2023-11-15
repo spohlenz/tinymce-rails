@@ -15,7 +15,7 @@ gem 'puma'
 
 group :test do
   gem "test-unit",   "~> 3.0"
-  gem "rspec-rails", "~> 3.5.0"
+  gem "rspec-rails", "~> 6.0.1"
   gem "capybara",    "~> 2.4.4"
 end
 
