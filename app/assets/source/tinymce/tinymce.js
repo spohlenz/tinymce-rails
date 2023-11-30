@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 6.8.0 (2023-11-22)
+ * TinyMCE version 6.8.1 (2023-11-29)
  */
 
 (function () {
@@ -3556,7 +3556,7 @@
         return false;
       };
       const isBlock = name => has$2(getBlockElements(), name);
-      const isInline = name => isValid(name) && !isBlock(name);
+      const isInline = name => !startsWith(name, '#') && isValid(name) && !isBlock(name);
       const isWrapper = name => has$2(getWrapBlockElements(), name) || isInline(name);
       const getCustomElements = constant(customElementsMap);
       return {
@@ -31140,8 +31140,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '6',
-      minorVersion: '8.0',
-      releaseDate: '2023-11-22',
+      minorVersion: '8.1',
+      releaseDate: '2023-11-29',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
