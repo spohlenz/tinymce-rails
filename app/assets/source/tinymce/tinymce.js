@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 6.8.1 (2023-11-29)
+ * TinyMCE version 6.8.2 (2023-12-11)
  */
 
 (function () {
@@ -26614,34 +26614,31 @@
       };
     };
     const horizontalDistance = (rect, x, _y) => x > rect.left && x < rect.right ? 0 : Math.min(Math.abs(rect.left - x), Math.abs(rect.right - x));
-    const closestChildCaretCandidateNodeRect = (children, clientX, clientY) => {
+    const closestChildCaretCandidateNodeRect = (children, clientX, clientY, findCloserTextNode) => {
       const caretCandidateRect = rect => {
         if (isCaretCandidate$3(rect.node)) {
           return Optional.some(rect);
         } else if (isElement$6(rect.node)) {
-          return closestChildCaretCandidateNodeRect(from(rect.node.childNodes), clientX, clientY);
+          return closestChildCaretCandidateNodeRect(from(rect.node.childNodes), clientX, clientY, false);
         } else {
           return Optional.none();
         }
       };
-      const getClosestTextNode = (rects, distance) => {
-        if (rects.length >= 2) {
-          const r1 = caretCandidateRect(rects[0]).getOr(rects[0]);
-          const r2 = caretCandidateRect(rects[1]).getOr(rects[1]);
-          const deltaDistance = Math.abs(distance(r1, clientX, clientY) - distance(r2, clientX, clientY));
-          if (deltaDistance < 2) {
-            if (isText$a(r1.node)) {
-              return Optional.some(r1);
-            } else if (isText$a(r2.node)) {
-              return Optional.some(r2);
-            }
-          }
-        }
-        return Optional.none();
+      const tryFindSecondBestTextNode = (closest, sndClosest, distance) => {
+        return caretCandidateRect(sndClosest).filter(rect => {
+          const deltaDistance = Math.abs(distance(closest, clientX, clientY) - distance(rect, clientX, clientY));
+          return deltaDistance < 2 && isText$a(rect.node);
+        });
       };
       const findClosestCaretCandidateNodeRect = (rects, distance) => {
         const sortedRects = sort(rects, (r1, r2) => distance(r1, clientX, clientY) - distance(r2, clientX, clientY));
-        return getClosestTextNode(sortedRects, distance).orThunk(() => findMap(sortedRects, caretCandidateRect));
+        return findMap(sortedRects, caretCandidateRect).map(closest => {
+          if (findCloserTextNode && !isText$a(closest.node) && sortedRects.length > 1) {
+            return tryFindSecondBestTextNode(closest, sortedRects[1], distance).getOr(closest);
+          } else {
+            return closest;
+          }
+        });
       };
       const [horizontalRects, verticalRects] = splitRectsPerAxis(getClientRects(children), clientY);
       const {
@@ -26654,9 +26651,9 @@
       const helper = (scope, prevScope) => {
         const isDragGhostContainer = node => isElement$6(node) && node.classList.contains('mce-drag-container');
         const childNodesWithoutGhost = filter$5(scope.dom.childNodes, not(isDragGhostContainer));
-        return prevScope.fold(() => closestChildCaretCandidateNodeRect(childNodesWithoutGhost, clientX, clientY), prevScope => {
+        return prevScope.fold(() => closestChildCaretCandidateNodeRect(childNodesWithoutGhost, clientX, clientY, true), prevScope => {
           const uncheckedChildren = filter$5(childNodesWithoutGhost, node => node !== prevScope.dom);
-          return closestChildCaretCandidateNodeRect(uncheckedChildren, clientX, clientY);
+          return closestChildCaretCandidateNodeRect(uncheckedChildren, clientX, clientY, true);
         }).orThunk(() => {
           const parent = eq(scope, rootElm) ? Optional.none() : parentElement(scope);
           return parent.bind(newScope => helper(newScope, Optional.some(scope)));
@@ -31140,8 +31137,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '6',
-      minorVersion: '8.1',
-      releaseDate: '2023-11-29',
+      minorVersion: '8.2',
+      releaseDate: '2023-12-11',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
