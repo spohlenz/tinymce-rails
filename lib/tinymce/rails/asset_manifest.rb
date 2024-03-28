@@ -6,6 +6,7 @@ module TinyMCE
       def self.load(manifest_path)
         JsonManifest.try(manifest_path, ".sprockets-manifest*.json") ||
           JsonManifest.try(manifest_path, "manifest*.json") ||
+          JsonManifest.try(manifest_path) ||
           YamlManifest.try(manifest_path) ||
           NullManifest.new
       end
@@ -75,9 +76,13 @@ module TinyMCE
     end
 
     class JsonManifest < AssetManifest
-      def self.try(manifest_path, pattern)
-        paths = Dir[File.join(manifest_path, pattern)]
-        new(paths.first) if paths.any?
+      def self.try(manifest_path, pattern=nil)
+        if pattern
+          paths = Dir[File.join(manifest_path, pattern)]
+          new(paths.first) if paths.any?
+        elsif File.file?(manifest_path)
+          new(manifest_path)
+        end
       end
 
       def initialize(file)
