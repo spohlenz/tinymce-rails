@@ -50,7 +50,7 @@ alternate:
     - table
 ```
 
-See the [TinyMCE 6 Documentation](https://www.tiny.cloud/docs/tinymce/6/) for a full list of configuration options.
+See the [TinyMCE 7 Documentation](https://www.tiny.cloud/docs/tinymce/7/) for a full list of configuration options.
 
 
 **3. Include the TinyMCE assets**
