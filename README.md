@@ -5,7 +5,7 @@ The `tinymce-rails` gem integrates the [TinyMCE](https://www.tiny.cloud/) editor
 
 This gem is compatible with Rails 5.0 and higher.
 
-This is the branch for TinyMCE 5. Please see the [`main`](https://github.com/spohlenz/tinymce-rails) branch for TinyMCE 6, and alternate branches for For [TinyMCE 4](https://github.com/spohlenz/tinymce-rails/tree/tinymce-4) & [TinyMCE 3](https://github.com/spohlenz/tinymce-rails/tree/tinymce-3).
+This is the branch for TinyMCE 5. Please see the [`main`](https://github.com/spohlenz/tinymce-rails) branch for TinyMCE 7, and alternate branches for [TinyMCE 6](https://github.com/spohlenz/tinymce-rails/tree/tinymce-6), [TinyMCE 4](https://github.com/spohlenz/tinymce-rails/tree/tinymce-4) & [TinyMCE 3.5.x](https://github.com/spohlenz/tinymce-rails/tree/tinymce-3).
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/spohlenz/tinymce-rails/rspec.yml?branch=tinymce-5)](https://github.com/spohlenz/tinymce-rails/actions?query=branch%3Atinymce-5)
 
