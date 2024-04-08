@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
   s.authors = ["Sam Pohlenz"]
   s.email = "sam@sampohlenz.com"
   s.homepage = "https://github.com/spohlenz/tinymce-rails"
-  s.license = "MIT"
-  
+  s.license = "GPL-2.0-or-later"
+
   s.add_dependency "railties",  ">= 3.1.1"
 end
