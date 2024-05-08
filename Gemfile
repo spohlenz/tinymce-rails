@@ -8,6 +8,7 @@ gem 'rails', '~> 7.1.0'
 #gem 'rails', '~> 5.0.0'
 #gem 'rails', '~> 4.2.5'
 
+gem 'sprockets-rails'
 gem 'jquery-rails'
 gem 'turbolinks'
 gem 'uglifier'
