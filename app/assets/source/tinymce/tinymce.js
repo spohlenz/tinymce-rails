@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 7.1.0 (2024-05-08)
+ * TinyMCE version 7.1.1 (2024-05-22)
  */
 
 (function () {
@@ -21271,7 +21271,7 @@
     };
     const isEditable$1 = blockBoundary => isContentEditableFalse$b(blockBoundary.from.block.dom) === false && isContentEditableFalse$b(blockBoundary.to.block.dom) === false;
     const hasValidBlocks = blockBoundary => {
-      const isValidBlock = block => isTextBlock$2(block) || hasBlockAttr(block.dom);
+      const isValidBlock = block => isTextBlock$2(block) || hasBlockAttr(block.dom) || isListItem$1(block);
       return isValidBlock(blockBoundary.from.block) && isValidBlock(blockBoundary.to.block);
     };
     const skipLastBr = (schema, rootNode, forward, blockPosition) => {
@@ -24021,23 +24021,20 @@
           lookupInfo.lookupData.then(lookupData => {
             activeAutocompleter.get().map(ac => {
               const context = lookupInfo.context;
-              if (ac.trigger === context.trigger) {
-                if (context.text.length - ac.matchLength >= 10) {
-                  cancelIfNecessary();
-                } else {
-                  activeAutocompleter.set({
-                    ...ac,
-                    matchLength: context.text.length
-                  });
-                  if (uiActive.get()) {
-                    fireAutocompleterUpdateActiveRange(editor, { range: context.range });
-                    fireAutocompleterUpdate(editor, { lookupData });
-                  } else {
-                    uiActive.set(true);
-                    fireAutocompleterUpdateActiveRange(editor, { range: context.range });
-                    fireAutocompleterStart(editor, { lookupData });
-                  }
-                }
+              if (ac.trigger !== context.trigger) {
+                return;
+              }
+              activeAutocompleter.set({
+                ...ac,
+                matchLength: context.text.length
+              });
+              if (uiActive.get()) {
+                fireAutocompleterUpdateActiveRange(editor, { range: context.range });
+                fireAutocompleterUpdate(editor, { lookupData });
+              } else {
+                uiActive.set(true);
+                fireAutocompleterUpdateActiveRange(editor, { range: context.range });
+                fireAutocompleterStart(editor, { lookupData });
               }
             });
           });
@@ -31341,8 +31338,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '7',
-      minorVersion: '1.0',
-      releaseDate: '2024-05-08',
+      minorVersion: '1.1',
+      releaseDate: '2024-05-22',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
