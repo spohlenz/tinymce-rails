@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 7.1.1 (2024-05-22)
+ * TinyMCE version 7.1.2 (TBD)
  */
 
 (function () {
@@ -3564,8 +3564,8 @@
       return hexColour(value);
     };
 
-    const rgbRegex = /^\s*rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*$/i;
-    const rgbaRegex = /^\s*rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d?(?:\.\d+)?)\s*\)\s*$/i;
+    const rgbRegex = /^\s*rgb\s*\(\s*(\d+)\s*[,\s]\s*(\d+)\s*[,\s]\s*(\d+)\s*\)\s*$/i;
+    const rgbaRegex = /^\s*rgba\s*\(\s*(\d+)\s*[,\s]\s*(\d+)\s*[,\s]\s*(\d+)\s*[,\s]\s*((?:\d?\.\d+|\d+)%?)\s*\)\s*$/i;
     const rgbaColour = (red, green, blue, alpha) => ({
       red,
       green,
@@ -3579,10 +3579,15 @@
       const a = parseFloat(alpha);
       return rgbaColour(r, g, b, a);
     };
-    const fromString = rgbaString => {
-      if (rgbaString === 'transparent') {
-        return Optional.some(rgbaColour(0, 0, 0, 0));
+    const getColorFormat = colorString => {
+      if (rgbRegex.test(colorString)) {
+        return 'rgb';
+      } else if (rgbaRegex.test(colorString)) {
+        return 'rgba';
       }
+      return 'other';
+    };
+    const fromString = rgbaString => {
       const rgbMatch = rgbRegex.exec(rgbaString);
       if (rgbMatch !== null) {
         return Optional.some(fromStringValues(rgbMatch[1], rgbMatch[2], rgbMatch[3], '1'));
@@ -3601,7 +3606,6 @@
       const urlOrStrRegExp = /(?:url(?:(?:\(\s*\"([^\"]+)\"\s*\))|(?:\(\s*\'([^\']+)\'\s*\))|(?:\(\s*([^)\s]+)\s*\))))|(?:\'([^\']+)\')|(?:\"([^\"]+)\")/gi;
       const styleRegExp = /\s*([^:]+):\s*([^;]+);?/g;
       const trimRightRegExp = /\s+$/;
-      const rgbaRegExp = /rgba *\(/i;
       const encodingLookup = {};
       let validStyles;
       let invalidStyles;
@@ -3755,7 +3759,7 @@
                 } else if (name === 'color' || name === 'background-color') {
                   value = value.toLowerCase();
                 }
-                if (!rgbaRegExp.test(value)) {
+                if (getColorFormat(value) === 'rgb') {
                   fromString(value).each(rgba => {
                     value = rgbaToHexString(toString(rgba)).toLowerCase();
                   });
@@ -31338,8 +31342,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '7',
-      minorVersion: '1.1',
-      releaseDate: '2024-05-22',
+      minorVersion: '1.2',
+      releaseDate: 'TBD',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
