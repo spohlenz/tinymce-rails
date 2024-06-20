@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 6.8.3 (2024-02-08)
+ * TinyMCE version 6.8.4 (2024-06-19)
  */
 
 (function () {
@@ -17129,7 +17129,7 @@
     const makeMap = Tools.makeMap, extend$1 = Tools.extend;
     const transferChildren = (parent, nativeParent, specialElements, nsSanitizer) => {
       const parentName = parent.name;
-      const isSpecial = parentName in specialElements && parentName !== 'title' && parentName !== 'textarea';
+      const isSpecial = parentName in specialElements && parentName !== 'title' && parentName !== 'textarea' && parentName !== 'noscript';
       const childNodes = nativeParent.childNodes;
       for (let ni = 0, nl = childNodes.length; ni < nl; ni++) {
         const nativeChild = childNodes[ni];
@@ -18830,16 +18830,6 @@
             } else {
               node.remove();
             }
-          }
-        }
-      });
-      htmlParser.addNodeFilter('noscript', nodes => {
-        var _a;
-        let i = nodes.length;
-        while (i--) {
-          const node = nodes[i].firstChild;
-          if (node) {
-            node.value = Entities.decode((_a = node.value) !== null && _a !== void 0 ? _a : '');
           }
         }
       });
@@ -22600,6 +22590,12 @@
       }
       e.content = content;
     };
+    const isValidContent = (nonEditableRegExps, content) => {
+      return forall(nonEditableRegExps, re => {
+        const matches = content.match(re);
+        return matches !== null && matches[0].length === content.length;
+      });
+    };
     const setup$n = editor => {
       const contentEditableAttrName = 'contenteditable';
       const editClass = ' ' + Tools.trim(getEditableClass(editor)) + ' ';
@@ -22630,11 +22626,16 @@
           if (!hasEditClass(node) && !hasNonEditClass(node)) {
             continue;
           }
-          if (nonEditableRegExps.length > 0 && node.attr('data-mce-content')) {
-            node.name = '#text';
-            node.type = 3;
-            node.raw = true;
-            node.value = node.attr('data-mce-content');
+          const content = node.attr('data-mce-content');
+          if (nonEditableRegExps.length > 0 && content) {
+            if (isValidContent(nonEditableRegExps, content)) {
+              node.name = '#text';
+              node.type = 3;
+              node.raw = true;
+              node.value = content;
+            } else {
+              node.remove();
+            }
           } else {
             node.attr(contentEditableAttrName, null);
           }
@@ -31137,8 +31138,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '6',
-      minorVersion: '8.3',
-      releaseDate: '2024-02-08',
+      minorVersion: '8.4',
+      releaseDate: '2024-06-19',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
