@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 7.1.2 (TBD)
+ * TinyMCE version 7.2.0 (2024-06-19)
  */
 
 (function () {
@@ -1392,7 +1392,6 @@
     const firstChild = element => child$1(element, 0);
     const lastChild = element => child$1(element, element.dom.childNodes.length - 1);
     const childNodesCount = element => element.dom.childNodes.length;
-    const hasChildNodes = element => element.dom.hasChildNodes();
 
     const getHead = doc => {
       const b = doc.dom.head;
@@ -3016,7 +3015,7 @@
         addAttrs('a', 'download');
         addAttrs('link script img', 'crossorigin');
         addAttrs('img', 'loading');
-        addAttrs('iframe', 'sandbox seamless allow allowfullscreen loading');
+        addAttrs('iframe', 'sandbox seamless allow allowfullscreen loading referrerpolicy');
       }
       if (type !== 'html4') {
         each$e([
@@ -6530,7 +6529,7 @@
         forward
       };
     };
-    const getBookmark$2 = (selection, type, normalized = false) => {
+    const getBookmark$3 = (selection, type, normalized = false) => {
       if (type === 2) {
         return getOffsetBookmark(trim$2, normalized, selection);
       } else if (type === 3) {
@@ -8608,8 +8607,8 @@
       return Optional.none();
     };
 
-    const getBookmark$1 = (selection, type, normalized) => {
-      return getBookmark$2(selection, type, normalized);
+    const getBookmark$2 = (selection, type, normalized) => {
+      return getBookmark$3(selection, type, normalized);
     };
     const moveToBookmark = (selection, bookmark) => {
       resolve(selection, bookmark).each(({range, forward}) => {
@@ -9445,7 +9444,7 @@
 
     const BookmarkManager = selection => {
       return {
-        getBookmark: curry(getBookmark$1, selection),
+        getBookmark: curry(getBookmark$2, selection),
         moveToBookmark: curry(moveToBookmark, selection)
       };
     };
@@ -10723,7 +10722,7 @@
       const rng = !selection || selection.rangeCount === 0 ? Optional.none() : Optional.from(selection.getRangeAt(0));
       return rng.map(nativeRangeToSelectionRange);
     };
-    const getBookmark = root => {
+    const getBookmark$1 = root => {
       const win = defaultView(root);
       return readRange(win.dom).filter(isRngInRoot(root));
     };
@@ -10739,7 +10738,7 @@
       }
     };
     const store = editor => {
-      const newBookmark = shouldStore(editor) ? getBookmark(SugarElement.fromDom(editor.getBody())) : Optional.none();
+      const newBookmark = shouldStore(editor) ? getBookmark$1(SugarElement.fromDom(editor.getBody())) : Optional.none();
       editor.bookmark = newBookmark.isSome() ? newBookmark : editor.bookmark;
     };
     const getRng = editor => {
@@ -10970,15 +10969,21 @@
       const body = editor.getBody();
       let rng = selection.getRng();
       editor.quirks.refreshContentEditable();
-      if (isNonNullable(editor.bookmark) && !hasFocus(editor)) {
+      const restoreBookmark = editor => {
         getRng(editor).each(bookmarkRng => {
           editor.selection.setRng(bookmarkRng);
           rng = bookmarkRng;
         });
+      };
+      if (!hasFocus(editor) && editor.hasEditableRoot()) {
+        restoreBookmark(editor);
       }
       const contentEditableHost = getContentEditableHost(editor, selection.getNode());
       if (contentEditableHost && editor.dom.isChildOf(contentEditableHost, body)) {
         focusBody(contentEditableHost);
+        if (!editor.hasEditableRoot()) {
+          restoreBookmark(editor);
+        }
         normalizeSelection(editor, rng);
         activateEditor(editor);
         return;
@@ -11738,7 +11743,6 @@
         'background',
         'background-attachment',
         'background-clip',
-        'background-color',
         'background-image',
         'background-origin',
         'background-position',
@@ -11774,14 +11778,24 @@
         nonInheritableStyles.add(style);
       });
     })();
+    const conditionalNonInheritableStyles = new Set();
+    (() => {
+      const conditionalNonInheritableStylesArr = ['background-color'];
+      each$e(conditionalNonInheritableStylesArr, style => {
+        conditionalNonInheritableStyles.add(style);
+      });
+    })();
     const shorthandStyleProps = [
       'font',
       'text-decoration',
       'text-emphasis'
     ];
-    const getStyleProps = (dom, node) => keys(dom.parseStyle(dom.getAttrib(node, 'style')));
+    const getStyles$1 = (dom, node) => dom.parseStyle(dom.getAttrib(node, 'style'));
+    const getStyleProps = (dom, node) => keys(getStyles$1(dom, node));
     const isNonInheritableStyle = style => nonInheritableStyles.has(style);
-    const hasInheritableStyles = (dom, node) => forall(getStyleProps(dom, node), style => !isNonInheritableStyle(style));
+    const isConditionalNonInheritableStyle = style => conditionalNonInheritableStyles.has(style);
+    const hasNonInheritableStyles = (dom, node) => exists(getStyleProps(dom, node), style => isNonInheritableStyle(style));
+    const hasConditionalNonInheritableStyles = (dom, node) => hasNonInheritableStyles(dom, node) && exists(getStyleProps(dom, node), style => isConditionalNonInheritableStyle(style));
     const getLonghandStyleProps = styles => filter$5(styles, style => exists(shorthandStyleProps, prop => startsWith(style, prop)));
     const hasStyleConflict = (dom, node, parentNode) => {
       const nodeStyleProps = getStyleProps(dom, node);
@@ -12508,7 +12522,7 @@
       const rootElm = SugarElement.fromDom(editor.getBody());
       return getParentCaption(rootElm, startElm).fold(() => deleteCaretCells(editor, forward, rootElm, startElm).orThunk(() => someIf(isBeforeOrAfterTable(editor, forward), noop)), fromCaption => deleteCaretCaption(editor, forward, rootElm, fromCaption));
     };
-    const backspaceDelete$a = (editor, forward) => {
+    const backspaceDelete$b = (editor, forward) => {
       const startElm = SugarElement.fromDom(editor.selection.getStart(true));
       const cells = getCellsFromEditor(editor);
       return editor.selection.isCollapsed() && cells.length === 0 ? deleteCaret$3(editor, forward, startElm) : deleteRange$3(editor, startElm, cells);
@@ -13062,18 +13076,20 @@
       if (merge) {
         const root = editor.getBody();
         const elementUtils = ElementUtils(editor);
-        Tools.each(dom.select('*[data-mce-fragment]'), node => {
-          const isInline = isNonNullable(textInlineElements[node.nodeName.toLowerCase()]);
-          if (isInline && hasInheritableStyles(dom, node)) {
-            for (let parentNode = node.parentElement; isNonNullable(parentNode) && parentNode !== root; parentNode = parentNode.parentElement) {
-              const styleConflict = hasStyleConflict(dom, node, parentNode);
-              if (styleConflict) {
-                break;
-              }
-              if (elementUtils.compare(parentNode, node)) {
-                dom.remove(node, true);
-                break;
-              }
+        const fragmentSelector = '*[data-mce-fragment]';
+        const fragments = dom.select(fragmentSelector);
+        Tools.each(fragments, node => {
+          const isInline = currentNode => isNonNullable(textInlineElements[currentNode.nodeName.toLowerCase()]);
+          const hasOneChild = currentNode => currentNode.childNodes.length === 1;
+          const hasNoNonInheritableStyles = currentNode => !(hasNonInheritableStyles(dom, currentNode) || hasConditionalNonInheritableStyles(dom, currentNode));
+          if (hasNoNonInheritableStyles(node) && isInline(node) && hasOneChild(node)) {
+            const styles = getStyleProps(dom, node);
+            const isOverridden = (oldStyles, newStyles) => forall(oldStyles, style => contains$2(newStyles, style));
+            const overriddenByAllChildren = childNode => hasOneChild(node) && dom.is(childNode, fragmentSelector) && isInline(childNode) && (childNode.nodeName === node.nodeName && isOverridden(styles, getStyleProps(dom, childNode)) || overriddenByAllChildren(childNode.children[0]));
+            const identicalToParent = parentNode => isNonNullable(parentNode) && parentNode !== root && (elementUtils.compare(node, parentNode) || identicalToParent(parentNode.parentElement));
+            const conflictWithInsertedParent = parentNode => isNonNullable(parentNode) && parentNode !== root && dom.is(parentNode, fragmentSelector) && (hasStyleConflict(dom, node, parentNode) || conflictWithInsertedParent(parentNode.parentElement));
+            if (overriddenByAllChildren(node.children[0]) || identicalToParent(node.parentElement) && !conflictWithInsertedParent(node.parentElement)) {
+              dom.remove(node, true);
             }
           }
         });
@@ -17252,7 +17268,7 @@
     const makeMap = Tools.makeMap, extend$1 = Tools.extend;
     const transferChildren = (parent, nativeParent, specialElements, nsSanitizer) => {
       const parentName = parent.name;
-      const isSpecial = parentName in specialElements && parentName !== 'title' && parentName !== 'textarea';
+      const isSpecial = parentName in specialElements && parentName !== 'title' && parentName !== 'textarea' && parentName !== 'noscript';
       const childNodes = nativeParent.childNodes;
       for (let ni = 0, nl = childNodes.length; ni < nl; ni++) {
         const nativeChild = childNodes[ni];
@@ -19004,16 +19020,6 @@
             } else {
               node.remove();
             }
-          }
-        }
-      });
-      htmlParser.addNodeFilter('noscript', nodes => {
-        var _a;
-        let i = nodes.length;
-        while (i--) {
-          const node = nodes[i].firstChild;
-          if (node) {
-            node.value = Entities.decode((_a = node.value) !== null && _a !== void 0 ? _a : '');
           }
         }
       });
@@ -21367,7 +21373,7 @@
     };
     const mergeBlocks = (rootNode, forward, block1, block2, schema) => forward ? mergeBlockInto(rootNode, block2, block1, schema) : mergeBlockInto(rootNode, block1, block2, schema);
 
-    const backspaceDelete$9 = (editor, forward) => {
+    const backspaceDelete$a = (editor, forward) => {
       const rootNode = SugarElement.fromDom(editor.getBody());
       const position = read$1(editor.schema, rootNode.dom, forward, editor.selection.getRng()).map(blockBoundary => () => {
         mergeBlocks(rootNode, forward, blockBoundary.from.block, blockBoundary.to.block, editor.schema).each(pos => {
@@ -21414,7 +21420,7 @@
       const rng = editor.selection.getRng();
       return isEverythingSelected(rootNode, rng) ? emptyEditor(editor) : deleteRangeMergeBlocks(rootNode, editor.selection, editor.schema);
     };
-    const backspaceDelete$8 = (editor, _forward) => editor.selection.isCollapsed() ? Optional.none() : deleteRange$2(editor);
+    const backspaceDelete$9 = (editor, _forward) => editor.selection.isCollapsed() ? Optional.none() : deleteRange$2(editor);
 
     const showCaret = (direction, editor, node, before, scrollIntoView) => Optional.from(editor._selectionOverrides.showCaret(direction, node, before, scrollIntoView));
     const getNodeRange = node => {
@@ -21497,7 +21503,7 @@
       }
       return Optional.none();
     };
-    const backspaceDelete$7 = (editor, forward) => deleteBoundaryText(editor, forward);
+    const backspaceDelete$8 = (editor, forward) => deleteBoundaryText(editor, forward);
 
     const getEdgeCefPosition = (editor, atStart) => {
       const root = editor.getBody();
@@ -21636,12 +21642,104 @@
       }
       return true;
     };
-    const backspaceDelete$6 = (editor, forward) => {
+    const backspaceDelete$7 = (editor, forward) => {
       if (editor.selection.isCollapsed()) {
         return backspaceDeleteCaret(editor, forward);
       } else {
         return backspaceDeleteRange(editor, forward);
       }
+    };
+
+    const isTextEndpoint = endpoint => endpoint.hasOwnProperty('text');
+    const isElementEndpoint = endpoint => endpoint.hasOwnProperty('marker');
+    const getBookmark = (range, createMarker) => {
+      const getEndpoint = (container, offset) => {
+        if (isText$b(container)) {
+          return {
+            text: container,
+            offset
+          };
+        } else {
+          const marker = createMarker();
+          const children = container.childNodes;
+          if (offset < children.length) {
+            container.insertBefore(marker, children[offset]);
+            return {
+              marker,
+              before: true
+            };
+          } else {
+            container.appendChild(marker);
+            return {
+              marker,
+              before: false
+            };
+          }
+        }
+      };
+      const end = getEndpoint(range.endContainer, range.endOffset);
+      const start = getEndpoint(range.startContainer, range.startOffset);
+      return {
+        start,
+        end
+      };
+    };
+    const resolveBookmark = bm => {
+      var _a, _b;
+      const {start, end} = bm;
+      const rng = new window.Range();
+      if (isTextEndpoint(start)) {
+        rng.setStart(start.text, start.offset);
+      } else {
+        if (isElementEndpoint(start)) {
+          if (start.before) {
+            rng.setStartBefore(start.marker);
+          } else {
+            rng.setStartAfter(start.marker);
+          }
+          (_a = start.marker.parentNode) === null || _a === void 0 ? void 0 : _a.removeChild(start.marker);
+        }
+      }
+      if (isTextEndpoint(end)) {
+        rng.setEnd(end.text, end.offset);
+      } else {
+        if (isElementEndpoint(end)) {
+          if (end.before) {
+            rng.setEndBefore(end.marker);
+          } else {
+            rng.setEndAfter(end.marker);
+          }
+          (_b = end.marker.parentNode) === null || _b === void 0 ? void 0 : _b.removeChild(end.marker);
+        }
+      }
+      return rng;
+    };
+
+    const backspaceDelete$6 = (editor, forward) => {
+      var _a;
+      const dom = editor.dom;
+      const startBlock = dom.getParent(editor.selection.getStart(), dom.isBlock);
+      const endBlock = dom.getParent(editor.selection.getEnd(), dom.isBlock);
+      const body = editor.getBody();
+      const startBlockName = (_a = startBlock === null || startBlock === void 0 ? void 0 : startBlock.nodeName) === null || _a === void 0 ? void 0 : _a.toLowerCase();
+      if (startBlockName === 'div' && startBlock && endBlock && startBlock === body.firstChild && endBlock === body.lastChild && !dom.isEmpty(body)) {
+        const wrapper = startBlock.cloneNode(false);
+        const deleteAction = () => {
+          if (forward) {
+            execNativeForwardDeleteCommand(editor);
+          } else {
+            execNativeDeleteCommand(editor);
+          }
+          if (body.firstChild !== startBlock) {
+            const bookmark = getBookmark(editor.selection.getRng(), () => document.createElement('span'));
+            Array.from(body.childNodes).forEach(node => wrapper.appendChild(node));
+            body.appendChild(wrapper);
+            editor.selection.setRng(resolveBookmark(bookmark));
+          }
+        };
+        return Optional.some(deleteAction);
+      }
+      return Optional.none();
     };
 
     const deleteCaret$2 = (editor, forward) => {
@@ -22544,15 +22642,16 @@
 
     const findAction = (editor, caret, forward) => findMap([
       backspaceDelete$1,
-      backspaceDelete$6,
       backspaceDelete$7,
+      backspaceDelete$8,
       (editor, forward) => backspaceDelete$4(editor, caret, forward),
-      backspaceDelete$9,
       backspaceDelete$a,
+      backspaceDelete$b,
       backspaceDelete$5,
       backspaceDelete$2,
-      backspaceDelete$8,
-      backspaceDelete$3
+      backspaceDelete$9,
+      backspaceDelete$3,
+      backspaceDelete$6
     ], item => item(editor, forward)).filter(_ => editor.selection.isEditable());
     const deleteCommand = (editor, caret) => {
       const result = findAction(editor, caret, false);
@@ -22680,7 +22779,7 @@
       const rootNode = editor.getBody();
       let rootBlockNode;
       let tempNode;
-      let wrapped = false;
+      let bm = null;
       const forcedRootBlock = getForcedRootBlock(editor);
       if (!startNode || !isElement$6(startNode)) {
         return;
@@ -22689,9 +22788,14 @@
       if (!schema.isValidChild(rootNodeName, forcedRootBlock.toLowerCase()) || hasBlockParent(blockElements, rootNode, startNode)) {
         return;
       }
-      const rng = selection.getRng();
-      const {startContainer, startOffset, endContainer, endOffset} = rng;
-      const restoreSelection = hasFocus(editor);
+      if (rootNode.firstChild === rootNode.lastChild && isBr$6(rootNode.firstChild)) {
+        rootBlockNode = createRootBlock(editor);
+        rootBlockNode.appendChild(createPaddingBr().dom);
+        rootNode.replaceChild(rootBlockNode, rootNode.firstChild);
+        editor.selection.setCursorLocation(rootBlockNode, 0);
+        editor.nodeChanged();
+        return;
+      }
       let node = rootNode.firstChild;
       while (node) {
         if (isElement$6(node)) {
@@ -22705,9 +22809,15 @@
             continue;
           }
           if (!rootBlockNode) {
+            if (!bm && editor.hasFocus()) {
+              bm = getBookmark(editor.selection.getRng(), () => document.createElement('span'));
+            }
+            if (!node.parentNode) {
+              node = null;
+              break;
+            }
             rootBlockNode = createRootBlock(editor);
             rootNode.insertBefore(rootBlockNode, node);
-            wrapped = true;
           }
           tempNode = node;
           node = node.nextSibling;
@@ -22717,10 +22827,8 @@
           node = node.nextSibling;
         }
       }
-      if (wrapped && restoreSelection) {
-        rng.setStart(startContainer, startOffset);
-        rng.setEnd(endContainer, endOffset);
-        selection.setRng(rng);
+      if (bm) {
+        editor.selection.setRng(resolveBookmark(bm));
         editor.nodeChanged();
       }
     };
@@ -22735,7 +22843,7 @@
       return rng;
     };
     const setup$o = editor => {
-      editor.on('NodeChange', curry(addRootBlocks, editor));
+      editor.on('NodeChange', () => addRootBlocks(editor));
     };
 
     const hasClass = checkClassName => node => (' ' + node.attr('class') + ' ').indexOf(checkClassName) !== -1;
@@ -22768,6 +22876,12 @@
       }
       e.content = content;
     };
+    const isValidContent = (nonEditableRegExps, content) => {
+      return forall(nonEditableRegExps, re => {
+        const matches = content.match(re);
+        return matches !== null && matches[0].length === content.length;
+      });
+    };
     const setup$n = editor => {
       const contentEditableAttrName = 'contenteditable';
       const editClass = ' ' + Tools.trim(getEditableClass(editor)) + ' ';
@@ -22798,11 +22912,16 @@
           if (!hasEditClass(node) && !hasNonEditClass(node)) {
             continue;
           }
-          if (nonEditableRegExps.length > 0 && node.attr('data-mce-content')) {
-            node.name = '#text';
-            node.type = 3;
-            node.raw = true;
-            node.value = node.attr('data-mce-content');
+          const content = node.attr('data-mce-content');
+          if (nonEditableRegExps.length > 0 && content) {
+            if (isValidContent(nonEditableRegExps, content)) {
+              node.name = '#text';
+              node.type = 3;
+              node.raw = true;
+              node.value = content;
+            } else {
+              node.remove();
+            }
           } else {
             node.attr(contentEditableAttrName, null);
           }
@@ -24303,19 +24422,19 @@
         },
         {
           keyCode: VK.BACKSPACE,
-          action: action(backspaceDelete$6, editor, false)
-        },
-        {
-          keyCode: VK.DELETE,
-          action: action(backspaceDelete$6, editor, true)
-        },
-        {
-          keyCode: VK.BACKSPACE,
           action: action(backspaceDelete$7, editor, false)
         },
         {
           keyCode: VK.DELETE,
           action: action(backspaceDelete$7, editor, true)
+        },
+        {
+          keyCode: VK.BACKSPACE,
+          action: action(backspaceDelete$8, editor, false)
+        },
+        {
+          keyCode: VK.DELETE,
+          action: action(backspaceDelete$8, editor, true)
         },
         {
           keyCode: VK.BACKSPACE,
@@ -24327,11 +24446,11 @@
         },
         {
           keyCode: VK.BACKSPACE,
-          action: action(backspaceDelete$a, editor, false)
+          action: action(backspaceDelete$b, editor, false)
         },
         {
           keyCode: VK.DELETE,
-          action: action(backspaceDelete$a, editor, true)
+          action: action(backspaceDelete$b, editor, true)
         },
         {
           keyCode: VK.BACKSPACE,
@@ -24387,14 +24506,6 @@
         },
         {
           keyCode: VK.BACKSPACE,
-          action: action(backspaceDelete$8, editor, false)
-        },
-        {
-          keyCode: VK.DELETE,
-          action: action(backspaceDelete$8, editor, true)
-        },
-        {
-          keyCode: VK.BACKSPACE,
           action: action(backspaceDelete$9, editor, false)
         },
         {
@@ -24403,11 +24514,27 @@
         },
         {
           keyCode: VK.BACKSPACE,
+          action: action(backspaceDelete$a, editor, false)
+        },
+        {
+          keyCode: VK.DELETE,
+          action: action(backspaceDelete$a, editor, true)
+        },
+        {
+          keyCode: VK.BACKSPACE,
           action: action(backspaceDelete$3, editor, false)
         },
         {
           keyCode: VK.DELETE,
           action: action(backspaceDelete$3, editor, true)
+        },
+        {
+          keyCode: VK.BACKSPACE,
+          action: action(backspaceDelete$6, editor, false)
+        },
+        {
+          keyCode: VK.DELETE,
+          action: action(backspaceDelete$6, editor, true)
         }
       ], evt).filter(_ => editor.selection.isEditable()).each(applyAction => {
         evt.preventDefault();
@@ -25026,9 +25153,14 @@
       } else if (isCaretAtStartOrEndOfBlock(false)) {
         newBlock = insertNewBlockAfter();
       } else if (isCaretAtStartOrEndOfBlock(true) && parentBlockParent) {
+        const caretPos = CaretPosition.fromRangeStart(rng);
+        const afterTable = isAfterTable(caretPos);
+        const parentBlockSugar = SugarElement.fromDom(parentBlock);
+        const afterBr = isAfterBr(parentBlockSugar, caretPos, editor.schema);
+        const prevBrOpt = afterBr ? findPreviousBr(parentBlockSugar, caretPos, editor.schema).bind(pos => Optional.from(pos.getNode())) : Optional.none();
         newBlock = parentBlockParent.insertBefore(createNewBlock$1(), parentBlock);
-        const isNearChildren = hasChildNodes(SugarElement.fromDom(rng.startContainer)) && rng.collapsed;
-        moveToCaretPosition(editor, containerAndSiblingName(parentBlock, 'HR') || isNearChildren ? newBlock : parentBlock);
+        const root = containerAndSiblingName(parentBlock, 'HR') || afterTable ? newBlock : prevBrOpt.getOr(parentBlock);
+        moveToCaretPosition(editor, root);
       } else {
         const tmpRng = includeZwspInRange(rng).cloneRange();
         tmpRng.setEndAfter(parentBlock);
@@ -26671,6 +26803,7 @@
       setup$8(editor);
       register$1(editor, pasteFormat);
       setup$9(editor);
+      editor.addQueryStateHandler('mceTogglePlainTextPaste', () => pasteFormat.get() === 'text');
       editor.on('PreInit', () => {
         register(editor);
         setup$a(editor, draggingInternallyState);
@@ -29464,7 +29597,10 @@
       const extendedOptions = Tools.extend(defaultOptions, defaultOverrideOptions, sectionResult.options(), isOnMobile(isMobileDevice, sectionResult) ? getSection(sectionResult, 'mobile') : {}, { external_plugins: getExternalPlugins(defaultOverrideOptions, sectionResult.options()) });
       return processPlugins(isMobileDevice, sectionResult, defaultOverrideOptions, extendedOptions);
     };
-    const normalizeOptions = (defaultOverrideOptions, options) => combineOptions(isPhone || isTablet, isPhone, options, defaultOverrideOptions, options);
+    const normalizeOptions = (defaultOverrideOptions, options) => {
+      const copiedOptions = merge(options);
+      return combineOptions(isPhone || isTablet, isPhone, copiedOptions, defaultOverrideOptions, copiedOptions);
+    };
 
     const addVisual = (editor, elm) => addVisual$1(editor, elm);
 
@@ -30551,7 +30687,7 @@
       }
       return undefined;
     };
-    const create$5 = (editor, initialOptions) => {
+    const create$5 = (editor, initialOptions, rawInitialOptions = initialOptions) => {
       const registry = {};
       const values = {};
       const setValue = (name, value, processor) => {
@@ -30599,13 +30735,26 @@
         return registered;
       };
       const isSet = name => has$2(values, name);
+      const debug = () => {
+        try {
+          console.log(JSON.parse(JSON.stringify(rawInitialOptions, (_key, value) => {
+            if (isBoolean(value) || isNumber(value) || isString(value) || isNull(value) || isArray$1(value) || isPlainObject(value)) {
+              return value;
+            }
+            return Object.prototype.toString.call(value);
+          })));
+        } catch (error) {
+          console.error(error);
+        }
+      };
       return {
         register,
         isRegistered,
         get,
         set,
         unset,
-        isSet
+        isSet,
+        debug
       };
     };
 
@@ -30937,7 +31086,7 @@
         this.id = id;
         this.hidden = false;
         const normalizedOptions = normalizeOptions(editorManager.defaultOptions, options);
-        this.options = create$5(self, normalizedOptions);
+        this.options = create$5(self, normalizedOptions, options);
         register$7(self);
         const getOption = this.options.get;
         if (getOption('deprecation_warnings')) {
@@ -31342,8 +31491,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '7',
-      minorVersion: '1.2',
-      releaseDate: 'TBD',
+      minorVersion: '2.0',
+      releaseDate: '2024-06-19',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
