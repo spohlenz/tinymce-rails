@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 7.2.0 (2024-06-19)
+ * TinyMCE version 7.2.1 (2024-07-03)
  */
 
 (function () {
@@ -21304,12 +21304,26 @@
     };
     const read$1 = (schema, rootNode, forward, rng) => rng.collapsed ? readFromRange(schema, rootNode, forward, rng) : Optional.none();
 
-    const getChildrenUntilBlockBoundary = (block, schema) => {
-      const children = children$1(block);
-      return findIndex$2(children, el => schema.isBlock(name(el))).fold(constant(children), index => children.slice(0, index));
+    const getChildrenFromNestedUntilBlockBoundary = (block, schema, forwardDelete) => {
+      const allSiblingsInDirection = forwardDelete ? prevSiblings(block).reverse() : nextSiblings(block);
+      const siblingsToMergeIn = findIndex$2(allSiblingsInDirection, element => schema.isBlock(name(element))).fold(constant(allSiblingsInDirection), index => allSiblingsInDirection.slice(0, index));
+      if (forwardDelete) {
+        return siblingsToMergeIn.reverse();
+      }
+      return siblingsToMergeIn;
     };
-    const extractChildren = (block, schema) => {
-      const children = getChildrenUntilBlockBoundary(block, schema);
+    const getChildrenUntilBlockBoundary = (toBlock, fromBlock, schema, forwardDelete, extractsiblingsIfNested) => {
+      if (extractsiblingsIfNested && contains(toBlock, fromBlock)) {
+        return getChildrenFromNestedUntilBlockBoundary(fromBlock, schema, forwardDelete);
+      } else if (extractsiblingsIfNested && contains(fromBlock, toBlock)) {
+        return getChildrenFromNestedUntilBlockBoundary(toBlock, schema, forwardDelete);
+      } else {
+        const children = children$1(fromBlock);
+        return findIndex$2(children, el => schema.isBlock(name(el))).fold(constant(children), index => children.slice(0, index));
+      }
+    };
+    const extractChildren = (toBlock, fromBlock, schema, forwardDelete, extractsiblingsIfNested) => {
+      const children = getChildrenUntilBlockBoundary(toBlock, fromBlock, schema, forwardDelete, extractsiblingsIfNested);
       each$e(children, remove$4);
       return children;
     };
@@ -21318,7 +21332,7 @@
       return find$2(parents.reverse(), element => isEmpty$2(schema, element)).each(remove$4);
     };
     const isEmptyBefore = (schema, el) => filter$5(prevSiblings(el), el => !isEmpty$2(schema, el)).length === 0;
-    const nestedBlockMerge = (rootNode, fromBlock, toBlock, schema, insertionPoint) => {
+    const nestedBlockMerge = (rootNode, fromBlock, toBlock, schema, forward, insertionPoint) => {
       if (isEmpty$2(schema, toBlock)) {
         fillWithPaddingBr(toBlock);
         return firstPositionIn(toBlock.dom);
@@ -21327,14 +21341,14 @@
         before$3(insertionPoint, SugarElement.fromTag('br'));
       }
       const position = prevPosition(toBlock.dom, CaretPosition.before(insertionPoint.dom));
-      each$e(extractChildren(fromBlock, schema), child => {
+      each$e(extractChildren(toBlock, fromBlock, schema, forward, false), child => {
         before$3(insertionPoint, child);
       });
       removeEmptyRoot(schema, rootNode, fromBlock);
       return position;
     };
     const isInline = (schema, node) => schema.isInline(name(node));
-    const sidelongBlockMerge = (rootNode, fromBlock, toBlock, schema) => {
+    const sidelongBlockMerge = (rootNode, fromBlock, toBlock, schema, forwardDelete) => {
       if (isEmpty$2(schema, toBlock)) {
         if (isEmpty$2(schema, fromBlock)) {
           const getInlineToBlockDescendants = el => {
@@ -21352,8 +21366,12 @@
         return firstPositionIn(fromBlock.dom);
       }
       const position = lastPositionIn(toBlock.dom);
-      each$e(extractChildren(fromBlock, schema), child => {
-        append$1(toBlock, child);
+      each$e(extractChildren(toBlock, fromBlock, schema, forwardDelete, true), child => {
+        if (forwardDelete && contains(fromBlock, toBlock)) {
+          prepend(toBlock, child);
+        } else {
+          append$1(toBlock, child);
+        }
       });
       removeEmptyRoot(schema, rootNode, fromBlock);
       return position;
@@ -21366,17 +21384,26 @@
     const trimBr = (first, block) => {
       positionIn(first, block.dom).bind(position => Optional.from(position.getNode())).map(SugarElement.fromDom).filter(isBr$5).each(remove$4);
     };
-    const mergeBlockInto = (rootNode, fromBlock, toBlock, schema) => {
+    const mergeBlockInto = (rootNode, fromBlock, toBlock, schema, forward) => {
       trimBr(true, fromBlock);
       trimBr(false, toBlock);
-      return getInsertionPoint(fromBlock, toBlock).fold(curry(sidelongBlockMerge, rootNode, fromBlock, toBlock, schema), curry(nestedBlockMerge, rootNode, fromBlock, toBlock, schema));
+      return getInsertionPoint(fromBlock, toBlock).fold(curry(sidelongBlockMerge, rootNode, fromBlock, toBlock, schema, forward), curry(nestedBlockMerge, rootNode, fromBlock, toBlock, schema, forward));
     };
-    const mergeBlocks = (rootNode, forward, block1, block2, schema) => forward ? mergeBlockInto(rootNode, block2, block1, schema) : mergeBlockInto(rootNode, block1, block2, schema);
+    const mergeBlocks = (rootNode, forward, block1, block2, schema, mergeNotDelete = false) => {
+      if (mergeNotDelete) {
+        if (contains(block2, block1)) {
+          return mergeBlockInto(rootNode, block2, block1, schema, !forward);
+        } else if (contains(block1, block2)) {
+          return mergeBlockInto(rootNode, block1, block2, schema, forward);
+        }
+      }
+      return forward ? mergeBlockInto(rootNode, block2, block1, schema, forward) : mergeBlockInto(rootNode, block1, block2, schema, !forward);
+    };
 
     const backspaceDelete$a = (editor, forward) => {
       const rootNode = SugarElement.fromDom(editor.getBody());
       const position = read$1(editor.schema, rootNode.dom, forward, editor.selection.getRng()).map(blockBoundary => () => {
-        mergeBlocks(rootNode, forward, blockBoundary.from.block, blockBoundary.to.block, editor.schema).each(pos => {
+        mergeBlocks(rootNode, forward, blockBoundary.from.block, blockBoundary.to.block, editor.schema, true).each(pos => {
           editor.selection.setRng(pos.toRange());
         });
       });
@@ -31491,8 +31518,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '7',
-      minorVersion: '2.0',
-      releaseDate: '2024-06-19',
+      minorVersion: '2.1',
+      releaseDate: '2024-07-03',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
