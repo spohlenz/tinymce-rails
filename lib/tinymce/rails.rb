@@ -1,7 +1,7 @@
 module TinyMCE
   module Rails
-    require 'tinymce/rails/engine'
-    require 'tinymce/rails/version'
+    require "tinymce/rails/engine"
+    require "tinymce/rails/version"
     require "tinymce/rails/configuration"
     require "tinymce/rails/configuration_file"
     require "tinymce/rails/helper"
