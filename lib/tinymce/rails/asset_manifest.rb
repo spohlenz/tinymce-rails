@@ -36,9 +36,9 @@ module TinyMCE
       end
     end
 
-    require "tinymce/rails/asset_manifest/json_manifest"
-    require "tinymce/rails/asset_manifest/null_manifest"
-    require "tinymce/rails/asset_manifest/propshaft_manifest"
-    require "tinymce/rails/asset_manifest/yaml_manifest"
+    require_relative "asset_manifest/json_manifest"
+    require_relative "asset_manifest/null_manifest"
+    require_relative "asset_manifest/propshaft_manifest"
+    require_relative "asset_manifest/yaml_manifest"
   end
 end
