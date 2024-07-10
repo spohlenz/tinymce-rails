@@ -13,6 +13,9 @@ module TinyMCE::Rails
     #   :copy    - copies across the TinyMCE assets statically
     config.tinymce.install = :compile
 
+    # Set default attributes for script source tags (defaults to data-turbolinks-track="reload" for backwards compatibility)
+    config.tinymce.default_script_attributes = { "data-turbolinks-track" => "reload" }
+
     initializer "precompile", :group => :all do |app|
       if config.tinymce.install == :compile
         app.config.assets.precompile << "tinymce-rails.manifest.js" # Sprockets 4 manifest
