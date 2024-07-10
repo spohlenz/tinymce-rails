@@ -8,6 +8,8 @@ gem 'rails', '~> 7.1.0'
 #gem 'rails', '~> 5.1.0'
 
 gem 'sprockets-rails'
+# gem 'propshaft'
+
 gem 'turbolinks'
 gem 'uglifier'
 gem 'puma'

@@ -17,7 +17,7 @@ module TinyMCE
       end
 
       describe "#append" do
-      let(:file) { double }
+        let(:file) { double }
 
         it "adds files to the manifest without a fingerprint" do
           manifest.append("tinymce/tinymce.js", file)
