@@ -14,7 +14,11 @@ jobs:
             ruby: '2.7'
           - gemfile: rails-7.0
             ruby: '3.2'
+          - gemfile: rails-7.0-propshaft
+            ruby: '3.2'
           - gemfile: rails-7.1
+            ruby: '3.2'
+          - gemfile: rails-7.1-propshaft
             ruby: '3.2'
     runs-on: ubuntu-latest
     env:
