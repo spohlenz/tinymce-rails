@@ -22,8 +22,8 @@ module TinyMCE::Rails
     let(:content_security_policy_nonce) { "nonce" }
 
     describe "#tinymce_assets" do
-      it "returns a TinyMCE javascript tag" do
-        expect(tinymce_assets).to have_selector("script[src='/assets/tinymce.js']", :visible => false)
+      it "returns a bundled TinyMCE javascript tag" do
+        expect(tinymce_assets).to have_selector("script[src='#{asset_path("tinymce.js")}']", visible: false)
       end
     end
 
@@ -39,7 +39,7 @@ module TinyMCE::Rails
 
         it "initializes TinyMCE using global configuration" do
           result = tinymce
-          expect(result).to have_selector("script", :visible => false)
+          expect(result).to have_selector("script", visible: false)
           expect(result).to include('TinyMCERails.configuration.default = {')
           expect(result).to include('theme: "advanced"')
           expect(result).to include('plugins: "paste,table,fullscreen"')
