@@ -1,4 +1,4 @@
-require "tinymce/rails/asset_installer/copy"
+require_relative "copy"
 
 module TinyMCE
   module Rails
