@@ -3,7 +3,7 @@ Rails Integration for TinyMCE
 
 The `tinymce-rails` gem integrates the [TinyMCE](https://www.tiny.cloud/) editor with the Rails asset pipeline.
 
-This gem is compatible with Rails 5.0 and higher.
+This gem is compatible with Rails 5.1 and higher.
 
 This is the branch for **TinyMCE 7**.<br />
 Please see alternate branches for [TinyMCE 6](https://github.com/spohlenz/tinymce-rails/tree/tinymce-6), [TinyMCE 5](https://github.com/spohlenz/tinymce-rails/tree/tinymce-5), [TinyMCE 4](https://github.com/spohlenz/tinymce-rails/tree/tinymce-4) & [TinyMCE 3.5.x](https://github.com/spohlenz/tinymce-rails/tree/tinymce-3).
@@ -61,7 +61,7 @@ See the [TinyMCE 7 Documentation](https://www.tiny.cloud/docs/tinymce/7/) for a 
 
 Use *one* of the following options to include TinyMCE assets.
 
-(1) Add to your application.js:
+(1) Add to your application.js (Sprockets only):
 
 ```js
 //= require tinymce
@@ -70,9 +70,13 @@ Use *one* of the following options to include TinyMCE assets.
 or (2) add the script tag to your layout using the `tinymce_assets` helper:
 
 ```erb
-<%= tinymce_assets %>
-#=> <script type="text/javascript" src="/assets/tinymce.js">
+<%= tinymce_assets data: { turbo_track: "reload" } %>
+#=> <script type="text/javascript" src="/assets/tinymce.js" data-turbo-track="reload">
 ```
+
+When using Propshaft, the `tinymce_assets` helper adds multiple script tags including the pre-init code (available via the `tinymce_preinit` helper), as well as `tinymce/tinymce.js` and `tinymce/rails.js`. You may prefer to selectively include these manually depending on your requirements.
+
+For Sprockets, these are bundled together into one script tag.
 
 
 **4. Initialize TinyMCE**
