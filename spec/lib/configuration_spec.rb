@@ -77,14 +77,18 @@ module TinyMCE::Rails
           expect(config.options_for_tinymce["content_css"]).to eq("/layout.css,./custom1.css,../custom2.css")
         end
 
+        def asset_path(path)
+          ActionController::Base.helpers.asset_path(path)
+        end
+
         it "converts content_css values to asset paths (when passed as comma-separated string)" do
           config = Configuration.new("content_css" => "editor1.css, editor2.css")
-          expect(config.options_for_tinymce["content_css"]).to eq("/assets/editor1.css,/assets/editor2.css")
+          expect(config.options_for_tinymce["content_css"]).to eq("#{asset_path("editor1.css")},#{asset_path("editor2.css")}")
         end
 
         it "converts content_css values to asset paths (when passed as array)" do
           config = Configuration.new("content_css" => ["editor1.css", "editor2.css"])
-          expect(config.options_for_tinymce["content_css"]).to eq("/assets/editor1.css,/assets/editor2.css")
+          expect(config.options_for_tinymce["content_css"]).to eq("#{asset_path("editor1.css")},#{asset_path("editor2.css")}")
         end
       end
     end
