@@ -1,6 +1,7 @@
 source 'https://rubygems.org'
 
 gem 'rails', '~> 5.2.0'
+gem 'sprockets-rails'
 gem 'turbolinks'
 
 group :test do
