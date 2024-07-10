@@ -23,7 +23,13 @@ module TinyMCE::Rails
 
     describe "#tinymce_assets" do
       it "returns a bundled TinyMCE javascript tag" do
-        expect(tinymce_assets).to have_selector("script[src='#{asset_path("tinymce.js")}']", visible: false)
+        script = tinymce_assets
+        expect(script).to have_selector("script[src='#{asset_path("tinymce.js")}'][data-turbolinks-track='reload']", visible: false)
+      end
+
+      it "allows custom attributes to be set on the script tag" do
+        script = tinymce_assets(defer: true, data: { turbo_track: "reload" })
+        expect(script).to have_selector("script[src='#{asset_path("tinymce.js")}'][defer][data-turbo-track='reload']", visible: false)
       end
     end
 
