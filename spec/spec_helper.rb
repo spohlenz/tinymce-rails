@@ -17,4 +17,8 @@ I18n.enforce_available_locales = false
 
 RSpec.configure do |config|
   config.infer_spec_type_from_file_location!
+
+  def fixture(path)
+    File.expand_path("./fixtures/#{path}", File.dirname(__FILE__))
+  end
 end
