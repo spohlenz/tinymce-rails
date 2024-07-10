@@ -64,12 +64,26 @@ module TinyMCE::Rails
 
     # Includes TinyMCE javascript assets via a script tag.
     def tinymce_assets(options=Rails.application.config.tinymce.default_script_attributes)
-      javascript_include_tag("tinymce", options)
+      if defined?(Sprockets)
+        javascript_include_tag("tinymce", options)
+      else
+        safe_join([
+          tinymce_preinit,
+          javascript_include_tag("tinymce/tinymce", options),
+          javascript_include_tag("tinymce/rails", options)
+        ], "\n")
+      end
+    end
+
+    # Configures where dynamically loaded TinyMCE assets are located and named
+    def tinymce_preinit(base=TinyMCE::Rails::Engine.base)
+      js = "window.tinymce = window.tinymce || { base: '#{base}', suffix: '' };"
+      javascript_tag(js, nonce: true)
     end
 
     # Allow methods to be called as module functions:
     #  e.g. TinyMCE::Rails.tinymce_javascript
-    module_function :tinymce, :tinymce_javascript, :tinymce_configurations_javascript, :tinymce_configuration
-    public :tinymce, :tinymce_javascript, :tinymce_configurations_javascript, :tinymce_configuration
+    module_function :tinymce, :tinymce_javascript, :tinymce_configurations_javascript, :tinymce_configuration, :tinymce_preinit
+    public :tinymce, :tinymce_javascript, :tinymce_configurations_javascript, :tinymce_configuration, :tinymce_preinit
   end
 end

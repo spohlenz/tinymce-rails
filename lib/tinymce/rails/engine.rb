@@ -22,8 +22,18 @@ module TinyMCE::Rails
         app.config.assets.precompile << "tinymce/*"                 # Sprockets 3
       end
 
-      app.config.assets.precompile << "tinymce.js"
-    end
+      app.config.assets.precompile << "tinymce.js" << "tinymce-jquery.js"
+    end if defined?(Sprockets)
+
+    initializer "propshaft" do |app|
+      config.assets.excluded_paths << root.join("app/assets/sprockets")
+
+      if config.assets.server
+        # Monkey-patch Propshaft::Asset to enable access
+        # of TinyMCE assets without a hash digest.
+        require_relative "propshaft/asset"
+      end
+    end if defined?(Propshaft)
 
     initializer "helper" do |app|
       ActiveSupport.on_load(:action_view) do

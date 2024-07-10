@@ -2,34 +2,53 @@ require 'spec_helper'
 
 module TinyMCE::Rails
   describe Helper do
-    if defined?(Sprockets::Rails::Helper)
+    if defined?(Sprockets)
       include Sprockets::Rails::Helper
 
-      self.assets_environment  = Rails.application.assets
-      self.assets_prefix       = Rails.application.config.assets.prefix
+      app, config = Rails.application, Rails.application.config
 
-      if respond_to?(:resolve_assets_with=)
-        self.resolve_assets_with = [:environment]
-      end
+      self.debug_assets      = config.assets.debug
+      self.digest_assets     = config.assets.digest
+      self.assets_prefix     = config.assets.prefix
+      self.assets_precompile = config.assets.precompile
 
-      if respond_to?(:precompiled_asset_checker)
-        self.precompiled_asset_checker = ActionView::Base.precompiled_asset_checker
-      end
-    else
-      include Sprockets::Helpers::RailsHelper
+      self.assets_environment = app.assets
+      self.assets_manifest    = app.assets_manifest
+
+      self.resolve_assets_with = [:environment] if respond_to?(:resolve_assets_with=)
+    elsif defined?(Propshaft)
+      include Propshaft::Helper
     end
 
     let(:content_security_policy_nonce) { "nonce" }
 
     describe "#tinymce_assets" do
-      it "returns a bundled TinyMCE javascript tag" do
-        script = tinymce_assets
-        expect(script).to have_selector("script[src='#{asset_path("tinymce.js")}'][data-turbolinks-track='reload']", visible: false)
+      context "using Sprockets", if: defined?(Sprockets) do
+        it "returns a bundled TinyMCE javascript tag" do
+          script = tinymce_assets
+          expect(script).to have_selector("script[src='#{asset_path("tinymce.js")}'][data-turbolinks-track='reload']", visible: false)
+        end
+
+        it "allows custom attributes to be set on the script tag" do
+          script = tinymce_assets(defer: true, data: { turbo_track: "reload" })
+          expect(script).to have_selector("script[src='#{asset_path("tinymce.js")}'][defer][data-turbo-track='reload']", visible: false)
+        end
       end
 
-      it "allows custom attributes to be set on the script tag" do
-        script = tinymce_assets(defer: true, data: { turbo_track: "reload" })
-        expect(script).to have_selector("script[src='#{asset_path("tinymce.js")}'][defer][data-turbo-track='reload']", visible: false)
+      context "using Propshaft", if: defined?(Propshaft) do
+        it "returns TinyMCE preinit code and separate javascript asset tags" do
+          result = tinymce_assets
+          expect(result).to include(tinymce_preinit)
+          expect(result).to have_selector("script[src='#{asset_path("tinymce/tinymce.js")}'][data-turbolinks-track='reload']", visible: false)
+          expect(result).to have_selector("script[src='#{asset_path("tinymce/rails.js")}'][data-turbolinks-track='reload']", visible: false)
+        end
+
+        it "allows custom attributes to be set on the script tags" do
+          result = tinymce_assets(defer: true, data: { turbo_track: "reload" })
+          expect(result).to include(tinymce_preinit)
+          expect(result).to have_selector("script[src='#{asset_path("tinymce/tinymce.js")}'][defer][data-turbo-track='reload']", visible: false)
+          expect(result).to have_selector("script[src='#{asset_path("tinymce/rails.js")}'][defer][data-turbo-track='reload']", visible: false)
+        end
       end
     end
 
@@ -99,6 +118,14 @@ module TinyMCE::Rails
           expect(result).to include('theme: "simple"')
           expect(result).to include('skin: "alternate"')
         end
+      end
+    end
+
+    describe "#tinymce_preinit" do
+      it "returns TinyMCE preinit script" do
+        result = tinymce_preinit
+        expect(result).to have_selector("script", visible: false)
+        expect(result).to include("window.tinymce = window.tinymce || { base: '/assets/tinymce', suffix: '' };")
       end
     end
   end
