@@ -11,6 +11,8 @@ Please see alternate branches for [TinyMCE 6](https://github.com/spohlenz/tinymc
 > [!IMPORTANT]
 > Please note that as of version 7, TinyMCE (and therefore this project) is now licensed under the GPL.
 
+[![Latest Gem Version](https://img.shields.io/gem/v/tinymce-rails)](https://rubygems.org/gems/tinymce-rails)
+[![Upstream Version](https://img.shields.io/npm/v/tinymce?label=upstream&color=%23335dff)](https://www.tiny.cloud/docs/tinymce/latest/release-notes/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/spohlenz/tinymce-rails/rspec.yml)](https://github.com/spohlenz/tinymce-rails/actions)
 
 
