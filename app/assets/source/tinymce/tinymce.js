@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 7.3.0 (2024-08-07)
+ * TinyMCE version 7.4.0 (2024-10-09)
  */
 
 (function () {
@@ -7290,6 +7290,19 @@
         processor: 'boolean',
         default: false
       });
+      registerOption('allow_mathml_annotation_encodings', {
+        processor: value => {
+          const valid = isArrayOf(value, isString);
+          return valid ? {
+            value,
+            valid
+          } : {
+            valid: false,
+            message: 'Must be an array of strings.'
+          };
+        },
+        default: []
+      });
       registerOption('convert_fonts_to_spans', {
         processor: 'boolean',
         default: true,
@@ -7948,7 +7961,7 @@
     const isContentEditableTrue$1 = isContentEditableTrue$3;
     const isContentEditableFalse$7 = isContentEditableFalse$b;
     const isMedia = isMedia$2;
-    const isBlockLike = matchStyleValues('display', 'block table table-cell table-caption list-item');
+    const isBlockLike = matchStyleValues('display', 'block table table-cell table-row table-caption list-item');
     const isCaretContainer = isCaretContainer$2;
     const isCaretContainerBlock = isCaretContainerBlock$1;
     const isElement$2 = isElement$6;
@@ -9635,7 +9648,7 @@
       };
       const isResizable = elm => {
         const selector = getObjectResizing(editor);
-        if (!selector) {
+        if (!selector || editor.mode.isReadOnly()) {
           return false;
         }
         if (elm.getAttribute('data-mce-resize') === 'false') {
@@ -13243,6 +13256,9 @@
       if (node && node.attr('id') === 'mce_marker') {
         const marker = node;
         for (node = node.prev; node; node = node.walk(true)) {
+          if (node.name === 'table') {
+            break;
+          }
           if (node.type === 3 || !dom.isBlock(node.name)) {
             if (node.parent && editor.schema.isValidChild(node.parent.name, 'span')) {
               node.parent.insert(marker, node, node.name === 'br');
@@ -17230,37 +17246,55 @@
       }
       return config;
     };
-    const sanitizeNamespaceElement = ele => {
+    const sanitizeSvgElement = ele => {
+      const xlinkAttrs = [
+        'type',
+        'href',
+        'role',
+        'arcrole',
+        'title',
+        'show',
+        'actuate',
+        'label',
+        'from',
+        'to'
+      ].map(name => `xlink:${ name }`);
+      const config = {
+        IN_PLACE: true,
+        USE_PROFILES: {
+          html: true,
+          svg: true,
+          svgFilters: true
+        },
+        ALLOWED_ATTR: xlinkAttrs
+      };
+      purify().sanitize(ele, config);
+    };
+    const sanitizeMathmlElement = (node, settings) => {
+      const config = {
+        IN_PLACE: true,
+        USE_PROFILES: { mathMl: true }
+      };
+      const purify$1 = purify();
+      purify$1.addHook('uponSanitizeElement', (node, evt) => {
+        var _a;
+        const lcTagName = (_a = evt.tagName) !== null && _a !== void 0 ? _a : node.nodeName.toLowerCase();
+        const allowedEncodings = settings.allow_mathml_annotation_encodings;
+        if (lcTagName === 'annotation' && isArray$1(allowedEncodings) && allowedEncodings.length > 0) {
+          const encoding = node.getAttribute('encoding');
+          if (isString(encoding) && contains$2(allowedEncodings, encoding)) {
+            evt.allowedTags[lcTagName] = true;
+          }
+        }
+      });
+      purify$1.sanitize(node, config);
+    };
+    const mkSanitizeNamespaceElement = settings => ele => {
       const namespaceType = toScopeType(ele);
       if (namespaceType === 'svg') {
-        const xlinkAttrs = [
-          'type',
-          'href',
-          'role',
-          'arcrole',
-          'title',
-          'show',
-          'actuate',
-          'label',
-          'from',
-          'to'
-        ].map(name => `xlink:${ name }`);
-        const config = {
-          IN_PLACE: true,
-          USE_PROFILES: {
-            html: true,
-            svg: true,
-            svgFilters: true
-          },
-          ALLOWED_ATTR: xlinkAttrs
-        };
-        purify().sanitize(ele, config);
+        sanitizeSvgElement(ele);
       } else if (namespaceType === 'math') {
-        const config = {
-          IN_PLACE: true,
-          USE_PROFILES: { mathMl: true }
-        };
-        purify().sanitize(ele, config);
+        sanitizeMathmlElement(ele, settings);
       } else {
         throw new Error('Not a namespace element');
       }
@@ -17276,7 +17310,7 @@
         };
         return {
           sanitizeHtmlElement,
-          sanitizeNamespaceElement
+          sanitizeNamespaceElement: mkSanitizeNamespaceElement(settings)
         };
       } else {
         const sanitizeHtmlElement = (body, _mimeType) => {
@@ -18743,6 +18777,9 @@
         return !sel || rng.collapsed;
       };
       const isEditable = () => {
+        if (editor.mode.isReadOnly()) {
+          return false;
+        }
         const rng = getRng$1();
         const fakeSelectedElements = editor.getBody().querySelectorAll('[data-mce-selected="1"]');
         if (fakeSelectedElements.length > 0) {
@@ -22659,6 +22696,9 @@
     const getBlocksToIndent = editor => filter$5(fromDom$1(editor.selection.getSelectedBlocks()), el => !isListComponent(el) && !parentIsListComponent(el) && isEditable(el));
     const handle = (editor, command) => {
       var _a, _b;
+      if (editor.mode.isReadOnly()) {
+        return;
+      }
       const {dom} = editor;
       const indentation = getIndentation(editor);
       const indentUnit = (_b = (_a = /[a-z%]+$/i.exec(indentation)) === null || _a === void 0 ? void 0 : _a[0]) !== null && _b !== void 0 ? _b : 'px';
@@ -23398,6 +23438,9 @@
           return getCellFirstCursorPosition(cell);
         });
       }, current => {
+        if (editor.mode.isReadOnly()) {
+          return Optional.none();
+        }
         editor.execCommand('mceTableInsertRowAfter');
         return tabForward(editor, isRoot, current);
       });
@@ -24078,7 +24121,8 @@
       optionalTooltip,
       optionalIcon,
       optionalText,
-      onSetup
+      onSetup,
+      defaultedString('context', 'mode:design')
     ];
 
     const baseToolbarToggleButtonFields = [active].concat(baseToolbarButtonFields);
@@ -24941,8 +24985,11 @@
     const isEmptyAnchor = (dom, elm) => {
       return elm && elm.nodeName === 'A' && dom.isEmpty(elm);
     };
-    const containerAndSiblingName = (container, nodeName) => {
+    const containerAndPreviousSiblingName = (container, nodeName) => {
       return container.nodeName === nodeName || container.previousSibling && container.previousSibling.nodeName === nodeName;
+    };
+    const containerAndNextSiblingName = (container, nodeName) => {
+      return container.nodeName === nodeName || container.nextSibling && container.nextSibling.nodeName === nodeName;
     };
     const canSplitBlock = (dom, node) => {
       return isNonNullable(node) && dom.isBlock(node) && !/^(TD|TH|CAPTION|FORM)$/.test(node.nodeName) && !/^(fixed|absolute)/i.test(node.style.position) && dom.isEditable(node.parentNode) && dom.getContentEditable(node) !== 'false';
@@ -25085,7 +25132,10 @@
         if (start && isElement$6(container) && container === parentBlock.firstChild) {
           return true;
         }
-        if (containerAndSiblingName(container, 'TABLE') || containerAndSiblingName(container, 'HR')) {
+        if (containerAndPreviousSiblingName(container, 'TABLE') || containerAndPreviousSiblingName(container, 'HR')) {
+          if (containerAndNextSiblingName(container, 'BR')) {
+            return !start;
+          }
           return isAfterLastNodeInContainer && !start || !isAfterLastNodeInContainer && start;
         }
         const walker = new DomTreeWalker(container, parentBlock);
@@ -25203,7 +25253,7 @@
         const afterBr = isAfterBr(parentBlockSugar, caretPos, editor.schema);
         const prevBrOpt = afterBr ? findPreviousBr(parentBlockSugar, caretPos, editor.schema).bind(pos => Optional.from(pos.getNode())) : Optional.none();
         newBlock = parentBlockParent.insertBefore(createNewBlock$1(), parentBlock);
-        const root = containerAndSiblingName(parentBlock, 'HR') || afterTable ? newBlock : prevBrOpt.getOr(parentBlock);
+        const root = containerAndPreviousSiblingName(parentBlock, 'HR') || afterTable ? newBlock : prevBrOpt.getOr(parentBlock);
         moveToCaretPosition(editor, root);
       } else {
         const tmpRng = includeZwspInRange(rng).cloneRange();
@@ -25463,6 +25513,9 @@
     };
 
     const insertBreak = (breakType, editor, evt) => {
+      if (editor.mode.isReadOnly()) {
+        return;
+      }
       if (!editor.selection.isCollapsed()) {
         execEditorDeleteCommand(editor);
       }
@@ -25478,6 +25531,9 @@
       }
     };
     const insert$1 = (editor, evt) => {
+      if (editor.mode.isReadOnly()) {
+        return;
+      }
       const br = () => insertBreak(linebreak, editor, evt);
       const block = () => insertBreak(blockbreak, editor, evt);
       const logicalAction = getAction(editor, evt);
@@ -25840,16 +25896,17 @@
         });
       }
       nodeChanged(args = {}) {
-        const selection = this.editor.selection;
+        const editor = this.editor;
+        const selection = editor.selection;
         let node;
-        if (this.editor.initialized && selection && !shouldDisableNodeChange(this.editor) && !this.editor.mode.isReadOnly()) {
-          const root = this.editor.getBody();
+        if (editor.initialized && selection && !shouldDisableNodeChange(editor)) {
+          const root = editor.getBody();
           node = selection.getStart(true) || root;
-          if (node.ownerDocument !== this.editor.getDoc() || !this.editor.dom.isChildOf(node, root)) {
+          if (node.ownerDocument !== editor.getDoc() || !editor.dom.isChildOf(node, root)) {
             node = root;
           }
           const parents = [];
-          this.editor.dom.getParent(node, node => {
+          editor.dom.getParent(node, node => {
             if (node === root) {
               return true;
             } else {
@@ -25857,7 +25914,7 @@
               return false;
             }
           });
-          this.editor.dispatch('NodeChange', {
+          editor.dispatch('NodeChange', {
             ...args,
             element: node,
             parents
@@ -28328,7 +28385,7 @@
       }), getTextPatternsLookup(editor));
       const hasDynamicPatterns = () => hasTextPatternsLookup(editor);
       editor.on('keydown', e => {
-        if (e.keyCode === 13 && !VK.modifierPressed(e) && editor.selection.isCollapsed()) {
+        if (e.keyCode === 13 && !VK.modifierPressed(e) && editor.selection.isCollapsed() && editor.selection.isEditable()) {
           const patternSet = filterByTrigger(getPatternSet(), 'enter');
           const hasPatterns = patternSet.inlinePatterns.length > 0 || patternSet.blockPatterns.length > 0 || hasDynamicPatterns();
           if (hasPatterns && handleEnter(editor, patternSet)) {
@@ -28337,7 +28394,7 @@
         }
       }, true);
       editor.on('keydown', e => {
-        if (e.keyCode === 32 && editor.selection.isCollapsed()) {
+        if (e.keyCode === 32 && editor.selection.isCollapsed() && editor.selection.isEditable()) {
           const patternSet = filterByTrigger(getPatternSet(), 'space');
           const hasPatterns = patternSet.blockPatterns.length > 0 || hasDynamicPatterns();
           if (hasPatterns && handleBlockPatternOnSpace(editor, patternSet)) {
@@ -28346,7 +28403,7 @@
         }
       }, true);
       const handleInlineTrigger = () => {
-        if (editor.selection.isCollapsed()) {
+        if (editor.selection.isCollapsed() && editor.selection.isEditable()) {
           const patternSet = filterByTrigger(getPatternSet(), 'space');
           const hasPatterns = patternSet.inlinePatterns.length > 0 || hasDynamicPatterns();
           if (hasPatterns) {
@@ -28794,6 +28851,7 @@
         allow_svg_data_urls: getOption('allow_svg_data_urls'),
         allow_html_in_named_anchor: getOption('allow_html_in_named_anchor'),
         allow_script_urls: getOption('allow_script_urls'),
+        allow_mathml_annotation_encodings: getOption('allow_mathml_annotation_encodings'),
         allow_unsafe_link_target: getOption('allow_unsafe_link_target'),
         convert_unsafe_embeds: getOption('convert_unsafe_embeds'),
         convert_fonts_to_spans: getOption('convert_fonts_to_spans'),
@@ -29076,7 +29134,7 @@
       body.disabled = true;
       editor.readonly = isReadOnly$1(editor);
       editor._editableRoot = hasEditableRoot$1(editor);
-      if (!editor.readonly && editor.hasEditableRoot()) {
+      if (editor.hasEditableRoot()) {
         if (editor.inline && DOM$6.getStyle(body, 'position', true) === 'static') {
           body.style.position = 'relative';
         }
@@ -29335,7 +29393,8 @@
         hide: Optional.from(api.hide).getOr(noop),
         isEnabled: Optional.from(api.isEnabled).getOr(always),
         setEnabled: state => {
-          if (!editor.mode.isReadOnly()) {
+          const shouldSkip = state && editor.mode.get() === 'readonly';
+          if (!shouldSkip) {
             Optional.from(api.setEnabled).each(f => f(state));
           }
         }
@@ -29548,10 +29607,8 @@
     const setEditableRoot = (editor, state) => {
       if (editor._editableRoot !== state) {
         editor._editableRoot = state;
-        if (!editor.readonly) {
-          editor.getBody().contentEditable = String(editor.hasEditableRoot());
-          editor.nodeChanged();
-        }
+        editor.getBody().contentEditable = String(editor.hasEditableRoot());
+        editor.nodeChanged();
         fireEditableRootStateChange(editor, state);
       }
     };
@@ -29992,6 +30049,9 @@
 
     const registerCommands$4 = editor => {
       const applyLinkToSelection = (_command, _ui, value) => {
+        if (editor.mode.isReadOnly()) {
+          return;
+        }
         const linkDetails = isString(value) ? { href: value } : value;
         const anchor = editor.dom.getParent(editor.selection.getNode(), 'a');
         if (isObject(linkDetails) && isString(linkDetails.href)) {
@@ -30029,6 +30089,9 @@
       return Optional.from(topParentBlock).map(SugarElement.fromDom);
     };
     const insert = (editor, before) => {
+      if (editor.mode.isReadOnly()) {
+        return;
+      }
       const dom = editor.dom;
       const rng = editor.selection.getRng();
       const node = before ? editor.selection.getStart() : editor.selection.getEnd();
@@ -30233,7 +30296,6 @@
       }
     }
 
-    const internalContentEditableAttr = 'data-mce-contenteditable';
     const toggleClass = (elm, cls, state) => {
       if (has(elm, cls) && !state) {
         remove$6(elm, cls);
@@ -30250,18 +30312,6 @@
     const setContentEditable = (elm, state) => {
       elm.dom.contentEditable = state ? 'true' : 'false';
     };
-    const switchOffContentEditableTrue = elm => {
-      each$e(descendants(elm, '*[contenteditable="true"]'), elm => {
-        set$3(elm, internalContentEditableAttr, 'true');
-        setContentEditable(elm, false);
-      });
-    };
-    const switchOnContentEditableTrue = elm => {
-      each$e(descendants(elm, `*[${ internalContentEditableAttr }="true"]`), elm => {
-        remove$9(elm, internalContentEditableAttr);
-        setContentEditable(elm, true);
-      });
-    };
     const removeFakeSelection = editor => {
       Optional.from(editor.selection.getNode()).each(elm => {
         elm.removeAttribute('data-mce-selected');
@@ -30270,60 +30320,42 @@
     const restoreFakeSelection = editor => {
       editor.selection.setRng(editor.selection.getRng());
     };
+    const setCommonEditorCommands = (editor, state) => {
+      setEditorCommandState(editor, 'StyleWithCSS', state);
+      setEditorCommandState(editor, 'enableInlineTableEditing', state);
+      setEditorCommandState(editor, 'enableObjectResizing', state);
+    };
+    const setEditorReadonly = editor => {
+      editor.readonly = true;
+      editor.selection.controlSelection.hideResizeRect();
+      editor._selectionOverrides.hideFakeCaret();
+      removeFakeSelection(editor);
+    };
+    const unsetEditorReadonly = (editor, body) => {
+      editor.readonly = false;
+      if (editor.hasEditableRoot()) {
+        setContentEditable(body, true);
+      }
+      setCommonEditorCommands(editor, false);
+      if (hasEditorOrUiFocus(editor)) {
+        editor.focus();
+      }
+      restoreFakeSelection(editor);
+      editor.nodeChanged();
+    };
     const toggleReadOnly = (editor, state) => {
       const body = SugarElement.fromDom(editor.getBody());
       toggleClass(body, 'mce-content-readonly', state);
       if (state) {
-        editor.selection.controlSelection.hideResizeRect();
-        editor._selectionOverrides.hideFakeCaret();
-        removeFakeSelection(editor);
-        editor.readonly = true;
-        setContentEditable(body, false);
-        switchOffContentEditableTrue(body);
-      } else {
-        editor.readonly = false;
+        setEditorReadonly(editor);
         if (editor.hasEditableRoot()) {
           setContentEditable(body, true);
         }
-        switchOnContentEditableTrue(body);
-        setEditorCommandState(editor, 'StyleWithCSS', false);
-        setEditorCommandState(editor, 'enableInlineTableEditing', false);
-        setEditorCommandState(editor, 'enableObjectResizing', false);
-        if (hasEditorOrUiFocus(editor)) {
-          editor.focus();
-        }
-        restoreFakeSelection(editor);
-        editor.nodeChanged();
+      } else {
+        unsetEditorReadonly(editor, body);
       }
     };
     const isReadOnly = editor => editor.readonly;
-    const registerFilters = editor => {
-      editor.parser.addAttributeFilter('contenteditable', nodes => {
-        if (isReadOnly(editor)) {
-          each$e(nodes, node => {
-            node.attr(internalContentEditableAttr, node.attr('contenteditable'));
-            node.attr('contenteditable', 'false');
-          });
-        }
-      });
-      editor.serializer.addAttributeFilter(internalContentEditableAttr, nodes => {
-        if (isReadOnly(editor)) {
-          each$e(nodes, node => {
-            node.attr('contenteditable', node.attr(internalContentEditableAttr));
-          });
-        }
-      });
-      editor.serializer.addTempAttr(internalContentEditableAttr);
-    };
-    const registerReadOnlyContentFilters = editor => {
-      if (editor.serializer) {
-        registerFilters(editor);
-      } else {
-        editor.on('PreInit', () => {
-          registerFilters(editor);
-        });
-      }
-    };
     const isClickEvent = e => e.type === 'click';
     const allowedEvents = ['copy'];
     const isReadOnlyAllowedEvent = e => contains$2(allowedEvents, e.type);
@@ -30350,14 +30382,30 @@
       }
     };
     const registerReadOnlySelectionBlockers = editor => {
-      editor.on('ShowCaret', e => {
+      editor.on('beforeinput paste cut dragend dragover draggesture dragdrop drop drag', e => {
         if (isReadOnly(editor)) {
           e.preventDefault();
         }
       });
-      editor.on('ObjectSelected', e => {
-        if (isReadOnly(editor)) {
+      editor.on('BeforeExecCommand', e => {
+        if ((e.command === 'Undo' || e.command === 'Redo') && isReadOnly(editor)) {
           e.preventDefault();
+        }
+      });
+      editor.on('input', e => {
+        if (!e.isComposing && isReadOnly(editor)) {
+          const undoLevel = editor.undoManager.add();
+          if (isNonNullable(undoLevel)) {
+            editor.undoManager.undo();
+          }
+        }
+      });
+      editor.on('compositionend', () => {
+        if (isReadOnly(editor)) {
+          const undoLevel = editor.undoManager.add();
+          if (isNonNullable(undoLevel)) {
+            editor.undoManager.undo();
+          }
         }
       });
     };
@@ -30553,7 +30601,7 @@
       }
       return editor.getBody();
     };
-    const isListening = editor => !editor.hidden && !isReadOnly(editor);
+    const isListening = editor => !editor.hidden;
     const fireEvent = (editor, eventName, e) => {
       if (isListening(editor)) {
         editor.dispatch(eventName, e);
@@ -30872,7 +30920,6 @@
           editorReadOnly: true
         }
       });
-      registerReadOnlyContentFilters(editor);
       registerReadOnlySelectionBlockers(editor);
       return {
         isReadOnly: () => isReadOnly(editor),
@@ -31048,6 +31095,7 @@
       const icons = {};
       const contextMenus = {};
       const contextToolbars = {};
+      const contexts = {};
       const sidebars = {};
       const views = {};
       const add = (collection, type) => (name, spec) => {
@@ -31057,6 +31105,7 @@
         };
       };
       const addIcon = (name, svgData) => icons[name.toLowerCase()] = svgData;
+      const addContext = (name, pred) => contexts[name.toLowerCase()] = pred;
       return {
         addButton: add(buttons, 'button'),
         addGroupToolbarButton: add(buttons, 'grouptoolbarbutton'),
@@ -31073,6 +31122,7 @@
         addSidebar: add(sidebars, 'sidebar'),
         addView: add(views, 'views'),
         addIcon,
+        addContext,
         getAll: () => ({
           buttons,
           menuItems,
@@ -31081,7 +31131,8 @@
           contextMenus,
           contextToolbars,
           sidebars,
-          views
+          views,
+          contexts
         })
       };
     };
@@ -31104,6 +31155,7 @@
         addGroupToolbarButton: bridge.addGroupToolbarButton,
         addToggleMenuItem: bridge.addToggleMenuItem,
         addView: bridge.addView,
+        addContext: bridge.addContext,
         getAll: bridge.getAll
       };
     };
@@ -31540,8 +31592,8 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '7',
-      minorVersion: '3.0',
-      releaseDate: '2024-08-07',
+      minorVersion: '4.0',
+      releaseDate: '2024-10-09',
       i18n: I18n,
       activeEditor: null,
       focusedEditor: null,
