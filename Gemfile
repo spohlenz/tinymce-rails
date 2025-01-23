@@ -1,6 +1,7 @@
 source 'https://rubygems.org'
 
-gem 'rails', '~> 7.1.0'
+gem 'rails', '~> 8.0.1'
+#gem 'rails', '~> 7.1.0'
 #gem 'rails', '~> 7.0.0'
 #gem 'rails', '~> 6.1.0'
 #gem 'rails', '~> 6.0.0'
