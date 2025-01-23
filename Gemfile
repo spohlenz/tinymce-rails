@@ -13,6 +13,7 @@ gem 'sprockets-rails'
 gem 'turbolinks'
 gem 'uglifier'
 gem 'puma'
+# gem 'logger'
 
 group :test do
   gem "test-unit",   "~> 3.0"
