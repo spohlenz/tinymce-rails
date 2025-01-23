@@ -3,6 +3,7 @@ source 'https://rubygems.org'
 gem 'rails', '~> 6.1.0'
 gem 'sprockets-rails'
 gem 'turbolinks'
+gem 'logger'
 
 group :test do
   gem "test-unit",   "~> 3.0"
