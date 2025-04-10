@@ -1,6 +1,6 @@
 module TinyMCE
   module Rails
-    VERSION = "7.7.1"
-    TINYMCE_VERSION = "7.7.1"
+    VERSION = "7.8.0"
+    TINYMCE_VERSION = "7.8.0"
   end
 end
