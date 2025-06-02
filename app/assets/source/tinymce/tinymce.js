@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 6.8.5 (TBD)
+ * TinyMCE version 6.8.6 (TBD)
  */
 
 (function () {
@@ -31160,7 +31160,7 @@
       documentBaseURL: null,
       suffix: null,
       majorVersion: '6',
-      minorVersion: '8.5',
+      minorVersion: '8.6',
       releaseDate: 'TBD',
       i18n: I18n,
       activeEditor: null,
