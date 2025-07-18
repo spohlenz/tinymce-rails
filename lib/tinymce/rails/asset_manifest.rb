@@ -4,7 +4,8 @@ module TinyMCE
       attr_reader :file
 
       def self.load(manifest_path)
-        PropshaftManifest.try(manifest_path) ||
+        NewPropshaftManifest.try(manifest_path) ||
+          PropshaftManifest.try(manifest_path) ||
           JsonManifest.try(manifest_path, ".sprockets-manifest*.json") ||
           JsonManifest.try(manifest_path, "manifest*.json") ||
           JsonManifest.try(manifest_path) ||
@@ -38,6 +39,7 @@ module TinyMCE
 
     require_relative "asset_manifest/json_manifest"
     require_relative "asset_manifest/null_manifest"
+    require_relative "asset_manifest/new_propshaft_manifest"
     require_relative "asset_manifest/propshaft_manifest"
     require_relative "asset_manifest/yaml_manifest"
   end

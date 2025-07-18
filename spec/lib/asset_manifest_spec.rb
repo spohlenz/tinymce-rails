@@ -4,7 +4,13 @@ module TinyMCE
   module Rails
     describe AssetManifest do
       describe ".load" do
-        it "returns a PropshaftManifest if a Propshaft manifest file exists within the given path" do
+        it "returns a NewPropshaftManifest if a new Propshaft manifest file exists within the given path", if: defined?(Propshaft::Manifest) do
+          manifest = AssetManifest.load(fixture("new_propshaft_manifest"))
+          expect(manifest).to be_an_instance_of(NewPropshaftManifest)
+          expect(manifest.file).to eq fixture("new_propshaft_manifest/.manifest.json")
+        end
+
+        it "returns a PropshaftManifest if a Propshaft manifest file exists within the given path", if: !defined?(Propshaft::Manifest) do
           manifest = AssetManifest.load(fixture("propshaft_manifest"))
           expect(manifest).to be_an_instance_of(PropshaftManifest)
           expect(manifest.file).to eq fixture("propshaft_manifest/.manifest.json")
