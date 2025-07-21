@@ -1,0 +1,14 @@
+{
+  "application.css": {
+    "digested_path": "application-c2cd8c57.css",
+    "integrity": "sha384-abc123"
+  },
+  "application.js": {
+    "digested_path": "application-bfcdf840.js",
+    "integrity": "sha384-def456"
+  },
+  "tinymce/tinymce.js": {
+    "digested_path": "tinymce/tinymce-52aa7906.js",
+    "integrity": "sha384-uvw012"
+  }
+}

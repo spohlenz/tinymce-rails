@@ -1,9 +1,10 @@
+require "spec_helper"
 require "tinymce/rails/asset_manifest"
 
 module TinyMCE
   module Rails
-    describe PropshaftManifest do
-      subject(:manifest) { PropshaftManifest.new(fixture("propshaft_manifest/.manifest.json")) }
+    describe NewPropshaftManifest, if: defined?(Propshaft::Manifest) do
+      subject(:manifest) { NewPropshaftManifest.new(fixture("new_propshaft_manifest/.manifest.json")) }
 
       def reload_manifest(manifest)
         JSON.parse(manifest.to_s)
@@ -11,9 +12,9 @@ module TinyMCE
 
       it "keeps existing manifest data" do
         result = reload_manifest(manifest)
-        expect(result["application.css"]).to eq("application-c2cd8c57.css")
-        expect(result["application.js"]).to eq("application-bfcdf840.js")
-        expect(result["tinymce/tinymce.js"]).to eq("tinymce/tinymce-52aa7906.js")
+        expect(result["application.css"]).to eq({"digested_path" => "application-c2cd8c57.css", "integrity" => "sha384-abc123"})
+        expect(result["application.js"]).to eq({"digested_path" => "application-bfcdf840.js", "integrity" => "sha384-def456"})
+        expect(result["tinymce/tinymce.js"]).to eq({"digested_path" => "tinymce/tinymce-52aa7906.js", "integrity" => "sha384-uvw012"})
       end
 
       describe "#append" do
@@ -23,7 +24,7 @@ module TinyMCE
           manifest.append("tinymce/tinymce.js", file)
 
           result = reload_manifest(manifest)
-          expect(result["tinymce/tinymce.js"]).to eq("tinymce/tinymce.js")
+          expect(result["tinymce/tinymce.js"]).to eq({"digested_path" => "tinymce/tinymce.js", "integrity" => nil})
         end
       end
 
@@ -41,7 +42,7 @@ module TinyMCE
           manifest.remove_digest("tinymce/tinymce.js")
 
           result = reload_manifest(manifest)
-          expect(result["tinymce/tinymce.js"]).to eq("tinymce/tinymce.js")
+          expect(result["tinymce/tinymce.js"]).to eq({"digested_path" => "tinymce/tinymce.js", "integrity" => nil})
         end
 
         it "yields the digested and non-digested file names" do
@@ -60,13 +61,13 @@ module TinyMCE
       end
 
       describe ".try" do
-        it "returns a new Propshaft manifest if a Propshaft manifest file exists for the given path" do
-          manifest = PropshaftManifest.try(fixture("propshaft_manifest"))
-          expect(manifest).to be_an_instance_of(PropshaftManifest)
+        it "returns a NewPropshaftManifest if a new format Propshaft manifest file exists for the given path" do
+          manifest = NewPropshaftManifest.try(fixture("new_propshaft_manifest"))
+          expect(manifest).to be_an_instance_of(NewPropshaftManifest)
         end
 
-        it "returns nil if no Propshaft manifest was found" do
-          expect(PropshaftManifest.try(fixture("no_manifest"))).to be_nil
+        it "returns nil if no new manifest was found" do
+          expect(NewPropshaftManifest.try(fixture("no_manifest"))).to be_nil
         end
       end
     end
