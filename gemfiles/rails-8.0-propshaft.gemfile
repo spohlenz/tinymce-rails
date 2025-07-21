@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 
 gem 'rails', '~> 8.0.1'
-gem 'propshaft'
+gem 'propshaft', github: 'rails/propshaft'
 gem 'turbolinks'
 
 group :test do

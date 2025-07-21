@@ -60,12 +60,12 @@ module TinyMCE
       end
 
       describe ".try" do
-        it "returns a new JsonManifest if a JSON manifest exists for the given path" do
+        it "returns a new Propshaft manifest if a Propshaft manifest file exists for the given path" do
           manifest = PropshaftManifest.try(fixture("propshaft_manifest"))
           expect(manifest).to be_an_instance_of(PropshaftManifest)
         end
 
-        it "returns nil if no JSON manifest was found" do
+        it "returns nil if no Propshaft manifest was found" do
           expect(PropshaftManifest.try(fixture("no_manifest"))).to be_nil
         end
       end

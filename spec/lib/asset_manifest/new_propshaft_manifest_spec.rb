@@ -3,7 +3,7 @@ require "tinymce/rails/asset_manifest"
 
 module TinyMCE
   module Rails
-    describe NewPropshaftManifest do
+    describe NewPropshaftManifest, if: defined?(Propshaft::Manifest) do
       subject(:manifest) { NewPropshaftManifest.new(fixture("new_propshaft_manifest/.manifest.json")) }
 
       def reload_manifest(manifest)
@@ -61,13 +61,13 @@ module TinyMCE
       end
 
       describe ".try" do
-        it "returns a new JsonManifest if a JSON manifest exists for the given path" do
-          manifest = PropshaftManifest.try(fixture("propshaft_manifest"))
-          expect(manifest).to be_an_instance_of(PropshaftManifest)
+        it "returns a NewPropshaftManifest if a new format Propshaft manifest file exists for the given path" do
+          manifest = NewPropshaftManifest.try(fixture("new_propshaft_manifest"))
+          expect(manifest).to be_an_instance_of(NewPropshaftManifest)
         end
 
-        it "returns nil if no JSON manifest was found" do
-          expect(PropshaftManifest.try(fixture("no_manifest"))).to be_nil
+        it "returns nil if no new manifest was found" do
+          expect(NewPropshaftManifest.try(fixture("no_manifest"))).to be_nil
         end
       end
     end
