@@ -1,9 +1,11 @@
 default:
+  license_key: 'gpl'
   valid_styles:
     '*': 'border,font-size'
     div: 'width,height'
 
 custom:
+  license_key: 'gpl'
   plugins:
     - table
     - fullscreen
