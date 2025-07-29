@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 8.0.0 (TBD)
+ * TinyMCE version 8.0.1 (2025-07-28)
  */
 
 (function () {
@@ -20739,8 +20739,8 @@
             const pluginsMessage = hasRemovedPlugins ? `\n\nPlugins:${listJoiner}${removedPlugins.join(listJoiner)}` : '';
             const optionsMessage = hasRemovedOptions ? `\n\nOptions:${listJoiner}${removedOptions.join(listJoiner)}` : '';
             // eslint-disable-next-line no-console
-            console.warn('The following deprecated features are currently enabled and have been removed in TinyMCE 7.0. These features will no longer work and should be removed from the TinyMCE configuration. ' +
-                'See https://www.tiny.cloud/docs/tinymce/7/migration-from-6x/ for more information.' +
+            console.warn('The following deprecated features are currently enabled and have been removed in TinyMCE 8.0. These features will no longer work and should be removed from the TinyMCE configuration. ' +
+                'See https://www.tiny.cloud/docs/tinymce/8/migration-from-7x/ for more information.' +
                 themesMessage +
                 pluginsMessage +
                 optionsMessage);
@@ -24185,7 +24185,7 @@
              * @method open
              * @param {Object} args A <code>name: value</code> collection containing settings such as: <code>timeout</code>, <code>type</code>, and message (<code>text</code>).
              * <br /><br />
-             * For information on the available settings, see: <a href="https://www.tiny.cloud/docs/tinymce/7/creating-custom-notifications/">Create custom notifications</a>.
+             * For information on the available settings, see: <a href="https://www.tiny.cloud/docs/tinymce/8/creating-custom-notifications/">Create custom notifications</a>.
              */
             open,
             /**
@@ -24316,8 +24316,8 @@
              * Opens a new window.
              *
              * @method open
-             * @param {Object} config For information on the available options, see: <a href="https://www.tiny.cloud/docs/tinymce/7/dialog-configuration/#options">Dialog - Configuration options</a>.
-             * @param {Object} params (Optional) For information on the available options, see: <a href="https://www.tiny.cloud/docs/tinymce/7/dialog-configuration/#configuration-parameters">Dialog - Configuration parameters</a>.
+             * @param {Object} config For information on the available options, see: <a href="https://www.tiny.cloud/docs/tinymce/8/dialog-configuration/#options">Dialog - Configuration options</a>.
+             * @param {Object} params (Optional) For information on the available options, see: <a href="https://www.tiny.cloud/docs/tinymce/8/dialog-configuration/#configuration-parameters">Dialog - Configuration parameters</a>.
              * @returns {WindowManager.DialogInstanceApi} A new dialog instance.
              */
             open,
@@ -24325,7 +24325,7 @@
              * Opens a new window for the specified url.
              *
              * @method openUrl
-             * @param {Object} config For information on the available options, see: <a href="https://www.tiny.cloud/docs/tinymce/7/urldialog/#configuration">URL dialog - Configuration</a>.
+             * @param {Object} config For information on the available options, see: <a href="https://www.tiny.cloud/docs/tinymce/8/urldialog/#configuration">URL dialog - Configuration</a>.
              * @returns {WindowManager.UrlDialogInstanceApi} A new URL dialog instance.
              */
             openUrl,
@@ -38467,7 +38467,7 @@
     const Observable = {
         /**
          * Fires the specified event by name. Consult the
-         * <a href="https://www.tiny.cloud/docs/tinymce/7/events/">event reference</a> for more details on each event.
+         * <a href="https://www.tiny.cloud/docs/tinymce/8/events/">event reference</a> for more details on each event.
          * <br>
          * <em>Deprecated in TinyMCE 6.0 and has been marked for removal in TinyMCE 9.0. Use <code>dispatch</code> instead.</em>
          *
@@ -38486,7 +38486,7 @@
         },
         /**
          * Dispatches the specified event by name. Consult the
-         * <a href="https://www.tiny.cloud/docs/tinymce/7/events/">event reference</a> for more details on each event.
+         * <a href="https://www.tiny.cloud/docs/tinymce/8/events/">event reference</a> for more details on each event.
          *
          * @method dispatch
          * @param {String} name Name of the event to dispatch.
@@ -38515,7 +38515,7 @@
         },
         /**
          * Binds an event listener to a specific event by name. Consult the
-         * <a href="https://www.tiny.cloud/docs/tinymce/7/events/">event reference</a> for more details on each event.
+         * <a href="https://www.tiny.cloud/docs/tinymce/8/events/">event reference</a> for more details on each event.
          *
          * @method on
          * @param {String} name Event name or space separated list of events to bind.
@@ -38532,7 +38532,7 @@
         },
         /**
          * Unbinds an event listener to a specific event by name. Consult the
-         * <a href="https://www.tiny.cloud/docs/tinymce/7/events/">event reference</a> for more details on each event.
+         * <a href="https://www.tiny.cloud/docs/tinymce/8/events/">event reference</a> for more details on each event.
          *
          * @method off
          * @param {String?} name Name of the event to unbind.
@@ -38553,7 +38553,7 @@
         },
         /**
          * Bind the event callback and once it fires the callback is removed. Consult the
-         * <a href="https://www.tiny.cloud/docs/tinymce/7/events/">event reference</a> for more details on each event.
+         * <a href="https://www.tiny.cloud/docs/tinymce/8/events/">event reference</a> for more details on each event.
          *
          * @method once
          * @param {String} name Name of the event to bind.
@@ -39273,7 +39273,7 @@
              * Emoticons and Charmap use an autocompleter.
              * <br>
              * For information on creating an autocompleter, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/autocompleter/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/autocompleter/">
              * UI Components - Autocompleter</a>.
              *
              * @method addAutocompleter
@@ -39286,7 +39286,7 @@
              * via keyboard navigation controls.
              * <br>
              * For information on creating a basic toolbar button, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/custom-basic-toolbar-button/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/custom-basic-toolbar-button/">
              * UI Components - Types of toolbar buttons: Basic button</a>.
              *
              * @method addButton
@@ -39303,7 +39303,7 @@
              * contextual input form appears allowing for quick changes to the url field.
              * <br>
              * For information on creating context forms, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/contextform/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/contextform/">
              * UI Components - Context forms</a>.
              *
              * @method addContextForm
@@ -39316,7 +39316,7 @@
              * for example, the cursor is inside a table.
              * <br>
              * For information on creating context menus, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/contextmenu/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/contextmenu/">
              * UI Components - Context Menu</a>.
              *
              * @method addContextMenu
@@ -39329,7 +39329,7 @@
              * the cursor is on an image element.
              * <br>
              * For information on creating context toolbars, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/contexttoolbar/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/contexttoolbar/">
              * UI Components - Context Toolbar</a>.
              *
              * @method addContextToolbar
@@ -39356,7 +39356,7 @@
              * addNestedMenuItem or addToggleMenuItem.
              * <br>
              * For information on creating a toolbar menu button, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/custom-menu-toolbar-button/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/custom-menu-toolbar-button/">
              * UI Components - Types of toolbar buttons: Menu button</a>.
              *
              * @method addMenuButton
@@ -39369,7 +39369,7 @@
              * via keyboard navigation controls.
              * <br>
              * For information on creating a basic menu item, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/creating-custom-menu-items/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/creating-custom-menu-items/">
              * UI Components - Custom menu items: Basic menu items</a>.
              *
              * @method addMenuItem
@@ -39383,7 +39383,7 @@
              * created by addMenuItem, addNestedMenuItem or addToggleMenuItem.
              * <br>
              * For information on creating a nested menu item, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/custom-nested-menu-items/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/custom-nested-menu-items/">
              * UI Components - Custom menu items: Nested menu items</a>.
              *
              * @method addNestedMenuItem
@@ -39401,7 +39401,7 @@
              * sidebar for its Ui components.
              * <br>
              * For information on creating a custom sidebar, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/customsidebar/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/customsidebar/">
              * UI Components - Custom sidebar</a>.
              *
              * @method addSidebar
@@ -39414,7 +39414,7 @@
              * a split button to simplify its functionality.
              * <br>
              * For information on creating a split toolbar button, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/custom-split-toolbar-button/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/custom-split-toolbar-button/">
              * UI Components - Types of toolbar buttons: Split button</a>.
              *
              * @method addSplitButton
@@ -39427,7 +39427,7 @@
              * be set in the configuration.
              * <br>
              * For information on creating a toggle toolbar button, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/custom-toggle-toolbar-button/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/custom-toggle-toolbar-button/">
              * UI Components - Types of toolbar buttons: Toggle button</a>.
              *
              * @method addToggleButton
@@ -39442,7 +39442,7 @@
              * <strong>Note:</strong> Group toolbar buttons can only be used when using the floating toolbar mode.
              * <br>
              * For information on creating a group toolbar button, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/custom-group-toolbar-button/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/custom-group-toolbar-button/">
              * UI Components - Types of toolbar buttons: Group toolbar button</a>.
              *
              * @method addGroupToolbarButton
@@ -39455,7 +39455,7 @@
              * showing a tick in the menu item to represent state.
              * <br>
              * For information on creating a toggle menu item, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/custom-toggle-menu-items/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/custom-toggle-menu-items/">
              * UI Components - Custom menu items: Toggle menu items</a>.
              *
              * @method addToggleMenuItem
@@ -39474,7 +39474,7 @@
              * The ToggleView command can be queried for its current state.
              * <br>
              * For information on creating a custom view, see:
-             * <a href="https://www.tiny.cloud/docs/tinymce/7/custom-view/">
+             * <a href="https://www.tiny.cloud/docs/tinymce/8/custom-view/">
              * UI Components - Custom view</a>.
              *
              * @method addView
@@ -40330,14 +40330,14 @@
          * @property minorVersion
          * @type String
          */
-        minorVersion: '0.0',
+        minorVersion: '0.1',
         /**
          * Release date of TinyMCE build.
          *
          * @property releaseDate
          * @type String
          */
-        releaseDate: 'TBD',
+        releaseDate: '2025-07-28',
         /**
          * Collection of language pack data.
          *
@@ -40482,7 +40482,7 @@
         /**
          * Initializes a set of editors. This method will create editors based on various settings.
          * <br /><br />
-         * For information on basic usage of <code>init</code>, see: <a href="https://www.tiny.cloud/docs/tinymce/7/basic-setup/">Basic setup</a>.
+         * For information on basic usage of <code>init</code>, see: <a href="https://www.tiny.cloud/docs/tinymce/8/basic-setup/">Basic setup</a>.
          *
          * @method init
          * @param {Object} options Options object to be passed to each editor instance.
@@ -40524,7 +40524,7 @@
             const findTargets = (options) => {
                 if (Env.browser.isIE() || Env.browser.isEdge()) {
                     initError('TinyMCE does not support the browser you are using. For a list of supported' +
-                        ' browsers please see: https://www.tiny.cloud/docs/tinymce/7/support/#supportedwebbrowsers');
+                        ' browsers please see: https://www.tiny.cloud/docs/tinymce/8/support/#supportedwebbrowsers');
                     return [];
                 }
                 else if (isQuirksMode) {
