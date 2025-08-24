@@ -31,6 +31,7 @@ Be sure to add to the global group, not the `assets` group. Then run `bundle ins
 **2. Create a `config/tinymce.yml` file with your global configuration options:**
 
 ```yml
+license_key: gpl
 toolbar:
   - styleselect | bold italic | undo redo
   - image | link
@@ -45,6 +46,7 @@ To define multiple configuration sets, follow this syntax (a default configurati
 
 ```yml
 default: &default
+  license_key: gpl
   plugins:
     - image
     - link
@@ -57,6 +59,8 @@ alternate:
 ```
 
 See the [TinyMCE 8 Documentation](https://www.tiny.cloud/docs/tinymce/latest/) for a full list of configuration options.
+
+Note that as of TinyMCE 8, a license key must be specified. Please find further information on license keys [here](https://www.tiny.cloud/docs/tinymce/latest/license-key/).
 
 
 **3. Include the TinyMCE assets**
