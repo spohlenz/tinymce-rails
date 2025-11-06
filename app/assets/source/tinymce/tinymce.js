@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 8.2.0 (2025-10-23)
+ * TinyMCE version 8.2.1 (2025-11-06)
  */
 
 (function () {
@@ -3465,6 +3465,8 @@
     const isListItem$3 = matchNodeName$1('li');
     const isDetails = matchNodeName$1('details');
     const isSummary$1 = matchNodeName$1('summary');
+    const ucVideoNodeName = 'uc-video';
+    const isUcVideo = (el) => el.nodeName.toLowerCase() === ucVideoNodeName;
 
     const defaultOptionValues = {
         skipBogus: true,
@@ -13090,8 +13092,6 @@
         }
     };
 
-    const ucVideoNodeName = 'uc-video';
-    const isUcVideo = (el) => el.nodeName.toLowerCase() === ucVideoNodeName;
     const elementSelectionAttr = 'data-mce-selected';
     const controlElmSelector = `table,img,figure.image,hr,video,span.mce-preview-object,details,${ucVideoNodeName}`;
     const abs = Math.abs;
@@ -34954,8 +34954,22 @@
             }
             return newRange;
         };
+        const getUcVideoClone = (ucVideo) => {
+            const newElm = editor.getDoc().createElement('div');
+            newElm.style.width = ucVideo.style.width;
+            newElm.style.height = ucVideo.style.height;
+            const ucVideoWidth = ucVideo.getAttribute('width');
+            if (ucVideoWidth) {
+                newElm.setAttribute('width', ucVideoWidth);
+            }
+            const ucVideoHeight = ucVideo.getAttribute('height');
+            if (ucVideoHeight) {
+                newElm.setAttribute('height', ucVideoHeight);
+            }
+            return newElm;
+        };
         const selectElement = (elm) => {
-            const targetClone = elm.cloneNode(true);
+            const targetClone = isUcVideo(elm) ? getUcVideoClone(elm) : elm.cloneNode(true);
             const e = editor.dispatch('ObjectSelected', { target: elm, targetClone });
             if (e.isDefaultPrevented()) {
                 return null;
@@ -40529,14 +40543,14 @@
          * @property minorVersion
          * @type String
          */
-        minorVersion: '2.0',
+        minorVersion: '2.1',
         /**
          * Release date of TinyMCE build.
          *
          * @property releaseDate
          * @type String
          */
-        releaseDate: '2025-10-23',
+        releaseDate: '2025-11-06',
         /**
          * Collection of language pack data.
          *
