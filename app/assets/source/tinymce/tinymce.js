@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 8.2.1 (2025-11-06)
+ * TinyMCE version 8.2.2 (2025-11-17)
  */
 
 (function () {
@@ -24643,7 +24643,10 @@
     const determineStrategy = (editor) => {
         const onlineStatus = getOnlineStatus(editor);
         const licenseKeyType = getLicenseKeyType(editor);
-        const forcePlugin = (new Set(getPlugins(editor))).has(PLUGIN_CODE$1);
+        const forcePlugin = new Set([
+            ...getPlugins(editor),
+            ...keys(getExternalPlugins$1(editor)),
+        ]).has(PLUGIN_CODE$1);
         if (licenseKeyType !== 'gpl' || onlineStatus === 'online' || forcePlugin) {
             return {
                 type: 'use_plugin',
@@ -24694,7 +24697,8 @@
         const load = (editor, suffix) => {
             const strategy = determineStrategy(editor);
             if (strategy.type === 'use_plugin') {
-                const url = `plugins/${PLUGIN_CODE}/plugin${suffix}.js`;
+                const externalUrl = get$a(getExternalPlugins$1(editor), PLUGIN_CODE).map(trim$4).filter(isNotEmpty);
+                const url = externalUrl.getOr(`plugins/${PLUGIN_CODE}/plugin${suffix}.js`);
                 addOnManager.load(ADDON_KEY, url).catch(() => {
                     licenseKeyManagerLoadError(editor, url);
                 });
@@ -40543,14 +40547,14 @@
          * @property minorVersion
          * @type String
          */
-        minorVersion: '2.1',
+        minorVersion: '2.2',
         /**
          * Release date of TinyMCE build.
          *
          * @property releaseDate
          * @type String
          */
-        releaseDate: '2025-11-06',
+        releaseDate: '2025-11-17',
         /**
          * Collection of language pack data.
          *
