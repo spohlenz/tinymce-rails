@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 8.3.0 (2025-12-10)
+ * TinyMCE version 8.3.1 (2025-12-17)
  */
 
 (function () {
@@ -40581,14 +40581,14 @@
          * @property minorVersion
          * @type String
          */
-        minorVersion: '3.0',
+        minorVersion: '3.1',
         /**
          * Release date of TinyMCE build.
          *
          * @property releaseDate
          * @type String
          */
-        releaseDate: '2025-12-10',
+        releaseDate: '2025-12-17',
         /**
          * Collection of language pack data.
          *
