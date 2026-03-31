@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 8.3.2 (2026-01-14)
+ * TinyMCE version 8.4.0 (2026-03-31)
  */
 
 (function () {
@@ -3467,7 +3467,7 @@
     const isDetails = matchNodeName$1('details');
     const isSummary$1 = matchNodeName$1('summary');
     const ucVideoNodeName = 'uc-video';
-    const isUcVideo = (el) => el.nodeName.toLowerCase() === ucVideoNodeName;
+    const isUcVideo = matchNodeName$1(ucVideoNodeName);
 
     const defaultOptionValues = {
         skipBogus: true,
@@ -5630,7 +5630,9 @@
                     compress('border', '-style');
                     compress('padding', '');
                     compress('margin', '');
-                    compress2('border', 'border-width', 'border-style', 'border-color');
+                    if (!/(#.* rgb(a?)\(.*)|(rgb(a?)\(.*\) )/.test(styles['border-color'])) {
+                        compress2('border', 'border-width', 'border-style', 'border-color');
+                    }
                     // Remove pointless border, IE produces these
                     if (styles.border === 'medium none') {
                         delete styles.border;
@@ -5705,7 +5707,8 @@
         webkitMovementX: true,
         webkitMovementY: true,
         keyIdentifier: true,
-        mozPressure: true
+        mozPressure: true,
+        mozInputSource: true,
     };
     // Note: We can't rely on `instanceof` here as it won't work if the event was fired from another window.
     // Additionally, the constructor name might be `MouseEvent` or similar so we can't rely on the constructor name.
@@ -10605,6 +10608,10 @@
             },
             default: (_ctx) => []
         });
+        registerOption('allow_noneditable', {
+            processor: 'boolean',
+            default: true
+        });
         registerOption('noneditable_class', {
             processor: 'string',
             default: 'mceNonEditable'
@@ -10687,6 +10694,9 @@
         registerOption('user_id', {
             processor: 'string',
             default: 'Anonymous'
+        });
+        registerOption('content_id', {
+            processor: 'string',
         });
         registerOption('fetch_users', {
             processor: (value) => {
@@ -10837,6 +10847,7 @@
     const shouldAllowHtmlDataUrls = option('allow_html_data_urls');
     const getTextPatterns = option('text_patterns');
     const getTextPatternsLookup = option('text_patterns_lookup');
+    const shouldAllowNonEditable = option('allow_noneditable');
     const getNonEditableClass = option('noneditable_class');
     const getEditableClass = option('editable_class');
     const getNonEditableRegExps = option('noneditable_regexp');
@@ -18468,7 +18479,7 @@
         }
     };
 
-    /*! @license DOMPurify 3.2.6 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.2.6/LICENSE */
+    /*! @license DOMPurify 3.3.2 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.3.2/LICENSE */
 
     const {
       entries,
@@ -18497,12 +18508,18 @@
       };
     }
     if (!apply) {
-      apply = function apply(fun, thisValue, args) {
-        return fun.apply(thisValue, args);
+      apply = function apply(func, thisArg) {
+        for (var _len = arguments.length, args = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+          args[_key - 2] = arguments[_key];
+        }
+        return func.apply(thisArg, args);
       };
     }
     if (!construct) {
-      construct = function construct(Func, args) {
+      construct = function construct(Func) {
+        for (var _len2 = arguments.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
+          args[_key2 - 1] = arguments[_key2];
+        }
         return new Func(...args);
       };
     }
@@ -18531,8 +18548,8 @@
         if (thisArg instanceof RegExp) {
           thisArg.lastIndex = 0;
         }
-        for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-          args[_key - 1] = arguments[_key];
+        for (var _len3 = arguments.length, args = new Array(_len3 > 1 ? _len3 - 1 : 0), _key3 = 1; _key3 < _len3; _key3++) {
+          args[_key3 - 1] = arguments[_key3];
         }
         return apply(func, thisArg, args);
       };
@@ -18543,12 +18560,12 @@
      * @param func - The constructor function to be wrapped and called.
      * @returns A new function that constructs an instance of the given constructor function with the provided arguments.
      */
-    function unconstruct(func) {
+    function unconstruct(Func) {
       return function () {
-        for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-          args[_key2] = arguments[_key2];
+        for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+          args[_key4] = arguments[_key4];
         }
-        return construct(func, args);
+        return construct(Func, args);
       };
     }
     /**
@@ -18647,8 +18664,8 @@
       return fallbackValue;
     }
 
-    const html$1 = freeze(['a', 'abbr', 'acronym', 'address', 'area', 'article', 'aside', 'audio', 'b', 'bdi', 'bdo', 'big', 'blink', 'blockquote', 'body', 'br', 'button', 'canvas', 'caption', 'center', 'cite', 'code', 'col', 'colgroup', 'content', 'data', 'datalist', 'dd', 'decorator', 'del', 'details', 'dfn', 'dialog', 'dir', 'div', 'dl', 'dt', 'element', 'em', 'fieldset', 'figcaption', 'figure', 'font', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hgroup', 'hr', 'html', 'i', 'img', 'input', 'ins', 'kbd', 'label', 'legend', 'li', 'main', 'map', 'mark', 'marquee', 'menu', 'menuitem', 'meter', 'nav', 'nobr', 'ol', 'optgroup', 'option', 'output', 'p', 'picture', 'pre', 'progress', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'section', 'select', 'shadow', 'small', 'source', 'spacer', 'span', 'strike', 'strong', 'style', 'sub', 'summary', 'sup', 'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead', 'time', 'tr', 'track', 'tt', 'u', 'ul', 'var', 'video', 'wbr']);
-    const svg$1 = freeze(['svg', 'a', 'altglyph', 'altglyphdef', 'altglyphitem', 'animatecolor', 'animatemotion', 'animatetransform', 'circle', 'clippath', 'defs', 'desc', 'ellipse', 'filter', 'font', 'g', 'glyph', 'glyphref', 'hkern', 'image', 'line', 'lineargradient', 'marker', 'mask', 'metadata', 'mpath', 'path', 'pattern', 'polygon', 'polyline', 'radialgradient', 'rect', 'stop', 'style', 'switch', 'symbol', 'text', 'textpath', 'title', 'tref', 'tspan', 'view', 'vkern']);
+    const html$1 = freeze(['a', 'abbr', 'acronym', 'address', 'area', 'article', 'aside', 'audio', 'b', 'bdi', 'bdo', 'big', 'blink', 'blockquote', 'body', 'br', 'button', 'canvas', 'caption', 'center', 'cite', 'code', 'col', 'colgroup', 'content', 'data', 'datalist', 'dd', 'decorator', 'del', 'details', 'dfn', 'dialog', 'dir', 'div', 'dl', 'dt', 'element', 'em', 'fieldset', 'figcaption', 'figure', 'font', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hgroup', 'hr', 'html', 'i', 'img', 'input', 'ins', 'kbd', 'label', 'legend', 'li', 'main', 'map', 'mark', 'marquee', 'menu', 'menuitem', 'meter', 'nav', 'nobr', 'ol', 'optgroup', 'option', 'output', 'p', 'picture', 'pre', 'progress', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'search', 'section', 'select', 'shadow', 'slot', 'small', 'source', 'spacer', 'span', 'strike', 'strong', 'style', 'sub', 'summary', 'sup', 'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead', 'time', 'tr', 'track', 'tt', 'u', 'ul', 'var', 'video', 'wbr']);
+    const svg$1 = freeze(['svg', 'a', 'altglyph', 'altglyphdef', 'altglyphitem', 'animatecolor', 'animatemotion', 'animatetransform', 'circle', 'clippath', 'defs', 'desc', 'ellipse', 'enterkeyhint', 'exportparts', 'filter', 'font', 'g', 'glyph', 'glyphref', 'hkern', 'image', 'inputmode', 'line', 'lineargradient', 'marker', 'mask', 'metadata', 'mpath', 'part', 'path', 'pattern', 'polygon', 'polyline', 'radialgradient', 'rect', 'stop', 'style', 'switch', 'symbol', 'text', 'textpath', 'title', 'tref', 'tspan', 'view', 'vkern']);
     const svgFilters = freeze(['feBlend', 'feColorMatrix', 'feComponentTransfer', 'feComposite', 'feConvolveMatrix', 'feDiffuseLighting', 'feDisplacementMap', 'feDistantLight', 'feDropShadow', 'feFlood', 'feFuncA', 'feFuncB', 'feFuncG', 'feFuncR', 'feGaussianBlur', 'feImage', 'feMerge', 'feMergeNode', 'feMorphology', 'feOffset', 'fePointLight', 'feSpecularLighting', 'feSpotLight', 'feTile', 'feTurbulence']);
     // List of SVG elements that are disallowed by default.
     // We still need to know them so that we can do namespace
@@ -18661,8 +18678,8 @@
     const mathMlDisallowed = freeze(['maction', 'maligngroup', 'malignmark', 'mlongdiv', 'mscarries', 'mscarry', 'msgroup', 'mstack', 'msline', 'msrow', 'semantics', 'annotation', 'annotation-xml', 'mprescripts', 'none']);
     const text = freeze(['#text']);
 
-    const html = freeze(['accept', 'action', 'align', 'alt', 'autocapitalize', 'autocomplete', 'autopictureinpicture', 'autoplay', 'background', 'bgcolor', 'border', 'capture', 'cellpadding', 'cellspacing', 'checked', 'cite', 'class', 'clear', 'color', 'cols', 'colspan', 'controls', 'controlslist', 'coords', 'crossorigin', 'datetime', 'decoding', 'default', 'dir', 'disabled', 'disablepictureinpicture', 'disableremoteplayback', 'download', 'draggable', 'enctype', 'enterkeyhint', 'face', 'for', 'headers', 'height', 'hidden', 'high', 'href', 'hreflang', 'id', 'inputmode', 'integrity', 'ismap', 'kind', 'label', 'lang', 'list', 'loading', 'loop', 'low', 'max', 'maxlength', 'media', 'method', 'min', 'minlength', 'multiple', 'muted', 'name', 'nonce', 'noshade', 'novalidate', 'nowrap', 'open', 'optimum', 'pattern', 'placeholder', 'playsinline', 'popover', 'popovertarget', 'popovertargetaction', 'poster', 'preload', 'pubdate', 'radiogroup', 'readonly', 'rel', 'required', 'rev', 'reversed', 'role', 'rows', 'rowspan', 'spellcheck', 'scope', 'selected', 'shape', 'size', 'sizes', 'span', 'srclang', 'start', 'src', 'srcset', 'step', 'style', 'summary', 'tabindex', 'title', 'translate', 'type', 'usemap', 'valign', 'value', 'width', 'wrap', 'xmlns', 'slot']);
-    const svg = freeze(['accent-height', 'accumulate', 'additive', 'alignment-baseline', 'amplitude', 'ascent', 'attributename', 'attributetype', 'azimuth', 'basefrequency', 'baseline-shift', 'begin', 'bias', 'by', 'class', 'clip', 'clippathunits', 'clip-path', 'clip-rule', 'color', 'color-interpolation', 'color-interpolation-filters', 'color-profile', 'color-rendering', 'cx', 'cy', 'd', 'dx', 'dy', 'diffuseconstant', 'direction', 'display', 'divisor', 'dur', 'edgemode', 'elevation', 'end', 'exponent', 'fill', 'fill-opacity', 'fill-rule', 'filter', 'filterunits', 'flood-color', 'flood-opacity', 'font-family', 'font-size', 'font-size-adjust', 'font-stretch', 'font-style', 'font-variant', 'font-weight', 'fx', 'fy', 'g1', 'g2', 'glyph-name', 'glyphref', 'gradientunits', 'gradienttransform', 'height', 'href', 'id', 'image-rendering', 'in', 'in2', 'intercept', 'k', 'k1', 'k2', 'k3', 'k4', 'kerning', 'keypoints', 'keysplines', 'keytimes', 'lang', 'lengthadjust', 'letter-spacing', 'kernelmatrix', 'kernelunitlength', 'lighting-color', 'local', 'marker-end', 'marker-mid', 'marker-start', 'markerheight', 'markerunits', 'markerwidth', 'maskcontentunits', 'maskunits', 'max', 'mask', 'media', 'method', 'mode', 'min', 'name', 'numoctaves', 'offset', 'operator', 'opacity', 'order', 'orient', 'orientation', 'origin', 'overflow', 'paint-order', 'path', 'pathlength', 'patterncontentunits', 'patterntransform', 'patternunits', 'points', 'preservealpha', 'preserveaspectratio', 'primitiveunits', 'r', 'rx', 'ry', 'radius', 'refx', 'refy', 'repeatcount', 'repeatdur', 'restart', 'result', 'rotate', 'scale', 'seed', 'shape-rendering', 'slope', 'specularconstant', 'specularexponent', 'spreadmethod', 'startoffset', 'stddeviation', 'stitchtiles', 'stop-color', 'stop-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'stroke-opacity', 'stroke', 'stroke-width', 'style', 'surfacescale', 'systemlanguage', 'tabindex', 'tablevalues', 'targetx', 'targety', 'transform', 'transform-origin', 'text-anchor', 'text-decoration', 'text-rendering', 'textlength', 'type', 'u1', 'u2', 'unicode', 'values', 'viewbox', 'visibility', 'version', 'vert-adv-y', 'vert-origin-x', 'vert-origin-y', 'width', 'word-spacing', 'wrap', 'writing-mode', 'xchannelselector', 'ychannelselector', 'x', 'x1', 'x2', 'xmlns', 'y', 'y1', 'y2', 'z', 'zoomandpan']);
+    const html = freeze(['accept', 'action', 'align', 'alt', 'autocapitalize', 'autocomplete', 'autopictureinpicture', 'autoplay', 'background', 'bgcolor', 'border', 'capture', 'cellpadding', 'cellspacing', 'checked', 'cite', 'class', 'clear', 'color', 'cols', 'colspan', 'controls', 'controlslist', 'coords', 'crossorigin', 'datetime', 'decoding', 'default', 'dir', 'disabled', 'disablepictureinpicture', 'disableremoteplayback', 'download', 'draggable', 'enctype', 'enterkeyhint', 'exportparts', 'face', 'for', 'headers', 'height', 'hidden', 'high', 'href', 'hreflang', 'id', 'inert', 'inputmode', 'integrity', 'ismap', 'kind', 'label', 'lang', 'list', 'loading', 'loop', 'low', 'max', 'maxlength', 'media', 'method', 'min', 'minlength', 'multiple', 'muted', 'name', 'nonce', 'noshade', 'novalidate', 'nowrap', 'open', 'optimum', 'part', 'pattern', 'placeholder', 'playsinline', 'popover', 'popovertarget', 'popovertargetaction', 'poster', 'preload', 'pubdate', 'radiogroup', 'readonly', 'rel', 'required', 'rev', 'reversed', 'role', 'rows', 'rowspan', 'spellcheck', 'scope', 'selected', 'shape', 'size', 'sizes', 'slot', 'span', 'srclang', 'start', 'src', 'srcset', 'step', 'style', 'summary', 'tabindex', 'title', 'translate', 'type', 'usemap', 'valign', 'value', 'width', 'wrap', 'xmlns', 'slot']);
+    const svg = freeze(['accent-height', 'accumulate', 'additive', 'alignment-baseline', 'amplitude', 'ascent', 'attributename', 'attributetype', 'azimuth', 'basefrequency', 'baseline-shift', 'begin', 'bias', 'by', 'class', 'clip', 'clippathunits', 'clip-path', 'clip-rule', 'color', 'color-interpolation', 'color-interpolation-filters', 'color-profile', 'color-rendering', 'cx', 'cy', 'd', 'dx', 'dy', 'diffuseconstant', 'direction', 'display', 'divisor', 'dur', 'edgemode', 'elevation', 'end', 'exponent', 'fill', 'fill-opacity', 'fill-rule', 'filter', 'filterunits', 'flood-color', 'flood-opacity', 'font-family', 'font-size', 'font-size-adjust', 'font-stretch', 'font-style', 'font-variant', 'font-weight', 'fx', 'fy', 'g1', 'g2', 'glyph-name', 'glyphref', 'gradientunits', 'gradienttransform', 'height', 'href', 'id', 'image-rendering', 'in', 'in2', 'intercept', 'k', 'k1', 'k2', 'k3', 'k4', 'kerning', 'keypoints', 'keysplines', 'keytimes', 'lang', 'lengthadjust', 'letter-spacing', 'kernelmatrix', 'kernelunitlength', 'lighting-color', 'local', 'marker-end', 'marker-mid', 'marker-start', 'markerheight', 'markerunits', 'markerwidth', 'maskcontentunits', 'maskunits', 'max', 'mask', 'mask-type', 'media', 'method', 'mode', 'min', 'name', 'numoctaves', 'offset', 'operator', 'opacity', 'order', 'orient', 'orientation', 'origin', 'overflow', 'paint-order', 'path', 'pathlength', 'patterncontentunits', 'patterntransform', 'patternunits', 'points', 'preservealpha', 'preserveaspectratio', 'primitiveunits', 'r', 'rx', 'ry', 'radius', 'refx', 'refy', 'repeatcount', 'repeatdur', 'restart', 'result', 'rotate', 'scale', 'seed', 'shape-rendering', 'slope', 'specularconstant', 'specularexponent', 'spreadmethod', 'startoffset', 'stddeviation', 'stitchtiles', 'stop-color', 'stop-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'stroke-opacity', 'stroke', 'stroke-width', 'style', 'surfacescale', 'systemlanguage', 'tabindex', 'tablevalues', 'targetx', 'targety', 'transform', 'transform-origin', 'text-anchor', 'text-decoration', 'text-rendering', 'textlength', 'type', 'u1', 'u2', 'unicode', 'values', 'viewbox', 'visibility', 'version', 'vert-adv-y', 'vert-origin-x', 'vert-origin-y', 'width', 'word-spacing', 'wrap', 'writing-mode', 'xchannelselector', 'ychannelselector', 'x', 'x1', 'x2', 'xmlns', 'y', 'y1', 'y2', 'z', 'zoomandpan']);
     const mathMl = freeze(['accent', 'accentunder', 'align', 'bevelled', 'close', 'columnsalign', 'columnlines', 'columnspan', 'denomalign', 'depth', 'dir', 'display', 'displaystyle', 'encoding', 'fence', 'frame', 'height', 'href', 'id', 'largeop', 'length', 'linethickness', 'lspace', 'lquote', 'mathbackground', 'mathcolor', 'mathsize', 'mathvariant', 'maxsize', 'minsize', 'movablelimits', 'notation', 'numalign', 'open', 'rowalign', 'rowlines', 'rowspacing', 'rowspan', 'rspace', 'rquote', 'scriptlevel', 'scriptminsize', 'scriptsizemultiplier', 'selection', 'separator', 'separators', 'stretchy', 'subscriptshift', 'supscriptshift', 'symmetric', 'voffset', 'width', 'xmlns']);
     const xml = freeze(['xlink:href', 'xml:id', 'xlink:title', 'xml:space', 'xmlns:xlink']);
 
@@ -18769,7 +18786,7 @@
     function createDOMPurify() {
       let window = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : getGlobal();
       const DOMPurify = root => createDOMPurify(root);
-      DOMPurify.version = '3.2.6';
+      DOMPurify.version = '3.3.2';
       DOMPurify.removed = [];
       if (!window || !window.document || window.document.nodeType !== NODE_TYPE.document || !window.Element) {
         // Not running in a browser, provide a factory function
@@ -18880,6 +18897,21 @@
       let FORBID_TAGS = null;
       /* Explicitly forbidden attributes (overrides ALLOWED_ATTR/ADD_ATTR) */
       let FORBID_ATTR = null;
+      /* Config object to store ADD_TAGS/ADD_ATTR functions (when used as functions) */
+      const EXTRA_ELEMENT_HANDLING = Object.seal(create$7(null, {
+        tagCheck: {
+          writable: true,
+          configurable: false,
+          enumerable: true,
+          value: null
+        },
+        attributeCheck: {
+          writable: true,
+          configurable: false,
+          enumerable: true,
+          value: null
+        }
+      }));
       /* Decide if ARIA attributes are okay */
       let ALLOW_ARIA_ATTR = true;
       /* Decide if custom data attributes are okay */
@@ -19049,7 +19081,7 @@
         /* Parse profile info */
         if (USE_PROFILES) {
           ALLOWED_TAGS = addToSet({}, text);
-          ALLOWED_ATTR = [];
+          ALLOWED_ATTR = create$7(null);
           if (USE_PROFILES.html === true) {
             addToSet(ALLOWED_TAGS, html$1);
             addToSet(ALLOWED_ATTR, html);
@@ -19070,18 +19102,33 @@
             addToSet(ALLOWED_ATTR, xml);
           }
         }
+        /* Prevent function-based ADD_ATTR / ADD_TAGS from leaking across calls */
+        if (!objectHasOwnProperty(cfg, 'ADD_TAGS')) {
+          EXTRA_ELEMENT_HANDLING.tagCheck = null;
+        }
+        if (!objectHasOwnProperty(cfg, 'ADD_ATTR')) {
+          EXTRA_ELEMENT_HANDLING.attributeCheck = null;
+        }
         /* Merge configuration parameters */
         if (cfg.ADD_TAGS) {
-          if (ALLOWED_TAGS === DEFAULT_ALLOWED_TAGS) {
-            ALLOWED_TAGS = clone(ALLOWED_TAGS);
+          if (typeof cfg.ADD_TAGS === 'function') {
+            EXTRA_ELEMENT_HANDLING.tagCheck = cfg.ADD_TAGS;
+          } else {
+            if (ALLOWED_TAGS === DEFAULT_ALLOWED_TAGS) {
+              ALLOWED_TAGS = clone(ALLOWED_TAGS);
+            }
+            addToSet(ALLOWED_TAGS, cfg.ADD_TAGS, transformCaseFunc);
           }
-          addToSet(ALLOWED_TAGS, cfg.ADD_TAGS, transformCaseFunc);
         }
         if (cfg.ADD_ATTR) {
-          if (ALLOWED_ATTR === DEFAULT_ALLOWED_ATTR) {
-            ALLOWED_ATTR = clone(ALLOWED_ATTR);
+          if (typeof cfg.ADD_ATTR === 'function') {
+            EXTRA_ELEMENT_HANDLING.attributeCheck = cfg.ADD_ATTR;
+          } else {
+            if (ALLOWED_ATTR === DEFAULT_ALLOWED_ATTR) {
+              ALLOWED_ATTR = clone(ALLOWED_ATTR);
+            }
+            addToSet(ALLOWED_ATTR, cfg.ADD_ATTR, transformCaseFunc);
           }
-          addToSet(ALLOWED_ATTR, cfg.ADD_ATTR, transformCaseFunc);
         }
         if (cfg.ADD_URI_SAFE_ATTR) {
           addToSet(URI_SAFE_ATTRIBUTES, cfg.ADD_URI_SAFE_ATTR, transformCaseFunc);
@@ -19091,6 +19138,12 @@
             FORBID_CONTENTS = clone(FORBID_CONTENTS);
           }
           addToSet(FORBID_CONTENTS, cfg.FORBID_CONTENTS, transformCaseFunc);
+        }
+        if (cfg.ADD_FORBID_CONTENTS) {
+          if (FORBID_CONTENTS === DEFAULT_FORBID_CONTENTS) {
+            FORBID_CONTENTS = clone(FORBID_CONTENTS);
+          }
+          addToSet(FORBID_CONTENTS, cfg.ADD_FORBID_CONTENTS, transformCaseFunc);
         }
         /* Add #text in case KEEP_CONTENT is set to true */
         if (KEEP_CONTENT) {
@@ -19389,7 +19442,7 @@
           return true;
         }
         /* Remove element if anything forbids its presence */
-        if (!ALLOWED_TAGS[tagName] || FORBID_TAGS[tagName]) {
+        if (!(EXTRA_ELEMENT_HANDLING.tagCheck instanceof Function && EXTRA_ELEMENT_HANDLING.tagCheck(tagName)) && (!ALLOWED_TAGS[tagName] || FORBID_TAGS[tagName])) {
           /* Check if we have a custom element to handle */
           if (!FORBID_TAGS[tagName] && _isBasicCustomElement(tagName)) {
             if (CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.tagNameCheck, tagName)) {
@@ -19453,6 +19506,10 @@
        */
       // eslint-disable-next-line complexity
       const _isValidAttribute = function _isValidAttribute(lcTag, lcName, value) {
+        /* FORBID_ATTR must always win, even if ADD_ATTR predicate would allow it */
+        if (FORBID_ATTR[lcName]) {
+          return false;
+        }
         /* Make sure attribute cannot clobber */
         if (SANITIZE_DOM && (lcName === 'id' || lcName === 'name') && (value in document || value in formElement)) {
           return false;
@@ -19461,12 +19518,12 @@
             (https://html.spec.whatwg.org/multipage/dom.html#embedding-custom-non-visible-data-with-the-data-*-attributes)
             XML-compatible (https://html.spec.whatwg.org/multipage/infrastructure.html#xml-compatible and http://www.w3.org/TR/xml/#d0e804)
             We don't need to check the value; it's always URI safe. */
-        if (ALLOW_DATA_ATTR && !FORBID_ATTR[lcName] && regExpTest(DATA_ATTR, lcName)) ; else if (ALLOW_ARIA_ATTR && regExpTest(ARIA_ATTR, lcName)) ; else if (!ALLOWED_ATTR[lcName] || FORBID_ATTR[lcName]) {
+        if (ALLOW_DATA_ATTR && !FORBID_ATTR[lcName] && regExpTest(DATA_ATTR, lcName)) ; else if (ALLOW_ARIA_ATTR && regExpTest(ARIA_ATTR, lcName)) ; else if (EXTRA_ELEMENT_HANDLING.attributeCheck instanceof Function && EXTRA_ELEMENT_HANDLING.attributeCheck(lcName, lcTag)) ; else if (!ALLOWED_ATTR[lcName] || FORBID_ATTR[lcName]) {
           if (
           // First condition does a very basic check if a) it's basically a valid custom element tagname AND
           // b) if the tagName passes whatever the user has configured for CUSTOM_ELEMENT_HANDLING.tagNameCheck
           // and c) if the attribute name passes whatever the user has configured for CUSTOM_ELEMENT_HANDLING.attributeNameCheck
-          _isBasicCustomElement(lcTag) && (CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.tagNameCheck, lcTag) || CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof Function && CUSTOM_ELEMENT_HANDLING.tagNameCheck(lcTag)) && (CUSTOM_ELEMENT_HANDLING.attributeNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.attributeNameCheck, lcName) || CUSTOM_ELEMENT_HANDLING.attributeNameCheck instanceof Function && CUSTOM_ELEMENT_HANDLING.attributeNameCheck(lcName)) ||
+          _isBasicCustomElement(lcTag) && (CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.tagNameCheck, lcTag) || CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof Function && CUSTOM_ELEMENT_HANDLING.tagNameCheck(lcTag)) && (CUSTOM_ELEMENT_HANDLING.attributeNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.attributeNameCheck, lcName) || CUSTOM_ELEMENT_HANDLING.attributeNameCheck instanceof Function && CUSTOM_ELEMENT_HANDLING.attributeNameCheck(lcName, lcTag)) ||
           // Alternative, second condition checks if it's an `is`-attribute, AND
           // the value passes whatever the user has configured for CUSTOM_ELEMENT_HANDLING.tagNameCheck
           lcName === 'is' && CUSTOM_ELEMENT_HANDLING.allowCustomizedBuiltInElements && (CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.tagNameCheck, value) || CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof Function && CUSTOM_ELEMENT_HANDLING.tagNameCheck(value))) ; else {
@@ -19545,7 +19602,12 @@
             value = SANITIZE_NAMED_PROPS_PREFIX + value;
           }
           /* Work around a security issue with comments inside attributes */
-          if (SAFE_FOR_XML && regExpTest(/((--!?|])>)|<\/(style|title)/i, value)) {
+          if (SAFE_FOR_XML && regExpTest(/((--!?|])>)|<\/(style|script|title|xmp|textarea|noscript|iframe|noembed|noframes)/i, value)) {
+            _removeAttribute(name, currentNode);
+            continue;
+          }
+          /* Make sure we cannot easily use animated hrefs, even if animations are allowed */
+          if (lcName === 'attributename' && stringMatch(value, 'href')) {
             _removeAttribute(name, currentNode);
             continue;
           }
@@ -25203,8 +25265,8 @@
     };
 
     const isContentCssSkinName = (url) => /^[a-z0-9\-]+$/i.test(url);
-    const toContentSkinResourceName = (url) => 'content/' + url + '/content.css';
-    const isBundledCssSkinName = (url) => tinymce.Resource.has(toContentSkinResourceName(url));
+    const toContentSkinResourceName = (name) => 'content/' + name + '/content.css';
+    const isBundledCssSkinName = (name) => tinymce.Resource.has(toContentSkinResourceName(name));
     const getContentCssUrls = (editor) => {
         return transformToUrls(editor, getContentCss(editor));
     };
@@ -25217,7 +25279,7 @@
         const contentCssFile = `content${suffix}.css`;
         return map$3(cssLinks, (url) => {
             if (isBundledCssSkinName(url)) {
-                return url;
+                return toContentSkinResourceName(url);
             }
             else if (isContentCssSkinName(url) && !editor.inline) {
                 return `${skinUrl}/${url}/${contentCssFile}`;
@@ -25405,7 +25467,7 @@
             }
         };
         const toBlobInfo = (o) => {
-            if (!o.blob || !o.base64) {
+            if (isNullable(o.blob) || isNullable(o.base64) || (o.base64 === '' && !o.allowEmptyFile)) {
                 throw new Error('blob and base64 representations of the image are required for BlobInfo to be created');
             }
             const id = o.id || uuid('blobid');
@@ -26952,6 +27014,53 @@
         }
     };
 
+    const createAndFireInputEvent = (eventType) => (editor, inputType, specifics = {}) => {
+        const target = editor.getBody();
+        const overrides = {
+            bubbles: true,
+            composed: true,
+            data: null,
+            isComposing: false,
+            detail: 0,
+            view: null,
+            target,
+            currentTarget: target,
+            eventPhase: Event.AT_TARGET,
+            originalTarget: target,
+            explicitOriginalTarget: target,
+            isTrusted: false,
+            srcElement: target,
+            cancelable: false,
+            preventDefault: noop,
+            inputType
+        };
+        const input = clone$2(new InputEvent(eventType));
+        return editor.dispatch(eventType, { ...input, ...overrides, ...specifics });
+    };
+    const fireInputEvent = createAndFireInputEvent('input');
+    const fireBeforeInputEvent = createAndFireInputEvent('beforeinput');
+
+    const symulateDelete = (editor, isForward, deleteFun) => {
+        // Some delete actions may prevent the input event from being fired. If we do not detect it, we fire it ourselves.
+        let shouldFireInput = true;
+        const inputHandler = () => shouldFireInput = false;
+        const beforeInputEvent = fireBeforeInputEvent(editor, isForward ? 'deleteContentForward' : 'deleteContentBackward');
+        if (beforeInputEvent.isDefaultPrevented()) {
+            return false;
+        }
+        editor.on('input', inputHandler);
+        try {
+            deleteFun();
+        }
+        finally {
+            editor.off('input', inputHandler);
+        }
+        if (shouldFireInput) {
+            editor.dispatch('input');
+        }
+        return true;
+    };
+
     const matchNodeName = (name) => (node) => isNonNullable(node) && node.nodeName.toLowerCase() === name;
     const matchNodeNames = (regex) => (node) => isNonNullable(node) && regex.test(node.nodeName);
     const isTextNode$1 = (node) => isNonNullable(node) && node.nodeType === 3;
@@ -27049,7 +27158,7 @@
     const listSelector = listNames.join(',');
     const getParentList = (editor, node) => {
         const selectionStart = node || editor.selection.getStart(true);
-        return editor.dom.getParent(selectionStart, listSelector, getClosestListHost(editor, selectionStart));
+        return editor.dom.getParent(selectionStart, listSelector, getClosestListHost(editor, selectionStart, editor.selection.isCollapsed()));
     };
     const isParentListSelected = (parentList, selectedBlocks) => isNonNullable(parentList) && selectedBlocks.length === 1 && selectedBlocks[0] === parentList;
     const findSubLists = (parentList) => filter$5(parentList.querySelectorAll(listSelector), isListNode);
@@ -27065,16 +27174,16 @@
             });
         }
     };
-    const findParentListItemsNodes = (editor, elms) => {
+    const findParentListItemsNodes = (editor, elms, isCollapsed) => {
         const listItemsElms = Tools.map(elms, (elm) => {
-            const parentLi = editor.dom.getParent(elm, 'li,dd,dt', getClosestListHost(editor, elm));
+            const parentLi = editor.dom.getParent(elm, 'li,dd,dt', getClosestListHost(editor, elm, isCollapsed));
             return parentLi ? parentLi : elm;
         });
         return unique$1(listItemsElms);
     };
     const getSelectedListItems = (editor) => {
         const selectedBlocks = editor.selection.getSelectedBlocks();
-        return filter$5(findParentListItemsNodes(editor, selectedBlocks), isListItemNode);
+        return filter$5(findParentListItemsNodes(editor, selectedBlocks, editor.selection.isCollapsed()), isListItemNode);
     };
     const getSelectedDlItems = (editor) => filter$5(getSelectedListItems(editor), isDlItemNode);
     const getClosestEditingHost = (editor, elm) => {
@@ -27082,17 +27191,17 @@
         return parentTableCell.length > 0 ? parentTableCell[0] : editor.getBody();
     };
     const isListHost = (schema, node) => !isListNode(node) && !isListItemNode(node) && exists(listNames, (listName) => schema.isValidChild(node.nodeName, listName));
-    const getClosestListHost = (editor, elm) => {
+    const getClosestListHost = (editor, elm, isCollapsed) => {
         const parentBlocks = editor.dom.getParents(elm, editor.dom.isBlock);
         const isNotForcedRootBlock = (elm) => elm.nodeName.toLowerCase() !== getForcedRootBlock(editor);
-        const parentBlock = find$2(parentBlocks, (elm) => isNotForcedRootBlock(elm) && isListHost(editor.schema, elm));
+        const parentBlock = find$2(parentBlocks, (elm) => (!isCollapsed || isNotForcedRootBlock(elm)) && isListHost(editor.schema, elm));
         return parentBlock.getOr(editor.getBody());
     };
     const isListInsideAnLiWithFirstAndLastNotListElement = (list) => parent(list).exists((parent) => isListItemNode(parent.dom)
         && firstChild(parent).exists((firstChild) => !isListNode(firstChild.dom))
         && lastChild(parent).exists((lastChild) => !isListNode(lastChild.dom)));
     const findLastParentListNode = (editor, elm) => {
-        const parentLists = editor.dom.getParents(elm, 'ol,ul', getClosestListHost(editor, elm));
+        const parentLists = editor.dom.getParents(elm, 'ol,ul', getClosestListHost(editor, elm, true));
         return last$2(parentLists);
     };
     const getSelectedLists = (editor) => {
@@ -27102,7 +27211,7 @@
     };
     const getParentLists = (editor) => {
         const elm = editor.selection.getStart();
-        return editor.dom.getParents(elm, 'ol,ul', getClosestListHost(editor, elm));
+        return editor.dom.getParents(elm, 'ol,ul', getClosestListHost(editor, elm, editor.selection.isCollapsed()));
     };
     const getSelectedListRoots = (editor) => {
         const selectedLists = getSelectedLists(editor);
@@ -27715,7 +27824,7 @@
     const applyList = (editor, listName, detail) => {
         const rng = editor.selection.getRng();
         let listItemName = 'LI';
-        const root = getClosestListHost(editor, getRootSearchStart(editor, rng));
+        const root = getClosestListHost(editor, getRootSearchStart(editor, rng), rng.collapsed);
         const dom = editor.dom;
         if (dom.getContentEditable(editor.selection.getNode()) === 'false') {
             return;
@@ -28095,19 +28204,12 @@
         const startListParent = editor.dom.getParent(selectionStartElm, 'LI,DT,DD', root);
         return isNonNullable(startListParent) || getSelectedListItems(editor).length > 0;
     };
-    const backspaceDeleteRange$1 = (editor) => {
+    const backspaceDeleteRange$1 = (editor, isForward) => {
         if (hasListSelection(editor)) {
             editor.undoManager.transact(() => {
-                // Some delete actions may prevent the input event from being fired. If we do not detect it, we fire it ourselves.
-                let shouldFireInput = true;
-                const inputHandler = () => shouldFireInput = false;
-                editor.on('input', inputHandler);
-                editor.execCommand('Delete');
-                editor.off('input', inputHandler);
-                if (shouldFireInput) {
-                    editor.dispatch('input');
+                if (symulateDelete(editor, isForward, () => editor.execCommand('Delete'))) {
+                    normalizeLists(editor.dom, editor.getBody());
                 }
-                normalizeLists(editor.dom, editor.getBody());
             });
             return true;
         }
@@ -28116,7 +28218,7 @@
     const backspaceDelete$c = (editor, isForward) => {
         const selection = editor.selection;
         return !isWithinNonEditableList$1(editor, selection.getNode()) && (selection.isCollapsed() ?
-            backspaceDeleteCaret$1(editor, isForward) : backspaceDeleteRange$1(editor));
+            backspaceDeleteCaret$1(editor, isForward) : backspaceDeleteRange$1(editor, isForward));
     };
 
     const blockPosition = (block, position) => ({
@@ -31449,32 +31551,6 @@
     const backspaceDelete = (editor, forward, granularity) => shouldPreventDeleteAction(editor, forward, granularity) || isSafari && handleDeleteActionSafari(editor, forward, granularity)
         ? Optional.some(noop) : Optional.none();
 
-    const createAndFireInputEvent = (eventType) => (editor, inputType, specifics = {}) => {
-        const target = editor.getBody();
-        const overrides = {
-            bubbles: true,
-            composed: true,
-            data: null,
-            isComposing: false,
-            detail: 0,
-            view: null,
-            target,
-            currentTarget: target,
-            eventPhase: Event.AT_TARGET,
-            originalTarget: target,
-            explicitOriginalTarget: target,
-            isTrusted: false,
-            srcElement: target,
-            cancelable: false,
-            preventDefault: noop,
-            inputType
-        };
-        const input = clone$2(new InputEvent(eventType));
-        return editor.dispatch(eventType, { ...input, ...overrides, ...specifics });
-    };
-    const fireInputEvent = createAndFireInputEvent('input');
-    const fireBeforeInputEvent = createAndFireInputEvent('beforeinput');
-
     const platform$2 = detect$1();
     const os = platform$2.os;
     const isMacOSOriOS = os.isMacOS() || os.isiOS();
@@ -31563,19 +31639,21 @@
         // track backspace keydown state for emulating Meta + Backspace keyup detection on macOS
         let isBackspaceKeydown = false;
         let formatNodes = [];
-        editor.on('keydown', (evt) => {
-            isBackspaceKeydown = evt.keyCode === VK.BACKSPACE;
-            formatNodes = getFormatNodesAtStart(editor);
-            if (!evt.isDefaultPrevented()) {
-                executeKeydownOverride$3(editor, caret, evt);
-            }
-        });
-        editor.on('keyup', (evt) => {
-            if (!evt.isDefaultPrevented()) {
-                executeKeyupOverride(editor, evt, isBackspaceKeydown, formatNodes);
-                formatNodes.length = 0;
-            }
-            isBackspaceKeydown = false;
+        editor.on('init', () => {
+            editor.on('keydown', (evt) => {
+                isBackspaceKeydown = evt.keyCode === VK.BACKSPACE;
+                formatNodes = getFormatNodesAtStart(editor);
+                if (!evt.isDefaultPrevented()) {
+                    executeKeydownOverride$3(editor, caret, evt);
+                }
+            });
+            editor.on('keyup', (evt) => {
+                if (!evt.isDefaultPrevented()) {
+                    executeKeyupOverride(editor, evt, isBackspaceKeydown, formatNodes);
+                    formatNodes.length = 0;
+                }
+                isBackspaceKeydown = false;
+            });
         });
     };
 
@@ -31613,16 +31691,15 @@
         if (!root) {
             return;
         }
-        if (/^(LI|DT|DD)$/.test(root.nodeName)) {
-            const isList = (e) => /^(ul|ol|dl)$/.test(name(e));
-            const findFirstList = (e) => isList(e) ? Optional.from(e) : descendant$2(e, isList);
+        if (isListItem$2(SugarElement.fromDom(root))) {
+            const findFirstList = (e) => isList$1(e) ? Optional.from(e) : descendant$2(e, isList$1);
             const isEmpty = (e) => dom.isEmpty(e.dom);
             firstNonWhiteSpaceNodeSibling(root.firstChild).each((firstChild) => {
                 findFirstList(firstChild).fold(() => {
                     if (isEmpty(firstChild)) {
                         const element = toLeaf$1(firstChild, 0).element;
                         if (isElement$8(element) && !isBr$6(element)) {
-                            append$1(element, SugarElement.fromText(nbsp));
+                            append$1(element, SugarElement.fromHtml('<br data-mce-bogus="1" />'));
                         }
                     }
                 }, (firstList) => {
@@ -32154,6 +32231,16 @@
             }
             return true;
         };
+        const isInsideLiBeforeAList = (newBlock) => {
+            const nextSibling$1 = firstChild(newBlock).bind(nextSibling);
+            return isListItem$2(newBlock) && nextSibling$1.exists(isList$1);
+        };
+        const trimEmptySpacesInLeftLeaf = (newBlock) => {
+            const leaf = toLeaf$1(SugarElement.fromDom(newBlock), 0).element;
+            if (isText$c(leaf) && dom.isEmpty(leaf.dom)) {
+                leaf.dom.remove();
+            }
+        };
         const insertNewBlockAfter = () => {
             let block;
             // If the caret is at the end of a header we produce a P tag after it similar to Word unless we are in a hgroup
@@ -32289,8 +32376,13 @@
             else {
                 dom.insertAfter(fragment, parentBlock);
             }
-            trimInlineElementsOnLeftSideOfBlock(dom, nonEmptyElementsMap, newBlock);
-            addBrToBlockIfNeeded(dom, parentBlock);
+            if (!isInsideLiBeforeAList(SugarElement.fromDom(newBlock))) {
+                trimInlineElementsOnLeftSideOfBlock(dom, nonEmptyElementsMap, newBlock);
+                addBrToBlockIfNeeded(dom, parentBlock);
+            }
+            else {
+                trimEmptySpacesInLeftLeaf(newBlock);
+            }
             if (dom.isEmpty(parentBlock)) {
                 emptyBlock(parentBlock);
             }
@@ -32910,17 +33002,23 @@
     };
 
     const setup$e = (editor) => {
-        editor.on('keydown', (e) => {
-            if (e.keyCode === VK.BACKSPACE) {
-                if (backspaceDelete$c(editor, false)) {
-                    e.preventDefault();
+        editor.on('init', () => {
+            // Init is done after the editor's setup. This places our keydown after any keydowns registered in the setup function, so they can do default prevent.
+            editor.on('keydown', (e) => {
+                if (e.defaultPrevented) {
+                    return;
                 }
-            }
-            else if (e.keyCode === VK.DELETE) {
-                if (backspaceDelete$c(editor, true)) {
-                    e.preventDefault();
+                if (e.keyCode === VK.BACKSPACE) {
+                    if (backspaceDelete$c(editor, false)) {
+                        e.preventDefault();
+                    }
                 }
-            }
+                else if (e.keyCode === VK.DELETE) {
+                    if (backspaceDelete$c(editor, true)) {
+                        e.preventDefault();
+                    }
+                }
+            });
         });
     };
 
@@ -35780,14 +35878,14 @@
                     }
                     // Manually empty the editor
                     e.preventDefault();
-                    editor.setContent('');
-                    if (body.firstChild && dom.isBlock(body.firstChild)) {
-                        editor.selection.setCursorLocation(body.firstChild, 0);
+                    if (symulateDelete(editor, keyCode === DELETE, () => editor.setContent(''))) {
+                        if (body.firstChild && dom.isBlock(body.firstChild)) {
+                            editor.selection.setCursorLocation(body.firstChild, 0);
+                        }
+                        else {
+                            editor.selection.setCursorLocation(body, 0);
+                        }
                     }
-                    else {
-                        editor.selection.setCursorLocation(body, 0);
-                    }
-                    editor.nodeChanged();
                 }
             });
         };
@@ -36689,11 +36787,11 @@
     };
     const getStyleSheetLoader$1 = (editor) => editor.inline ? editor.ui.styleSheetLoader : editor.dom.styleSheetLoader;
     const makeStylesheetLoadingPromises = (editor, css, framedFonts) => {
-        const { pass: bundledCss, fail: normalCss } = partition$2(css, (name) => tinymce.Resource.has(toContentSkinResourceName(name)));
-        const bundledPromises = bundledCss.map((url) => {
-            const css = tinymce.Resource.get(toContentSkinResourceName(url));
+        const { pass: bundledCss, fail: normalCss } = partition$2(css, (key) => tinymce.Resource.has(key));
+        const bundledPromises = bundledCss.map((key) => {
+            const css = tinymce.Resource.get(key);
             if (isString(css)) {
-                return Promise.resolve(getStyleSheetLoader$1(editor).loadRawCss(url, css));
+                return Promise.resolve(getStyleSheetLoader$1(editor).loadRawCss(key, css));
             }
             return Promise.resolve();
         });
@@ -36853,7 +36951,9 @@
         setup$b(editor);
         setup$u(editor);
         setup$6(editor);
-        setup$s(editor);
+        if (shouldAllowNonEditable(editor)) {
+            setup$s(editor);
+        }
         if (!isRtc(editor)) {
             setup$5(editor);
             setup$1(editor);
@@ -40581,14 +40681,14 @@
          * @property minorVersion
          * @type String
          */
-        minorVersion: '3.2',
+        minorVersion: '4.0',
         /**
          * Release date of TinyMCE build.
          *
          * @property releaseDate
          * @type String
          */
-        releaseDate: '2026-01-14',
+        releaseDate: '2026-03-31',
         /**
          * Collection of language pack data.
          *
