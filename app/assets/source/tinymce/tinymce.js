@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 8.6.0 (2026-06-03)
+ * TinyMCE version 8.7.0 (2026-07-01)
  */
 
 (function () {
@@ -573,14 +573,16 @@
         }
         return Optional.none();
     };
-    const findLastIndex = (arr, pred) => {
+    const findLastByPredicate = (arr, pred) => {
         for (let i = arr.length - 1; i >= 0; i--) {
             if (pred(arr[i], i)) {
-                return Optional.some(i);
+                return Optional.some({ v: arr[i], i });
             }
         }
         return Optional.none();
     };
+    const findLast = (arr, pred) => findLastByPredicate(arr, pred).map((r) => r.v);
+    const findLastIndex = (arr, pred) => findLastByPredicate(arr, pred).map((r) => r.i);
     const flatten$1 = (xs) => {
         // Note, this is possible because push supports multiple arguments:
         // http://jsperf.com/concat-push/6
@@ -2198,14 +2200,14 @@
     const siblings = (element) => {
         // TODO: Refactor out children so we can just not add self instead of filtering afterwards
         const filterSelf = (elements) => filter$5(elements, (x) => !eq(element, x));
-        return parent(element).map(children$1).map(filterSelf).getOr([]);
+        return parent(element).map(children$2).map(filterSelf).getOr([]);
     };
     const prevSibling = (element) => Optional.from(element.dom.previousSibling).map(SugarElement.fromDom);
     const nextSibling = (element) => Optional.from(element.dom.nextSibling).map(SugarElement.fromDom);
     // This one needs to be reversed, so they're still in DOM order
     const prevSiblings = (element) => reverse(toArray(element, prevSibling));
     const nextSiblings = (element) => toArray(element, nextSibling);
-    const children$1 = (element) => map$3(element.dom.childNodes, SugarElement.fromDom);
+    const children$2 = (element) => map$3(element.dom.childNodes, SugarElement.fromDom);
     const child$1 = (element, index) => {
         const cs = element.dom.childNodes;
         return Optional.from(cs[index]).map(SugarElement.fromDom);
@@ -2442,7 +2444,7 @@
         // than removing every child node manually.
         // The following is (probably) safe for performance as 99.9% of the time the trick works and
         // Traverse.children will return an empty array.
-        each$e(children$1(element), (rogue) => {
+        each$e(children$2(element), (rogue) => {
             remove$8(rogue);
         });
     };
@@ -2453,7 +2455,7 @@
         }
     };
     const unwrap = (wrapper) => {
-        const children = children$1(wrapper);
+        const children = children$2(wrapper);
         if (children.length > 0) {
             after$3(wrapper, children);
         }
@@ -2476,7 +2478,7 @@
     const mutate = (original, tag) => {
         const nu = shallowAs(original, tag);
         after$4(original, nu);
-        const children = children$1(original);
+        const children = children$2(original);
         append(nu, children);
         remove$8(original);
         return nu;
@@ -2486,7 +2488,7 @@
         const doc = scope || document;
         const div = doc.createElement('div');
         div.innerHTML = html;
-        return children$1(SugarElement.fromDom(div));
+        return children$2(SugarElement.fromDom(div));
     };
     const fromDom$1 = (nodes) => map$3(nodes, SugarElement.fromDom);
 
@@ -2525,6 +2527,14 @@
         }
         const doc = dom.ownerDocument;
         return getShadowRoot(SugarElement.fromDom(dom)).fold(() => doc.body.contains(dom), compose1(inBody, getShadowHost));
+    };
+    const body = () => getBody(SugarElement.fromDom(document));
+    const getBody = (doc) => {
+        const b = doc.dom.body;
+        if (b === null || b === undefined) {
+            throw new Error('Body is not available yet');
+        }
+        return SugarElement.fromDom(b);
     };
 
     const internalSet = (dom, property, value) => {
@@ -2999,11 +3009,11 @@
     };
 
     const ancestors$1 = (scope, predicate, isRoot) => filter$5(parents$1(scope, isRoot), predicate);
-    const children = (scope, predicate) => filter$5(children$1(scope), predicate);
+    const children$1 = (scope, predicate) => filter$5(children$2(scope), predicate);
     const descendants$1 = (scope, predicate) => {
         let result = [];
         // Recurse.toArray() might help here
-        each$e(children$1(scope), (x) => {
+        each$e(children$2(scope), (x) => {
             if (predicate(x)) {
                 result = result.concat([x]);
             }
@@ -3021,6 +3031,10 @@
     // It may surprise you to learn this is exactly what JQuery does
     // TODO: Avoid all this wrapping and unwrapping
     ancestors$1(scope, (e) => is$2(e, selector), isRoot);
+    const children = (scope, selector) => 
+    // It may surprise you to learn this is exactly what JQuery does
+    // TODO: Avoid all the wrapping and unwrapping
+    children$1(scope, (e) => is$2(e, selector));
     const descendants = (scope, selector) => all(selector, scope);
 
     const ancestor$3 = (scope, predicate, isRoot) => ancestor$5(scope, predicate, isRoot).isSome();
@@ -3204,6 +3218,20 @@
         });
     };
     const getAtPoint = (win, x, y) => fromPoint$1(win, x, y);
+
+    const getImageSize = (url) => new Promise((resolve, reject) => {
+        const img = document.createElement('img');
+        img.addEventListener('load', () => {
+            resolve({
+                width: img.naturalWidth,
+                height: img.naturalHeight
+            });
+        });
+        img.addEventListener('error', () => {
+            reject(`Failed to get image dimensions for: ${url}`);
+        });
+        img.src = url;
+    });
 
     const get$2 = (_win) => {
         const win = _win === undefined ? window : _win;
@@ -3660,7 +3688,7 @@
         const isRoot = (el) => eq(el, rootNode);
         each$e(fromDom$1(transparentBlocks), (transparentBlock) => {
             ancestor$5(transparentBlock, isBlock, isRoot).each((parentBlock) => {
-                const invalidChildren = children(transparentBlock, (el) => isBlock(el) && !schema.isValidChild(name(parentBlock), name(el)));
+                const invalidChildren = children$1(transparentBlock, (el) => isBlock(el) && !schema.isValidChild(name(parentBlock), name(el)));
                 if (invalidChildren.length > 0) {
                     const stateScope = parentElement(parentBlock);
                     each$e(invalidChildren, (child) => {
@@ -3711,7 +3739,7 @@
     // this tries to compensate for that by detecting if that offsets are incorrect and then remove the height
     const getTableCaptionDeltaY = (elm) => {
         if (browser$2.isFirefox() && name(elm) === 'table') {
-            return firstElement(children$1(elm)).filter((elm) => {
+            return firstElement(children$2(elm)).filter((elm) => {
                 return name(elm) === 'caption';
             }).bind((caption) => {
                 return firstElement(nextSiblings(caption)).map((body) => {
@@ -5594,12 +5622,16 @@
                     let matches;
                     while ((matches = styleRegExp.exec(css))) {
                         styleRegExp.lastIndex = matches.index + matches[0].length;
-                        let name = matches[1].replace(trimRightRegExp, '').toLowerCase();
+                        let name = matches[1].replace(trimRightRegExp, '');
                         let value = matches[2].replace(trimRightRegExp, '');
                         if (name && value) {
                             // Decode escaped sequences like \65 -> e
                             name = decodeHexSequences(name);
                             value = decodeHexSequences(value);
+                            // Custom properties (--*) keep user case; standard names normalize to lowercase
+                            if (!name.startsWith('--')) {
+                                name = name.toLowerCase();
+                            }
                             // Skip properties with double quotes and sequences like \" \' in their names
                             // See 'mXSS Attacks: Attacking well-secured Web-Applications by using innerHTML Mutations'
                             // https://cure53.de/fp170.pdf
@@ -5613,9 +5645,6 @@
                             // Opera will produce 700 instead of bold in their style values
                             if (name === 'font-weight' && value === '700') {
                                 value = 'bold';
-                            }
-                            else if (name === 'color' || name === 'background-color') { // Lowercase colors like RED
-                                value = value.toLowerCase();
                             }
                             // Convert RGB colors to HEX
                             if (getColorFormat(value) === 'rgb') {
@@ -6591,7 +6620,7 @@
                 const $node = SugarElement.fromDom(n);
                 if (keepChildren) {
                     // Unwrap but don't keep any empty text nodes
-                    each$e(children$1($node), (child) => {
+                    each$e(children$2($node), (child) => {
                         if (isText$c(child) && child.dom.length === 0) {
                             remove$8(child);
                         }
@@ -12736,7 +12765,7 @@
             switch (ctx) {
                 case "invalid-child" /* ChildContext.InvalidChild */: {
                     finishWrapper();
-                    const children = children$1(elem);
+                    const children = children$2(elem);
                     processElements(children);
                     finishWrapper();
                     break;
@@ -12890,6 +12919,113 @@
         };
     };
 
+    const announcerContainerId = generate('tiny-aria-announcer');
+    const POLITE_MESSAGE_TTL_MS = 600000; // 10 minutes
+    const CREATE_DELAY_MS = 100; // Delay before creating announcer regions to avoid interfering with screen readers initial announcements.
+    const politeTimestampAttr = 'data-mce-announced-at';
+    const OFFSCREEN_STYLES = {
+        position: 'absolute',
+        left: '-9999px',
+        width: '1px',
+        height: '1px',
+        overflow: 'hidden'
+    };
+    const createRegion = (live) => {
+        const region = SugarElement.fromTag('div');
+        setAll$1(region, {
+            'aria-live': live,
+            'aria-atomic': 'false',
+            'aria-relevant': 'additions'
+        });
+        return region;
+    };
+    const isConnected = (element) => element.dom.isConnected;
+    const createNewState = () => {
+        const container = SugarElement.fromTag('div');
+        const politeRegion = createRegion('polite');
+        const assertiveRegion = createRegion('assertive');
+        set$5(container, 'id', announcerContainerId);
+        setAll(container, OFFSCREEN_STYLES);
+        append$1(container, politeRegion);
+        append$1(container, assertiveRegion);
+        append$1(body(), container);
+        return { container, politeRegion, assertiveRegion };
+    };
+    const cleanupExpiredMessages = (polite, now) => {
+        each$e(children(polite, `div[${politeTimestampAttr}]`), (messageDiv) => {
+            getOpt(messageDiv, politeTimestampAttr)
+                .bind((value) => toInt(value))
+                .filter((announcedAt) => now - announcedAt > POLITE_MESSAGE_TTL_MS)
+                .each(() => remove$8(messageDiv));
+        });
+    };
+    const createAnnouncer = () => {
+        const state = value$1();
+        const mountRegions = async () => {
+            const createNewPendingState = async () => {
+                const promise = new Promise((resolve) => {
+                    const newState = createNewState();
+                    setTimeout(() => resolve(newState), CREATE_DELAY_MS);
+                });
+                state.set(promise);
+                return promise;
+            };
+            return state.get().fold(createNewPendingState, async (existingPromise) => {
+                const { container } = await existingPromise;
+                if (isConnected(container)) {
+                    return existingPromise;
+                }
+                else {
+                    // A concurrent caller may have already replaced the stale state while we awaited.
+                    // The block after the await runs atomically, so reuse that state if present and
+                    // only create a fresh one when the state is still the stale promise we observed.
+                    return state.get().filter((current) => current !== existingPromise).getOrThunk(createNewPendingState);
+                }
+            });
+        };
+        const addMessage = (region, message) => {
+            const now = Date.now();
+            cleanupExpiredMessages(region, now);
+            const messageDiv = SugarElement.fromTag('div');
+            set$5(messageDiv, politeTimestampAttr, String(now));
+            append$1(messageDiv, SugarElement.fromText(message));
+            append$1(region, messageDiv);
+        };
+        const polite = async (message) => {
+            const { politeRegion } = await mountRegions();
+            addMessage(politeRegion, message);
+        };
+        const assertive = async (message) => {
+            const { assertiveRegion } = await mountRegions();
+            addMessage(assertiveRegion, message);
+        };
+        return { polite, assertive };
+    };
+
+    const announcer = createAnnouncer();
+    /**
+     * Announces a message to screen readers via an aria-live region, without shifting focus.
+     *
+     * @method announce
+     * @param {String} message The message to announce to screen readers.
+     * @param {Object} options Optional settings.
+     * @param {Boolean} options.assertive If true, uses aria-live="assertive" instead of polite.
+     * @example
+     * tinymce.dom.AriaAnnouncer.announce('Bold on');
+     * tinymce.dom.AriaAnnouncer.announce('Error occurred', { assertive: true });
+     */
+    const announce = (message, options) => {
+        if (options?.assertive === true) {
+            announcer.assertive(message).catch(noop);
+        }
+        else {
+            announcer.polite(message).catch(noop);
+        }
+    };
+    const AriaAnnouncer = {
+        announce
+    };
+
     /**
      * Constructs a new BookmarkManager instance for a specific selection instance.
      *
@@ -12954,7 +13090,7 @@
     };
 
     const clamp$1 = (offset, element) => {
-        const max = isText$c(element) ? get$5(element).length : children$1(element).length + 1;
+        const max = isText$c(element) ? get$5(element).length : children$2(element).length + 1;
         if (offset > max) {
             return max;
         }
@@ -14226,7 +14362,7 @@
         editor.dispatch('AfterScrollIntoView', data);
     };
     const descend = (element, offset) => {
-        const children = children$1(element);
+        const children = children$2(element);
         if (children.length === 0 || excludeFromDescend(element)) {
             return { element, offset };
         }
@@ -14246,7 +14382,7 @@
                     return { element: last, offset: get$5(last).length };
                 }
                 else {
-                    return { element: last, offset: children$1(last).length };
+                    return { element: last, offset: children$2(last).length };
                 }
             }
         }
@@ -15750,7 +15886,7 @@
             const br = SugarElement.fromHtml('<br data-mce-bogus="1">');
             // Remove all bogus elements except caret
             if (preserveEmptyCaret) {
-                each$e(children$1(elm), (node) => {
+                each$e(children$2(elm), (node) => {
                     if (!isEmptyCaretFormatElement(node)) {
                         remove$8(node);
                     }
@@ -15922,7 +16058,7 @@
         // Clean up any additional leftover nodes. If the last block wasn't a direct child, then we also need to clean up siblings
         if (!eq(root, lastBlock)) {
             const additionalCleanupNodes = is$4(parent(lastBlock), root) ? [] : siblings(lastBlock);
-            each$e(additionalCleanupNodes.concat(children$1(root)), (node) => {
+            each$e(additionalCleanupNodes.concat(children$2(root)), (node) => {
                 if (!eq(node, lastBlock) && !contains(node, lastBlock) && isEmpty$4(editor.schema, node)) {
                     remove$8(node);
                 }
@@ -17695,14 +17831,14 @@
         });
     };
     const wrapChildrenInInnerWrapper = (target, wrapper, hasFormat, removeFormatFromElement) => {
-        each$e(children$1(target), (child) => {
+        each$e(children$2(target), (child) => {
             if (isElement$8(child) && hasFormat(child)) {
                 if (removeFormatFromElement(child).isNone()) {
                     unwrap(child);
                 }
             }
         });
-        each$e(children$1(target), (child) => append$1(wrapper, child));
+        each$e(children$2(target), (child) => append$1(wrapper, child));
         prepend(target, wrapper);
     };
     const wrapInOuterWrappers = (target, wrappers) => {
@@ -22068,7 +22204,7 @@
             append(SugarElement.fromDom(pre1), [
                 SugarElement.fromTag('br', doc),
                 SugarElement.fromTag('br', doc),
-                ...children$1(sPre2)
+                ...children$2(sPre2)
             ]);
         };
         if (!rng.collapsed) {
@@ -22215,10 +22351,12 @@
             const wrapName = format.inline || format.block;
             const wrapElm = createWrapElement(wrapName);
             const isMatchingWrappingBlock = (node) => isWrappingBlockFormat(format) && matchNode$1(ed, node, name, vars);
+            const canRenameChildBlocks = (node) => forall(node.childNodes, (child) => !isTextBlock$2(ed.schema, child) || isValid(ed, wrapName, child.nodeName.toLowerCase()));
             const canRenameBlock = (node, parentName, isEditableDescendant) => {
                 const isValidBlockFormatForNode = isNonWrappingBlockFormat(format) &&
                     isTextBlock$2(ed.schema, node) &&
-                    isValid(ed, parentName, wrapName);
+                    isValid(ed, parentName, wrapName) &&
+                    canRenameChildBlocks(node);
                 return isEditableDescendant && isValidBlockFormatForNode;
             };
             const canWrapNode = (node, parentName, isEditableDescendant, isWrappableNoneditableElm) => {
@@ -22375,6 +22513,19 @@
             // node variable is used by other functions above in the same scope so need to set it here
             node = targetNode;
             applyNodeStyle(formatList, node);
+            if (isBlockFormat(format) && !dom.isBlock(targetNode)) {
+                const parentBlock = dom.getParent(targetNode, dom.isBlock);
+                if (dom.isEditable(parentBlock)) {
+                    const wrapperElementName = format.block;
+                    if (parentBlock.nodeName.toLowerCase() === wrapperElementName.toLowerCase()) {
+                        setElementFormat(ed, parentBlock, format, vars, node);
+                    }
+                    else if (!isWrappingBlockFormat(format)) {
+                        const elm = dom.rename(parentBlock, wrapperElementName);
+                        setElementFormat(ed, elm, format, vars, node);
+                    }
+                }
+            }
             fireFormatApply(ed, name, node, vars);
             return;
         }
@@ -26164,7 +26315,7 @@
                     preview: 'font-family font-size'
                 },
                 {
-                    selector: '.mce-preview-object,[data-ephox-embed-iri]',
+                    selector: '.mce-preview-object,[data-ephox-embed-iri],.tiny-pageembed',
                     ceFalseOverride: true,
                     styles: {
                         float: 'left'
@@ -26216,7 +26367,7 @@
                     preview: 'font-family font-size'
                 },
                 {
-                    selector: '.mce-preview-object',
+                    selector: '.mce-preview-object,.tiny-pageembed',
                     ceFalseOverride: true,
                     styles: {
                         display: 'table', // Needs to be `table` to properly render while editing
@@ -26280,7 +26431,7 @@
                     preview: 'font-family font-size'
                 },
                 {
-                    selector: '.mce-preview-object,[data-ephox-embed-iri]',
+                    selector: '.mce-preview-object,[data-ephox-embed-iri],.tiny-pageembed',
                     ceFalseOverride: true,
                     styles: {
                         float: 'right'
@@ -26967,8 +27118,8 @@
                 isFirstTypedCharacter.set(true);
                 return;
             }
-            const hasOnlyMetaOrCtrlModifier = Env.os.isMacOS() ? e.metaKey : e.ctrlKey && !e.altKey;
-            if (hasOnlyMetaOrCtrlModifier) {
+            const hasMetaOrCtrlModifier = Env.os.isMacOS() ? e.metaKey : e.ctrlKey && !e.altKey;
+            if (hasMetaOrCtrlModifier && (e.key === 'Backspace' || e.key === 'Delete')) {
                 undoManager.beforeChange();
             }
         });
@@ -27533,7 +27684,7 @@
     const isIndented = (entry) => entry.depth > 0;
     const isSelected = (entry) => entry.isSelected;
     const cloneItemContent = (li) => {
-        const children = children$1(li);
+        const children = children$2(li);
         const content = hasLastChildList(li) ? children.slice(0, -1) : children;
         return map$3(content, deep);
     };
@@ -27731,7 +27882,7 @@
         return currentItemEntry.toArray().concat(childListEntries);
     };
     const parseItem = (depth, itemSelection, selectionState, item) => firstChild(item).filter(isList).fold(() => parseSingleItem(depth, itemSelection, selectionState, item), (list) => {
-        const parsedSiblings = foldl(children$1(item), (acc, liChild, i) => {
+        const parsedSiblings = foldl(children$2(item), (acc, liChild, i) => {
             if (i === 0) {
                 return acc;
             }
@@ -27754,7 +27905,7 @@
         }, []);
         return parseList(depth, itemSelection, selectionState, list).concat(parsedSiblings);
     });
-    const parseList = (depth, itemSelection, selectionState, list) => bind$3(children$1(list), (element) => {
+    const parseList = (depth, itemSelection, selectionState, list) => bind$3(children$2(list), (element) => {
         const parser = isList(element) ? parseList : parseItem;
         const newDepth = depth + 1;
         return parser(newDepth, itemSelection, selectionState, element);
@@ -28417,7 +28568,7 @@
             const rng = normalizeRange(editor.selection.getRng());
             const nextCaretContainer = findNextCaretContainer(editor, rng, isForward, root);
             const otherLi = dom.getParent(nextCaretContainer, 'LI', root);
-            if (nextCaretContainer && otherLi) {
+            if (nextCaretContainer && otherLi && (isForward || !dom.isChildOf(nextCaretContainer, block))) {
                 const findValidElement = (element) => contains$2(['td', 'th', 'caption'], name(element));
                 const findRoot = (node) => node.dom === root;
                 const otherLiCell = closest$5(SugarElement.fromDom(otherLi), findValidElement, findRoot);
@@ -28515,7 +28666,7 @@
     const read$1 = (schema, rootNode, forward, rng) => rng.collapsed ? readFromRange(schema, rootNode, forward, rng) : Optional.none();
 
     const getChildrenUntilBlockBoundary = (block, schema) => {
-        const children = children$1(block);
+        const children = children$2(block);
         return findIndex$2(children, (el) => schema.isBlock(name(el))).fold(constant(children), (index) => children.slice(0, index));
     };
     const extractChildren = (block, schema) => {
@@ -29910,7 +30061,11 @@
     const canIndent = (editor) => !editor.mode.isReadOnly() && canIndent$1(editor);
     const isListComponent = (el) => isList$1(el) || isListItem$2(el);
     const parentIsListComponent = (el) => parent(el).exists(isListComponent);
-    const getBlocksToIndent = (editor) => filter$5(fromDom$1(editor.selection.getSelectedBlocks()), (el) => !isListComponent(el) && !parentIsListComponent(el) && isEditable(el));
+    const getBlocksToIndent = (editor) => {
+        const selectedCells = getCellsFromEditor(editor);
+        return selectedCells.length === 0 ?
+            filter$5(fromDom$1(editor.selection.getSelectedBlocks()), (el) => !isListComponent(el) && !parentIsListComponent(el) && isEditable(el)) : selectedCells;
+    };
     const handle = (editor, command) => {
         if (editor.mode.isReadOnly()) {
             return;
@@ -30585,7 +30740,7 @@
         return filterFirstLayer(scope, selector, always);
     };
     const filterFirstLayer = (scope, selector, predicate) => {
-        return bind$3(children$1(scope), (x) => {
+        return bind$3(children$2(scope), (x) => {
             if (is$2(x, selector)) {
                 return predicate(x) ? [x] : [];
             }
@@ -30795,7 +30950,7 @@
                 nextSibling: nextSibling
             }),
             property: constant({
-                children: children$1,
+                children: children$2,
                 name: name,
                 parent: parent,
                 document,
@@ -33902,15 +34057,20 @@
         blobCache.add(blobInfo);
         return blobInfo;
     };
-    const pasteImage = (editor, imageItem) => {
-        parseDataUri(imageItem.uri).each(({ data, type, base64Encoded }) => {
+    const pasteImage = async (editor, imageItem) => {
+        return parseDataUri(imageItem.uri).fold(() => Promise.resolve(), ({ data, type, base64Encoded }) => {
             const base64 = base64Encoded ? data : btoa(data);
             const file = imageItem.file;
             // TODO: Move the bulk of the cache logic to EditorUpload
             const blobCache = editor.editorUpload.blobCache;
             const existingBlobInfo = blobCache.getByData(base64, type);
             const blobInfo = existingBlobInfo ?? createBlobInfo(editor, blobCache, file, base64);
-            pasteHtml(editor, `<img src="${blobInfo.blobUri()}">`, false, true);
+            const imgUrl = blobInfo.blobUri();
+            return getImageSize(imgUrl).then(({ width, height }) => {
+                pasteHtml(editor, `<img width="${width}" height="${height}" src="${imgUrl}">`, false, true);
+            }).catch(() => {
+                pasteHtml(editor, `<img src="${imgUrl}">`, false, true);
+            });
         });
     };
     const isClipboardEvent = (event) => event.type === 'paste';
@@ -33941,13 +34101,13 @@
             if (images.length > 0) {
                 e.preventDefault();
                 // eslint-disable-next-line @typescript-eslint/no-floating-promises
-                readFilesAsDataUris(images).then((fileResults) => {
+                readFilesAsDataUris(images).then(async (fileResults) => {
                     if (rng) {
                         editor.selection.setRng(rng);
                     }
-                    each$e(fileResults, (result) => {
-                        pasteImage(editor, result);
-                    });
+                    for (const result of fileResults) {
+                        await pasteImage(editor, result);
+                    }
                 });
                 return true;
             }
@@ -36095,6 +36255,7 @@
         const browser = Env.browser;
         const isGecko = browser.isFirefox();
         const isWebKit = browser.isChromium() || browser.isSafari();
+        const isSafari = browser.isSafari();
         const isiOS = Env.deviceType.isiPhone() || Env.deviceType.isiPad();
         const isMac = Env.os.isMacOS() || Env.os.isiOS();
         /**
@@ -36701,6 +36862,45 @@
                 }
             });
         };
+        /**
+         * this is needed to manage the difference between
+         * ```
+         * <li><span class="fake">a</span><div>b</div></li>
+         * ```
+         * and
+         * ```
+         * <li><span class="fake">a</span> <div>b</div></li>
+         * ```
+         * since if the indentation of the HTML has a new line it creates a fake child in the `li` that is an empty text
+         * it's check it trying to get the rects and if it can't it means that it's the false unwanted new line
+        **/
+        const isValidSibling = (el) => getClientRects([el.dom]).length > 0;
+        const firstBlockChildOrNewLine = (target) => child(target, (child) => isBr$6(child) || isElement$8(child) && get$8(child, 'display') === 'block');
+        const clickAfterEl = (clientX, clientY, rect) => clientX >= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+        /**
+         * In Chrome in a `LI` that contains a block element and where the first child is an inline element
+         * clicking on the right side of the first child the carret goes at the start of the element instead that in the end of it
+         * issue: https://issues.chromium.org/issues/40767343
+        **/
+        const fixInLISelection = () => {
+            editor.on('mousedown', (e) => {
+                const target = SugarElement.fromDom(e.target);
+                if (isListItem$2(target)) {
+                    firstBlockChildOrNewLine(target).each((firstBlock) => {
+                        const prevSiblings$1 = prevSiblings(firstBlock);
+                        findLast(prevSiblings$1, isValidSibling).each((lastInlineBeforeBlock) => {
+                            if (get$c(getClientRects([lastInlineBeforeBlock.dom]), 0).exists((rect) => clickAfterEl(e.clientX, e.clientY, rect))) {
+                                prevPosition(target.dom, CaretPosition(firstBlock.dom, 0)).each((pos) => {
+                                    e.preventDefault();
+                                    editor.focus();
+                                    editor.selection.setRng(pos.toRange());
+                                });
+                            }
+                        });
+                    });
+                }
+            });
+        };
         // No-op since Mozilla seems to have fixed the caret repaint issues
         const refreshContentEditable = noop;
         const isHidden = () => {
@@ -36747,6 +36947,9 @@
                 blockFormSubmitInsideEditor();
                 disableBackspaceIntoATable();
                 removeAppleInterchangeBrs();
+                if (!isSafari) {
+                    fixInLISelection();
+                }
                 // touchClickEvent();
                 // iOS
                 if (isiOS) {
@@ -40844,6 +41047,21 @@
             return hasEditableRoot(this);
         }
         /**
+         * Announces a message to screen readers via the page-wide aria-live region, without shifting focus.
+         * Delegates to {@link tinymce.dom.AriaAnnouncer#announce}.
+         *
+         * @method announce
+         * @param {String} message The message to announce to screen readers.
+         * @param {Object} options Optional settings.
+         * @param {Boolean} options.assertive If true, uses aria-live="assertive" (role="alert") instead of polite.
+         * @example
+         * tinymce.activeEditor.announce('Bold on');
+         * tinymce.activeEditor.announce('Error occurred', { assertive: true });
+         */
+        announce(message, options) {
+            AriaAnnouncer.announce(message, options);
+        }
+        /**
          * Removes the editor from the dom and tinymce collection.
          *
          * @method remove
@@ -40967,14 +41185,14 @@
          * @property minorVersion
          * @type String
          */
-        minorVersion: '6.0',
+        minorVersion: '7.0',
         /**
          * Release date of TinyMCE build.
          *
          * @property releaseDate
          * @type String
          */
-        releaseDate: '2026-06-03',
+        releaseDate: '2026-07-01',
         /**
          * Collection of language pack data.
          *
@@ -41832,6 +42050,7 @@
             ControlSelection,
             BookmarkManager,
             Selection: EditorSelection,
+            AriaAnnouncer,
             Event: EventUtils.Event
         },
         html: {
