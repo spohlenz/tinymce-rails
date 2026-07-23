@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 8.8.0 (2026-07-15)
+ * TinyMCE version 8.8.1 (2026-07-22)
  */
 
 (function () {
@@ -17181,6 +17181,18 @@
             return block;
         }
     });
+    // Resolve list items from the
+    // selected cells directly instead, matching how SelectionUtils.runOnRanges resolves fake selections.
+    const getCellSelectionListItems = (editor) => {
+        const fakeSelectionNodes = getCellsFromEditor(editor);
+        if (fakeSelectionNodes.length > 0) {
+            const listItems = bind$3(fakeSelectionNodes, (cell) => descendants(cell, 'li'));
+            return Optional.some(map$3(listItems, (item) => item.dom));
+        }
+        else {
+            return Optional.none();
+        }
+    };
     const getFullySelectedBlocks = (selection) => {
         if (selection.isCollapsed()) {
             return [];
@@ -17197,8 +17209,15 @@
             return first.concat(middle).concat(last);
         }
     };
-    const getFullySelectedListItems = (selection) => filter$5(getFullySelectedBlocks(selection), isEditableListItem(selection.dom));
-    const getPartiallySelectedListItems = (selection) => filter$5(getAndOnlyNormalizeFirstBlockIf(selection, (el) => !isListItem$3(el)), isEditableListItem(selection.dom));
+    const getFullySelectedListItems = (editor) => {
+        const items = getCellSelectionListItems(editor).getOrThunk(() => getFullySelectedBlocks(editor.selection));
+        return filter$5(items, isEditableListItem(editor.selection.dom));
+    };
+    const getPartiallySelectedListItems = (editor) => {
+        const items = getCellSelectionListItems(editor)
+            .getOrThunk(() => getAndOnlyNormalizeFirstBlockIf(editor.selection, (el) => !isListItem$3(el)));
+        return filter$5(items, isEditableListItem(editor.selection.dom));
+    };
 
     const each$8 = Tools.each;
     const isElementNode = (node) => isElement$7(node) && !isBookmarkNode$1(node) && !isCaretNode(node) && !isBogus$1(node);
@@ -17440,14 +17459,14 @@
     };
     const removeListStyleFormats = (editor, name, vars) => {
         if (name === 'removeformat') {
-            each$e(getPartiallySelectedListItems(editor.selection), (li) => {
+            each$e(getPartiallySelectedListItems(editor), (li) => {
                 each$e(listItemStyles, (name) => editor.dom.setStyle(li, name, ''));
                 removeEmptyStyleAttributeIfNeeded(editor.dom, li);
             });
         }
         else {
             getExpandedListItemFormat(editor.formatter, name).each((liFmt) => {
-                each$e(getPartiallySelectedListItems(editor.selection), (li) => removeStyles$1(editor.dom, li, liFmt, vars, null));
+                each$e(getPartiallySelectedListItems(editor), (li) => removeStyles$1(editor.dom, li, liFmt, vars, null));
             });
         }
     };
@@ -23245,7 +23264,7 @@
                     applyCaretFormat(ed, name, vars);
                 }
                 getExpandedListItemFormat(ed.formatter, name).each((liFmt) => {
-                    const list = getFullySelectedListItems(ed.selection);
+                    const list = getFullySelectedListItems(ed);
                     each$e(list, (li) => applyStyles(dom, li, liFmt, vars));
                 });
             }
@@ -41882,14 +41901,14 @@
          * @property minorVersion
          * @type String
          */
-        minorVersion: '8.0',
+        minorVersion: '8.1',
         /**
          * Release date of TinyMCE build.
          *
          * @property releaseDate
          * @type String
          */
-        releaseDate: '2026-07-15',
+        releaseDate: '2026-07-22',
         /**
          * Collection of language pack data.
          *
