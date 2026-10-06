@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 8.9.0 (2026-08-27)
+ * TinyMCE version 8.9.3 (2026-10-06)
  */
 
 (function () {
@@ -15167,6 +15167,10 @@
         return trimmed;
     };
 
+    const trimEmptyContents = (rootBlock, html) => {
+        const emptyRegExp = new RegExp(`^(<${rootBlock}[^>]*>(&nbsp;|&#160;|\\s|\u00a0|<br \\/>|)<\\/${rootBlock}>[\r\n]*|<br \\/>[\r\n]*)$`);
+        return html.replace(emptyRegExp, '');
+    };
     const cleanupBogusElements = (parent) => {
         const bogusElements = descendants(parent, '[data-mce-bogus]');
         each$e(bogusElements, (elem) => {
@@ -15191,11 +15195,6 @@
         });
     };
 
-    const trimEmptyContents = (editor, html) => {
-        const blockName = getForcedRootBlock(editor);
-        const emptyRegExp = new RegExp(`^(<${blockName}[^>]*>(&nbsp;|&#160;|\\s|\u00a0|<br \\/>|)<\\/${blockName}>[\r\n]*|<br \\/>[\r\n]*)$`);
-        return html.replace(emptyRegExp, '');
-    };
     const getPlainTextContent = (editor, body) => {
         const doc = editor.getDoc();
         const dos = getRootNode(SugarElement.fromDom(editor.getBody()));
@@ -15228,7 +15227,7 @@
             content = editor.serializer.serialize(body, args);
         }
         else {
-            content = trimEmptyContents(editor, editor.serializer.serialize(body, args));
+            content = trimEmptyContents(getForcedRootBlock(editor), editor.serializer.serialize(body, args));
         }
         // Trim if not using a whitespace preserve format/element
         const shouldTrim = args.format !== 'text' && !isWsPreserveElement(SugarElement.fromDom(body));
@@ -42103,14 +42102,14 @@
          * @property minorVersion
          * @type String
          */
-        minorVersion: '9.0',
+        minorVersion: '9.3',
         /**
          * Release date of TinyMCE build.
          *
          * @property releaseDate
          * @type String
          */
-        releaseDate: '2026-08-27',
+        releaseDate: '2026-10-06',
         /**
          * Collection of language pack data.
          *
