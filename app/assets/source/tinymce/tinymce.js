@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 8.9.3 (2026-10-06)
+ * TinyMCE version 8.10.0 (2026-10-14)
  */
 
 (function () {
@@ -1155,6 +1155,35 @@
         return isNaN(num) ? Optional.none() : Optional.some(num);
     };
 
+    // Run a function fn after rate ms. If another invocation occurs
+    // during the time it is waiting, update the arguments f will run
+    // with (but keep the current schedule)
+    const adaptable = (fn, rate) => {
+        let timer = null;
+        let args = null;
+        const cancel = () => {
+            if (!isNull(timer)) {
+                clearTimeout(timer);
+                timer = null;
+                args = null;
+            }
+        };
+        const throttle = (...newArgs) => {
+            args = newArgs;
+            if (isNull(timer)) {
+                timer = setTimeout(() => {
+                    const tempArgs = args;
+                    timer = null;
+                    args = null;
+                    fn.apply(null, tempArgs);
+                }, rate);
+            }
+        };
+        return {
+            cancel,
+            throttle
+        };
+    };
     // Run a function fn after rate ms. If another invocation occurs
     // during the time it is waiting, ignore it completely.
     const first$1 = (fn, rate) => {
@@ -3374,47 +3403,6 @@
         }
     }
 
-    const whiteSpaceRegExp = /^[ \t\r\n]*$/;
-    const isWhitespaceText = (text) => whiteSpaceRegExp.test(text);
-    const isZwsp$1 = (text) => {
-        for (const c of text) {
-            if (!isZwsp$2(c)) {
-                return false;
-            }
-        }
-        return true;
-    };
-    // Don't compare other unicode spaces here, as we're only concerned about whitespace the browser would collapse
-    const isCollapsibleWhitespace$1 = (c) => ' \f\t\v'.indexOf(c) !== -1;
-    const isNewLineChar = (c) => c === '\n' || c === '\r';
-    const isNewline = (text, idx) => (idx < text.length && idx >= 0) ? isNewLineChar(text[idx]) : false;
-    // Converts duplicate whitespace to alternating space/nbsps and tabs to spaces
-    const normalize$4 = (text, tabSpaces = 4, isStartOfContent = true, isEndOfContent = true) => {
-        // Replace tabs with a variable amount of spaces
-        // Note: We don't use an actual tab character here, as it only works when in a "whitespace: pre" element,
-        // which will cause other issues, such as trying to type the content will also be treated as being in a pre.
-        const tabSpace = repeat(' ', tabSpaces);
-        const normalizedText = text.replace(/\t/g, tabSpace);
-        const result = foldl(normalizedText, (acc, c) => {
-            // Are we dealing with a char other than some collapsible whitespace or nbsp? if so then just use it as is
-            if (isCollapsibleWhitespace$1(c) || c === nbsp) {
-                // If the previous char is a space, we are at the start or end, or if the next char is a new line char, then we need
-                // to convert the space to a nbsp
-                if (acc.pcIsSpace || (acc.str === '' && isStartOfContent) || (acc.str.length === normalizedText.length - 1 && isEndOfContent) || isNewline(normalizedText, acc.str.length + 1)) {
-                    return { pcIsSpace: false, str: acc.str + nbsp };
-                }
-                else {
-                    return { pcIsSpace: true, str: acc.str + ' ' };
-                }
-            }
-            else {
-                // Treat newlines as being a space, since we'll need to convert any leading spaces to nsbps
-                return { pcIsSpace: isNewLineChar(c), str: acc.str + c };
-            }
-        }, { pcIsSpace: false, str: '' });
-        return result.str;
-    };
-
     const isNodeType = (type) => {
         return (node) => {
             return !!node && node.nodeType === type;
@@ -3501,6 +3489,47 @@
     const isSummary$1 = matchNodeName$1('summary');
     const ucVideoNodeName = 'uc-video';
     const isUcVideo = matchNodeName$1(ucVideoNodeName);
+
+    const whiteSpaceRegExp = /^[ \t\r\n]*$/;
+    const isWhitespaceText = (text) => whiteSpaceRegExp.test(text);
+    const isZwsp$1 = (text) => {
+        for (const c of text) {
+            if (!isZwsp$2(c)) {
+                return false;
+            }
+        }
+        return true;
+    };
+    // Don't compare other unicode spaces here, as we're only concerned about whitespace the browser would collapse
+    const isCollapsibleWhitespace$1 = (c) => ' \f\t\v'.indexOf(c) !== -1;
+    const isNewLineChar = (c) => c === '\n' || c === '\r';
+    const isNewline = (text, idx) => (idx < text.length && idx >= 0) ? isNewLineChar(text[idx]) : false;
+    // Converts duplicate whitespace to alternating space/nbsps and tabs to spaces
+    const normalize$4 = (text, tabSpaces = 4, isStartOfContent = true, isEndOfContent = true) => {
+        // Replace tabs with a variable amount of spaces
+        // Note: We don't use an actual tab character here, as it only works when in a "whitespace: pre" element,
+        // which will cause other issues, such as trying to type the content will also be treated as being in a pre.
+        const tabSpace = repeat(' ', tabSpaces);
+        const normalizedText = text.replace(/\t/g, tabSpace);
+        const result = foldl(normalizedText, (acc, c) => {
+            // Are we dealing with a char other than some collapsible whitespace or nbsp? if so then just use it as is
+            if (isCollapsibleWhitespace$1(c) || c === nbsp) {
+                // If the previous char is a space, we are at the start or end, or if the next char is a new line char, then we need
+                // to convert the space to a nbsp
+                if (acc.pcIsSpace || (acc.str === '' && isStartOfContent) || (acc.str.length === normalizedText.length - 1 && isEndOfContent) || isNewline(normalizedText, acc.str.length + 1)) {
+                    return { pcIsSpace: false, str: acc.str + nbsp };
+                }
+                else {
+                    return { pcIsSpace: true, str: acc.str + ' ' };
+                }
+            }
+            else {
+                // Treat newlines as being a space, since we'll need to convert any leading spaces to nsbps
+                return { pcIsSpace: isNewLineChar(c), str: acc.str + c };
+            }
+        }, { pcIsSpace: false, str: '' });
+        return result.str;
+    };
 
     const defaultOptionValues = {
         skipBogus: true,
@@ -13765,6 +13794,12 @@
             editor.nodeChanged();
         };
         const showResizeRect = (targetElm) => {
+            // The throttled call can fire after setContent has replaced the target, leaving
+            // handles bound to the zero-sized geometry of a detached element
+            if (!targetElm.isConnected) {
+                hideResizeRect();
+                return;
+            }
             unbindResizeHandleEvents();
             // Get position and size of target
             const position = dom.getPos(targetElm, rootElement);
@@ -13863,7 +13898,9 @@
                 hideResizeRect(false);
             }
         };
-        const throttledShowResizeRect = first$1(showResizeRect, 0);
+        // Adaptable so a burst of update requests shows the rect for the most recently
+        // requested element rather than the first, which may since have been detached
+        const throttledShowResizeRect = adaptable(showResizeRect, 0);
         const hideResizeRect = (removeSelected = true) => {
             throttledShowResizeRect.cancel();
             unbindResizeHandleEvents();
@@ -16935,14 +16972,18 @@
             selection.setRng(rng);
         }
     };
+    const isAdjacent = (node, sibling) => node.nextSibling === sibling || node.previousSibling === sibling;
+    const isCaretContainerNodeAdjacentToSelection = (node, startContainer, endContainer) => node === startContainer || node === endContainer || isAdjacent(node, startContainer) || isAdjacent(node, endContainer);
     // Removes the caret container for the specified node or all on the current document
     const removeCaretContainer = (editor, node, moveCaret) => {
         const dom = editor.dom, selection = editor.selection;
         if (!node) {
             node = getParentCaretContainer(editor.getBody(), selection.getStart());
             if (!node) {
+                const startContainer = editor.selection.getRng().startContainer;
+                const endContainer = editor.selection.getRng().endContainer;
                 while ((node = dom.get(CARET_ID))) {
-                    removeCaretContainerNode(editor, node, moveCaret);
+                    removeCaretContainerNode(editor, node, isCaretContainerNodeAdjacentToSelection(node, startContainer, endContainer));
                 }
             }
         }
@@ -17145,9 +17186,9 @@
             }
         }
     };
-    const disableCaretContainer = (editor, keyCode, moveCaret) => {
+    const disableCaretContainer = (editor, keyCode) => {
         const selection = editor.selection, body = editor.getBody();
-        removeCaretContainer(editor, null, moveCaret);
+        removeCaretContainer(editor, null, false);
         // Remove caret container if it's empty
         if ((keyCode === 8 || keyCode === 46) && selection.isCollapsed() && selection.getStart().innerHTML === ZWSP) {
             removeCaretContainer(editor, getParentCaretContainer(body, selection.getStart()), true);
@@ -17157,10 +17198,9 @@
             removeCaretContainer(editor, getParentCaretContainer(body, selection.getStart()), true);
         }
     };
-    const endsWithNbsp = (element) => isText$b(element) && endsWith(element.data, nbsp);
     const setup$B = (editor) => {
         editor.on('mouseup keydown', (e) => {
-            disableCaretContainer(editor, e.keyCode, endsWithNbsp(editor.selection.getRng().endContainer));
+            disableCaretContainer(editor, e.keyCode);
         });
     };
     const createCaretFormat = (formatNodes) => {
@@ -28952,6 +28992,16 @@
         }
     };
 
+    const clearShadowingItemStyles = (editor) => {
+        each$e(getSelectedListItems(editor), (item) => {
+            const styleType = editor.dom.getStyle(item, 'list-style-type');
+            // Keep none intact as TinyMCE uses it for nested lists
+            if (isNonNullable(styleType) && styleType !== 'none') {
+                editor.dom.setStyle(item, 'list-style-type', '');
+            }
+        });
+    };
+
     const updateListStyle = (dom, el, detail) => {
         const type = detail['list-style-type'] ? detail['list-style-type'] : null;
         dom.setStyle(el, 'list-style-type', type);
@@ -29286,6 +29336,7 @@
         else {
             toggleSingleList(editor, parentList, listName, detail);
         }
+        clearShadowingItemStyles(editor);
     };
 
     const findNextCaretContainer = (editor, rng, isForward, root) => {
@@ -37598,16 +37649,6 @@
             }, true);
         };
         /**
-         * Forces Gecko to render a broken image icon if it fails to load an image.
-         */
-        const showBrokenImageIcon = () => {
-            editor.contentStyles.push('img:-moz-broken {' +
-                '-moz-force-broken-image-icon:1;' +
-                'min-width:24px;' +
-                'min-height:24px' +
-                '}');
-        };
-        /**
          * iOS has a bug where it's impossible to type if the document has a touchstart event
          * bound and the user touches the document while having the on screen keyboard visible.
          *
@@ -37783,8 +37824,8 @@
         const clickAfterEl = (clientX, clientY, el) => get$c(getClientRects([el.dom]), 0).exists((rect) => clientX >= rect.right && clientY >= rect.top && clientY <= rect.bottom);
         const selectPos = (editor, e, pos) => {
             e.preventDefault();
-            editor.focus();
             editor.selection.setRng(pos.toRange());
+            editor.focus();
         };
         /**
          * In Chrome in a `LI` that contains a block element and where the first child is an inline element
@@ -37792,7 +37833,7 @@
          * issue: https://issues.chromium.org/issues/40767343
         **/
         const fixInLISelection = () => {
-            editor.on('mousedown', (e) => {
+            editor.on('click', (e) => {
                 const target = SugarElement.fromDom(e.target);
                 if (isListItem$2(target)) {
                     firstBlockChildOrNewLine(target).fold(() => {
@@ -37836,7 +37877,6 @@
             if (isGecko) {
                 focusBody();
                 setGeckoEditingOptions();
-                showBrokenImageIcon();
                 blockCmdArrowNavigation();
             }
         };
@@ -37880,7 +37920,6 @@
                 removeStylesWhenDeletingAcrossBlockElements();
                 setGeckoEditingOptions();
                 addBrAfterLastLinks();
-                showBrokenImageIcon();
                 blockCmdArrowNavigation();
                 disableBackspaceIntoATable();
             }
@@ -38399,7 +38438,7 @@
             id: id + '_ifr',
             frameBorder: '0',
             allowTransparency: 'true',
-            ...Env.browser.isFirefox() ? { title } : {}
+            title
         });
         add$2(iframe, 'tox-edit-area__iframe');
         return iframe;
@@ -38415,12 +38454,15 @@
         const bodyId = getBodyId(editor);
         const bodyClass = getBodyClass(editor);
         const translatedAriaText = editor.translate(getIframeAriaText(editor));
-        const iframeBodyAriaLabel = Env.browser.isFirefox() ? '' : `aria-label="${translatedAriaText}"`;
+        // TINYMCE-13100: VoiceOver does not read the iframe title, so the body is labelled
+        // for it. VoiceOver only runs on macOS, and elsewhere the title is announced.
+        // The role goes with it, since aria-label on a generic role is a violation.
+        const iframeBodyAriaAttrs = Env.os.isMacOS() || Env.os.isiOS() ? `role="textbox" aria-multiline="true" aria-label="${translatedAriaText}"` : '';
         if (getContentSecurityPolicy(editor)) {
             iframeHTML += '<meta http-equiv="Content-Security-Policy" content="' + getContentSecurityPolicy(editor) + '" />';
         }
         iframeHTML += '</head>' +
-            `<body id="${bodyId}" class="mce-content-body ${bodyClass}" data-id="${editor.id}" ${iframeBodyAriaLabel}>` +
+            `<body id="${bodyId}" class="mce-content-body ${bodyClass}" data-id="${editor.id}" ${iframeBodyAriaAttrs}>` +
             '<br>' +
             '</body></html>';
         return iframeHTML;
@@ -39725,7 +39767,7 @@
                 return false;
             }
             if (lowerCaseCommand !== 'mcefocus') {
-                if (!/^(mceAddUndoLevel|mceEndUndoLevel)$/i.test(lowerCaseCommand) && !skipFocus) {
+                if (!/^(mceAddUndoLevel|mceEndUndoLevel|toggleview)$/i.test(lowerCaseCommand) && !skipFocus) {
                     editor.focus();
                 }
                 else {
@@ -42102,14 +42144,14 @@
          * @property minorVersion
          * @type String
          */
-        minorVersion: '9.3',
+        minorVersion: '10.0',
         /**
          * Release date of TinyMCE build.
          *
          * @property releaseDate
          * @type String
          */
-        releaseDate: '2026-10-06',
+        releaseDate: '2026-10-14',
         /**
          * Collection of language pack data.
          *
