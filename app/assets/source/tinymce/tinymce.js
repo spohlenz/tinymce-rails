@@ -1,5 +1,5 @@
 /**
- * TinyMCE version 8.10.0 (2026-10-14)
+ * TinyMCE version 8.10.1 (2026-10-28)
  */
 
 (function () {
@@ -16569,156 +16569,6 @@
         };
     };
 
-    const getNormalizedPoint$1 = (container, offset) => {
-        if (isText$b(container)) {
-            return { container, offset };
-        }
-        const node = RangeUtils.getNode(container, offset);
-        if (isText$b(node)) {
-            return {
-                container: node,
-                offset: offset >= container.childNodes.length ? node.data.length : 0
-            };
-        }
-        else if (node.previousSibling && isText$b(node.previousSibling)) {
-            return {
-                container: node.previousSibling,
-                offset: node.previousSibling.data.length
-            };
-        }
-        else if (node.nextSibling && isText$b(node.nextSibling)) {
-            return {
-                container: node.nextSibling,
-                offset: 0
-            };
-        }
-        return { container, offset };
-    };
-    const normalizeRange$1 = (rng) => {
-        const outRng = rng.cloneRange();
-        const rangeStart = getNormalizedPoint$1(rng.startContainer, rng.startOffset);
-        outRng.setStart(rangeStart.container, rangeStart.offset);
-        const rangeEnd = getNormalizedPoint$1(rng.endContainer, rng.endOffset);
-        outRng.setEnd(rangeEnd.container, rangeEnd.offset);
-        return outRng;
-    };
-
-    const DOM$b = DOMUtils.DOM;
-    const defaultMarker = () => DOM$b.create('span', { 'data-mce-type': 'bookmark' });
-    const setupEndPoint = (container, offset, createMarker) => {
-        if (isElement$7(container)) {
-            const offsetNode = createMarker();
-            if (container.hasChildNodes()) {
-                if (offset === container.childNodes.length) {
-                    container.appendChild(offsetNode);
-                }
-                else {
-                    container.insertBefore(offsetNode, container.childNodes[offset]);
-                }
-            }
-            else {
-                container.appendChild(offsetNode);
-            }
-            return { container: offsetNode, offset: 0 };
-        }
-        else {
-            return { container, offset };
-        }
-    };
-    const restoreEndPoint = (container, offset) => {
-        const nodeIndex = (container) => {
-            let node = container.parentNode?.firstChild;
-            let idx = 0;
-            while (node) {
-                if (node === container) {
-                    return idx;
-                }
-                // Skip data-mce-type=bookmark nodes
-                if (!isElement$7(node) || node.getAttribute('data-mce-type') !== 'bookmark') {
-                    idx++;
-                }
-                node = node.nextSibling;
-            }
-            return -1;
-        };
-        if (isElement$7(container) && isNonNullable(container.parentNode)) {
-            const node = container;
-            offset = nodeIndex(container);
-            container = container.parentNode;
-            DOM$b.remove(node);
-            if (!container.hasChildNodes() && DOM$b.isBlock(container)) {
-                container.appendChild(DOM$b.create('br'));
-            }
-        }
-        return { container, offset };
-    };
-    const createNormalizedRange = (startContainer, startOffset, endContainer, endOffset) => {
-        const rng = DOM$b.createRng();
-        rng.setStart(startContainer, startOffset);
-        rng.setEnd(endContainer, endOffset);
-        return normalizeRange$1(rng);
-    };
-    /**
-     * Returns a range bookmark. This will convert indexed bookmarks into temporary span elements with
-     * index 0 so that they can be restored properly after the DOM has been modified. Text bookmarks will not have spans
-     * added to them since they can be restored after a dom operation.
-     *
-     * So this: <p><b>|</b><b>|</b></p>
-     * becomes: <p><b><span data-mce-type="bookmark">|</span></b><b data-mce-type="bookmark">|</span></b></p>
-     */
-    const createBookmark = (rng, createMarker = defaultMarker) => {
-        const { container: startContainer, offset: startOffset } = setupEndPoint(rng.startContainer, rng.startOffset, createMarker);
-        if (rng.collapsed) {
-            return { startContainer, startOffset };
-        }
-        else {
-            const { container: endContainer, offset: endOffset } = setupEndPoint(rng.endContainer, rng.endOffset, createMarker);
-            return { startContainer, startOffset, endContainer, endOffset };
-        }
-    };
-    const resolveBookmark = (bookmark) => {
-        const { container: startContainer, offset: startOffset } = restoreEndPoint(bookmark.startContainer, bookmark.startOffset);
-        if (!isUndefined(bookmark.endContainer) && !isUndefined(bookmark.endOffset)) {
-            const { container: endContainer, offset: endOffset } = restoreEndPoint(bookmark.endContainer, bookmark.endOffset);
-            return createNormalizedRange(startContainer, startOffset, endContainer, endOffset);
-        }
-        else {
-            return createNormalizedRange(startContainer, startOffset, startContainer, startOffset);
-        }
-    };
-
-    const applyStyles = (dom, elm, format, vars) => {
-        Tools.each(format.styles, (value, name) => {
-            dom.setStyle(elm, name, replaceVars(value, vars));
-        });
-        // Needed for the WebKit span spam bug
-        // TODO: Remove this once WebKit/Blink fixes this
-        if (format.styles) {
-            const styleVal = dom.getAttrib(elm, 'style');
-            if (styleVal) {
-                dom.setAttrib(elm, 'data-mce-style', styleVal);
-            }
-        }
-    };
-    const setElementFormat = (ed, elm, fmt, vars, node) => {
-        const dom = ed.dom;
-        if (isFunction(fmt.onformat)) {
-            fmt.onformat(elm, fmt, vars, node);
-        }
-        applyStyles(dom, elm, fmt, vars);
-        Tools.each(fmt.attributes, (value, name) => {
-            dom.setAttrib(elm, name, replaceVars(value, vars));
-        });
-        Tools.each(fmt.classes, (value) => {
-            const newValue = replaceVars(value, vars);
-            if (!dom.hasClass(elm, newValue)) {
-                dom.addClass(elm, newValue);
-            }
-        });
-    };
-
-    const isApplyFormat = (format) => !isArray$1(format.attributes) && !isArray$1(format.styles);
-
     const isEq$3 = isEq$5;
     const matchesUnInheritedFormatSelector = (ed, node, name) => {
         const formatList = ed.formatter.get(name);
@@ -17226,6 +17076,156 @@
         const inlineElements = editor.schema.getTextInlineElements();
         return has$2(inlineElements, name(element)) && !isCaretNode(element.dom) && !isBogus$1(element.dom);
     };
+
+    const getNormalizedPoint$1 = (container, offset) => {
+        if (isText$b(container)) {
+            return { container, offset };
+        }
+        const node = RangeUtils.getNode(container, offset);
+        if (isText$b(node)) {
+            return {
+                container: node,
+                offset: offset >= container.childNodes.length ? node.data.length : 0
+            };
+        }
+        else if (node.previousSibling && isText$b(node.previousSibling)) {
+            return {
+                container: node.previousSibling,
+                offset: node.previousSibling.data.length
+            };
+        }
+        else if (node.nextSibling && isText$b(node.nextSibling)) {
+            return {
+                container: node.nextSibling,
+                offset: 0
+            };
+        }
+        return { container, offset };
+    };
+    const normalizeRange$1 = (rng) => {
+        const outRng = rng.cloneRange();
+        const rangeStart = getNormalizedPoint$1(rng.startContainer, rng.startOffset);
+        outRng.setStart(rangeStart.container, rangeStart.offset);
+        const rangeEnd = getNormalizedPoint$1(rng.endContainer, rng.endOffset);
+        outRng.setEnd(rangeEnd.container, rangeEnd.offset);
+        return outRng;
+    };
+
+    const DOM$b = DOMUtils.DOM;
+    const defaultMarker = () => DOM$b.create('span', { 'data-mce-type': 'bookmark' });
+    const setupEndPoint = (container, offset, createMarker) => {
+        if (isElement$7(container)) {
+            const offsetNode = createMarker();
+            if (container.hasChildNodes()) {
+                if (offset === container.childNodes.length) {
+                    container.appendChild(offsetNode);
+                }
+                else {
+                    container.insertBefore(offsetNode, container.childNodes[offset]);
+                }
+            }
+            else {
+                container.appendChild(offsetNode);
+            }
+            return { container: offsetNode, offset: 0 };
+        }
+        else {
+            return { container, offset };
+        }
+    };
+    const restoreEndPoint = (container, offset) => {
+        const nodeIndex = (container) => {
+            let node = container.parentNode?.firstChild;
+            let idx = 0;
+            while (node) {
+                if (node === container) {
+                    return idx;
+                }
+                // Skip data-mce-type=bookmark nodes
+                if (!isElement$7(node) || node.getAttribute('data-mce-type') !== 'bookmark') {
+                    idx++;
+                }
+                node = node.nextSibling;
+            }
+            return -1;
+        };
+        if (isElement$7(container) && isNonNullable(container.parentNode)) {
+            const node = container;
+            offset = nodeIndex(container);
+            container = container.parentNode;
+            DOM$b.remove(node);
+            if (!container.hasChildNodes() && DOM$b.isBlock(container)) {
+                container.appendChild(DOM$b.create('br'));
+            }
+        }
+        return { container, offset };
+    };
+    const createNormalizedRange = (startContainer, startOffset, endContainer, endOffset) => {
+        const rng = DOM$b.createRng();
+        rng.setStart(startContainer, startOffset);
+        rng.setEnd(endContainer, endOffset);
+        return normalizeRange$1(rng);
+    };
+    /**
+     * Returns a range bookmark. This will convert indexed bookmarks into temporary span elements with
+     * index 0 so that they can be restored properly after the DOM has been modified. Text bookmarks will not have spans
+     * added to them since they can be restored after a dom operation.
+     *
+     * So this: <p><b>|</b><b>|</b></p>
+     * becomes: <p><b><span data-mce-type="bookmark">|</span></b><b data-mce-type="bookmark">|</span></b></p>
+     */
+    const createBookmark = (rng, createMarker = defaultMarker) => {
+        const { container: startContainer, offset: startOffset } = setupEndPoint(rng.startContainer, rng.startOffset, createMarker);
+        if (rng.collapsed) {
+            return { startContainer, startOffset };
+        }
+        else {
+            const { container: endContainer, offset: endOffset } = setupEndPoint(rng.endContainer, rng.endOffset, createMarker);
+            return { startContainer, startOffset, endContainer, endOffset };
+        }
+    };
+    const resolveBookmark = (bookmark) => {
+        const { container: startContainer, offset: startOffset } = restoreEndPoint(bookmark.startContainer, bookmark.startOffset);
+        if (!isUndefined(bookmark.endContainer) && !isUndefined(bookmark.endOffset)) {
+            const { container: endContainer, offset: endOffset } = restoreEndPoint(bookmark.endContainer, bookmark.endOffset);
+            return createNormalizedRange(startContainer, startOffset, endContainer, endOffset);
+        }
+        else {
+            return createNormalizedRange(startContainer, startOffset, startContainer, startOffset);
+        }
+    };
+
+    const applyStyles = (dom, elm, format, vars) => {
+        Tools.each(format.styles, (value, name) => {
+            dom.setStyle(elm, name, replaceVars(value, vars));
+        });
+        // Needed for the WebKit span spam bug
+        // TODO: Remove this once WebKit/Blink fixes this
+        if (format.styles) {
+            const styleVal = dom.getAttrib(elm, 'style');
+            if (styleVal) {
+                dom.setAttrib(elm, 'data-mce-style', styleVal);
+            }
+        }
+    };
+    const setElementFormat = (ed, elm, fmt, vars, node) => {
+        const dom = ed.dom;
+        if (isFunction(fmt.onformat)) {
+            fmt.onformat(elm, fmt, vars, node);
+        }
+        applyStyles(dom, elm, fmt, vars);
+        Tools.each(fmt.attributes, (value, name) => {
+            dom.setAttrib(elm, name, replaceVars(value, vars));
+        });
+        Tools.each(fmt.classes, (value) => {
+            const newValue = replaceVars(value, vars);
+            if (!dom.hasClass(elm, newValue)) {
+                dom.addClass(elm, newValue);
+            }
+        });
+    };
+
+    const isApplyFormat = (format) => !isArray$1(format.attributes) && !isArray$1(format.styles);
 
     const listItemStyles = ['fontWeight', 'fontStyle', 'color', 'fontSize', 'fontFamily'];
     const hasListStyles = (fmt) => isObject(fmt.styles) && exists(keys(fmt.styles), (name) => contains$2(listItemStyles, name));
@@ -22877,6 +22877,18 @@
         }
         selection.setRng(rng);
     };
+    const isWholeBlockContentInInlineFormat = (editor, rng) => {
+        const dom = editor.dom;
+        const ancestor = rng.commonAncestorContainer;
+        const elm = isText$b(ancestor) ? ancestor.parentNode : ancestor;
+        if (!isElement$7(elm) || !dom.isEditable(elm) || !isFormatElement(editor, SugarElement.fromDom(elm))) {
+            return false;
+        }
+        const block = dom.getParent(elm, dom.isBlock);
+        return isNonNullable(block)
+            && prevPosition(block, CaretPosition.fromRangeStart(rng)).isNone()
+            && nextPosition(block, CaretPosition.fromRangeEnd(rng)).isNone();
+    };
     const deleteSelectedContent = (editor) => {
         const dom = editor.dom;
         // Fix for #2595 seems that delete removes one extra character on
@@ -22890,8 +22902,9 @@
             deleteCellContents(editor, rng, SugarElement.fromDom(startCell));
             // TINY-9193: If the selection is over the whole text node in an element then Firefox incorrectly moves the caret to the previous line
             // TINY-11953: If the selection is over the whole anchor node, then Chrome incorrectly removes parent node alongside with it's child - anchor
+            // TINY-11317: If the whole block content is selected inside a common inline format element, native delete removes the format element
         }
-        else if (isSelectionOverWholeAnchor(rng) || isSelectionOverWholeTextNode(rng)) {
+        else if (isSelectionOverWholeAnchor(rng) || isSelectionOverWholeTextNode(rng) || isWholeBlockContentInInlineFormat(editor, rng)) {
             rng.deleteContents();
         }
         else {
@@ -42144,14 +42157,14 @@
          * @property minorVersion
          * @type String
          */
-        minorVersion: '10.0',
+        minorVersion: '10.1',
         /**
          * Release date of TinyMCE build.
          *
          * @property releaseDate
          * @type String
          */
-        releaseDate: '2026-10-14',
+        releaseDate: '2026-10-28',
         /**
          * Collection of language pack data.
          *
